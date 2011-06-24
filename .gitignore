@@ -1,0 +1,5 @@
+.svn/
+servers/php/data/*
+servers/php/_install/
+clients/python/tmp/
+*.pyc

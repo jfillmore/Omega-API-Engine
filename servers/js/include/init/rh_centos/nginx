@@ -1,0 +1,74 @@
+#!/bin/bash
+#
+# chkconfig: 2345 99 01
+# description: nginx control script
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+path=/usr/local/nginx/sbin
+prog=nginx
+LOGFILE=/dev/null
+RETVAL=0
+
+start() {
+	echo -n $"Starting $prog: "
+	pid=''
+	[ -f "$path/logs/nginx.pid" ] && pid=$(<"$path/logs/nginx.pid")
+	if [ "$pid" != '' ]; then
+		failure $"$prog startup"
+		echo
+		return 1
+	fi
+	cd $path 
+	nohup $path/$prog 2>$LOGFILE >&2 </dev/null &
+	[ "$?" -eq 0 ] && success $"$prog startup" || failure $"$prog startup"
+	echo
+	return 0
+}
+
+stop() {
+	echo -n $"Stopping $prog: "
+	$path/$prog -s stop
+	RETVAL=$?
+	echo
+}
+
+reload() {
+	echo -n $"Reloading $prog: "
+	$path/$prog -s reload
+	RETVAL=$?
+	echo
+}
+
+status() {
+	pid=''
+	[ -f "$path/logs/nginx.pid" ] && pid=$(<"$path/logs/nginx.pid")
+	if [ "$pid" != '' ]; then
+		echo "$prog: running ($pid)"
+	else
+		echo "$prog: stopped"
+	fi
+}
+
+# See how we were called.
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  restart)
+	stop
+	start
+	;;
+  status)
+  	status
+	;;
+  *)
+	echo $"Usage: $prog {start|stop|restart|status}"
+	exit 1
+esac
+
+exit $RETVAL

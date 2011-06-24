@@ -1,0 +1,74 @@
+#!/bin/bash
+#
+# chkconfig: 2345 99 01
+# description: omega php-fastcgi control script
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+path=/var/www/omega/servers/php
+prog=fastcgi.local
+LOGFILE=/dev/null
+RETVAL=0
+
+
+start() {
+	echo -n $"Starting $prog: "
+	pid=$(ps u -u root | grep 'su.*php-cgi' | grep -v grep | awk '{print $2}')
+	[ -n "$pid" ] && {
+		failure $"$prog startup"
+		echo
+		return 1
+	}
+	cd $path 
+	$path/$prog
+	pid=$(ps u -u root | grep 'su.*php-cgi' | grep -v grep | awk '{print $2}')
+	[ "$pid" != '' ] && success $"$prog startup" || failure $"$prog startup"
+	echo
+	return 0
+}
+
+stop() {
+	echo -n $"Stopping $prog: "
+	pid=$(ps u -u root | grep 'su.*php-cgi' | grep -v grep | awk '{print $2}')
+	[ "$pid" == '' ] && {
+		RETVAL=1
+		failure $"$prog not running"
+	} || {
+		kill $pid
+		RETVAL=$?
+	}
+	echo
+}
+
+status() {
+	pid=$(ps u -u root | grep 'su.*php-cgi' | grep -v grep | awk '{print $2}')
+	if [ "$pid" != '' ]; then
+		echo "$prog: running ($pid)"
+	else
+		echo "$prog: stopped"
+	fi
+}
+
+# See how we were called.
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  restart)
+	stop
+	sleep 3
+	start
+	;;
+  status)
+  	status
+	;;
+  *)
+	echo $"Usage: omega-php {start|stop|restart|status}"
+	exit 1
+esac
+
+exit $RETVAL

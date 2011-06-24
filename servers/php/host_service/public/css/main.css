@@ -1,0 +1,164 @@
+/* omega - PHP host service
+   http://code.google.com/p/theomega/
+  
+   Copyright 2011, Jonathon Fillmore
+   Licensed under the MIT license. See LICENSE file.
+   http://www.opensource.org/licenses/mit-license.php */
+
+body {
+	margin: 0px;
+	padding: 0px;
+	background-color: #111111;
+}
+
+.login_box {
+	font-size: 12px;
+	border: 1px solid #666;
+	width: 200px;
+	border-radius: 8px;
+	-moz-border-radius: 8px;
+}
+
+.login_box > .om_box_top {
+	border-top-left-radius: 8px;
+	border-top-right-radius: 8px;
+	-moz-border-radius-topleft: 8px;
+	-moz-border-radius-topright: 8px;
+	color: #555;
+}
+
+.login_box > .om_box_middle {
+	margin: 0px;
+	padding: 0px;
+}
+
+.login_box .om_form {
+	margin: 15px;
+}
+
+.login_box .om_form .om_box_bottom {
+	margin-top: 20px;
+}
+
+.login_box .om_form .om_box_bottom button {
+	margin-right: 0px;
+	margin-left: 5px;
+}
+
+.login_box .fields {
+	margin-bottom: 10px;
+}
+
+.login_box .om_box_bottom {
+	text-align: right;
+	margin: 0px;
+	padding: 0px;
+}
+
+.login_box .om_form_fields {
+	width: 100%;
+}
+
+.login_box .om_input .om_input_value[type=text] {
+	width: 100%;
+}
+
+.login_box .om_input .om_input_value[type=password] {
+	width: 100%;
+}
+
+.login_box button.om_button.submit {
+	/*
+	background-image: url('/omega/images/diviner/door-icon.png');
+	background-position: 4px center;
+	background-repeat: no-repeat;
+	padding-left: 15px;
+	*/
+}
+
+.gui {
+	font-size: 11px;
+	color: #ddd;
+	font-family: Arial, Helvetica;
+	position: fixed;
+	height: 100%;
+	width: 100%;
+}
+
+.gui a {
+	color: #171;
+	text-decoration: none;
+}
+
+.gui a:hover {
+	color: #1a1;
+	border-bottom: 1px dotted #1A1;
+}
+
+.gui .services {
+	height: 100%;
+	color: #aaa;
+}
+
+.gui .services > .om_menu_options {
+	background-color: #000;
+	width: 149px;
+	height: 100%;
+	border-right: 1px solid #333;
+	text-align: center;
+}
+
+.gui .services > .om_menu_options .om_menu_option {
+	background-color: #222;
+	border-top: 1px solid #333;
+	border-left: 1px solid #333;
+	border-right: 1px solid #111;
+	border-bottom: 1px solid #111;
+	color: #aaa;
+}
+
+.gui .services > .om_menu_options .om_menu_option.om_selected {
+	background-color: #444;
+	border-top: 1px solid #555;
+	border-left: 1px solid #555;
+	border-right: 1px solid #333;
+	border-bottom: 1px solid #333;
+	font-weight: bold;
+	color: #eee;
+}
+
+.gui .services > .om_menu_options .om_menu_option:hover {
+	background-color: #333;
+	border-top: 1px solid #444;
+	border-left: 1px solid #444;
+	border-right: 1px solid #222;
+	border-bottom: 1px solid #222;
+	color: #ccc;
+}
+
+.gui > .services > .om_menu_options > .service {
+	padding: 3px;
+	margin: 4px;
+	text-align: left;
+	color: #999;
+}
+
+.gui .services .service.om_selected {
+	color: #fff;
+	border: 1px solid #aaa;
+	background-color: #2A2A2A;
+}
+
+.gui .services .service:hover {
+	border: 1px solid #888;
+	color: #ccc;
+}
+
+.gui .services .menu {
+	text-align: right;
+	margin: 9px;
+}
+
+.gui .services .om_menu_canvas {
+	height: 100%;
+}

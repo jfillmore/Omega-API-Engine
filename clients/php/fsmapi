@@ -1,0 +1,69 @@
+#!/usr/local/bin/php
+<?php
+
+require_once( "includes/FsmApi.class.php" );
+
+try {
+	if ( count($argv) <= 1 ) {
+		throw new Exception( "Invalid parameters.\nUsage: fsmapi API_Name [Param1=Value1 ... ParamN=ValueN]" );
+	}
+	// get the API call name and validate it
+	$scriptName = array_shift( $argv );
+	$apiName = array_shift( $argv );
+	if ( ! preg_match('/^(\w+\.)+[a-z_A-Z\?]+$/', $apiName) ) {
+		throw new Exception( "Invalid API name: '$apiName'." );
+	}
+	// get the username and password from the environment, if available... otherwise default to the least privileged user
+	$fsmUser = 'default';
+	$fsmPass = '9N2CjKSl';
+	foreach ( array('fsmUser', 'fsmUsername', 'FSMUSER', 'FSMUSERNAME') as $token ) {
+		if ( isset($_ENV[$token]) ) {
+			$fsmUser = $_ENV[$token];
+		}
+	}
+	foreach ( array('fsmPass', 'fsmPasswd', 'fsmPassword', 'FSMPASS', 'FSMPASSWD', 'FSMPASSWORD') as $token ) {
+		if ( isset($_ENV[$token]) ) {
+			$fsmPass = $_ENV[$token];
+		}
+	}
+	// left off the 'fsm.' part? Just add it on automatically
+	if ( substr($apiName, 0, 4) != 'fsm.' ) {
+		$apiName = 'fsm.' . $apiName;
+	}
+	// if the caller is lazy and calls 'serviceDirector' by 'sd' then rewrite it for 'em
+	if ( substr($apiName, 0, 7) == 'fsm.sd.' ) {
+		$apiName = 'fsm.serviceDirector.' . substr( $apiName, 7 );
+	}
+	// collect the rest of the parameters
+	$params = array();
+	foreach ( $argv as $param ) {
+		if ( ! preg_match('/^(\?$|[a-zA-Z0-9\.]+=)/', $param) ) {
+			throw new Exception( "Parameter '$param' must be in the format 'name=value'." );
+		}
+		$parts = explode( '=', $param, 2 );
+		if ( count($parts) == 2 ) {
+			$params[$parts[0]] = $parts[1];
+		} else {
+			// only allow no value if we're using the magic method
+			if ( $parts[0] != '?' ) {
+			}
+			$params[$parts[0]] = '';
+		}
+	}
+	$fsm = new FsmApi( 'fsm.westservers.net', $fsmUser, $fsmPass );
+	$result = $fsm->doApi( $apiName, $params );
+	if ( isset($result->data) ) {
+		echo json_encode( $result->data ) . "\n";
+	}
+} catch ( Exception $e ) {
+	$stderr = fopen( 'php://stderr', 'w' );
+	if ( $stderr === false ) {
+		echo "Failed to open 'stderr' for write to record exception: " . $e->getMessage() . "\n";
+	} else {
+		fwrite( $stderr, $e->getMessage() . "\n" );
+		fclose( $stderr );
+	}
+	exit( 1 );
+}
+
+?>

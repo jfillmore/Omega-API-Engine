@@ -1,0 +1,128 @@
+#!/usr/bin/python -tt
+
+# omega - python client
+# http://code.google.com/p/theomega/
+# 
+# Copyright 2011, Jonathon Fillmore
+# Licensed under the MIT license. See LICENSE file.
+# http://www.opensource.org/licenses/mit-license.php
+
+
+import httplib
+import urllib
+import json
+import sys
+
+class OmegaClient:
+	"""Client for talking to an Omega Server."""
+	version = '0.1'
+
+	def __init__(self, url = 'localhost', credentials = None, port = 5800, use_https = True):
+		self.set_url(url)
+		self.set_credentials(credentials)
+		self.set_port(port)
+		self.set_https(use_https)
+		self.encode = json.JSONEncoder().encode
+		self.decode = json.JSONDecoder().decode
+
+	def set_url(self, url):
+		if url != '':
+			self._url = url
+		else:
+			raise Exception('Invalid API service URL: %s.' % url)
+		
+	def get_url(self):
+		return self._url
+
+	def set_credentials(self, creds):
+		if type(creds).__name__ == 'dict':
+			# make sure we have a user/pass
+			if 'username' in creds and 'password' in creds:
+				self._credentials = creds
+			elif 'token' in creds:
+				self._credentials = creds
+			else:
+				raise Exception("Invalid credentials. Keys of 'username'/'password' or 'token' expected, but were not found.")
+		elif creds == None:
+			self._credentials = creds
+		else:
+			raise Exception("Invalid credentials. Keys of 'username'/'password' or 'token' expected, but were not found.")
+
+	def set_https(self, secure = True):
+		if secure:
+			self._use_https = True
+		else:
+			self._use_https = False
+
+	def set_port(self, port):
+		if port >= 0 and port <= 65535:
+			self._port = port
+		else:
+			raise Exception('Invalid API service port: %i.' % port)
+	
+	def run(self, api, args = (), raw_response = False, full_response = False):
+		# check and prep the data
+		if api == '':
+			raise Exception("Invalid service API: '%s'." %api)
+		api = urllib.quote(api)
+		
+		data = {
+			'OMEGA_ENCODING': 'json',
+			'OMEGA_API_PARAMS': self.encode(args)
+		}
+		if self._credentials:
+			data['OMEGA_CREDENTIALS'] = self.encode(self._credentials)
+		url = self._url
+		# split the URL into the hostname and folder
+		if url.find('/') == -1:
+			hostname = url
+			folder = ''
+		else:
+			(hostname, folder) = url.split('/', 1)
+		if self._use_https:
+			conn = httplib.HTTPSConnection(hostname, self._port)
+		else:
+			conn = httplib.HTTPConnection(hostname, self._port)
+		headers = {
+			"Content-type": "application/x-www-form-urlencoded"
+		}
+		# fire away
+		conn.request("POST", '/' + '/' + folder + '/' + api, urllib.urlencode(data), headers)
+		http_response = conn.getresponse()
+		if http_response.status != 200:
+			raise Exception('Failed to access "%s" on "%s" with the HTTP error code "%i": %s.' % (api, url, http_response.status, http_response.reason))
+		http_response = http_response.read()
+		if raw_response:
+			return http_response
+		else:
+			# decode the response and check whether or not it was successful
+			# TODO: check response encoding in header
+			try:
+				response = self.decode(http_response)
+			except:
+				sys.stderr.write('Failed to decode API response: %s\n' % http_response)
+				sys.exit(1)
+			
+			# check to see if our API call was successful
+			if 'result' in response and response['result'] == False:
+				if 'reason' in response:
+					if full_response:
+						sys.stderr.write('API "%s" failed.\n%s' % (api, response))
+					else:
+						sys.stderr.write('API "%s" failed: "%s".\n' % (api, response['reason']))
+					sys.exit(1)
+				else:
+					raise Exception('API "%s" failed, but did not provide an explanation. This should never happen.' % api)
+			else: 		
+				if full_response:
+					return response
+				else:
+					if 'data' in response:
+						return response['data']
+					else:
+						return None
+
+if __name__ == '__main__':
+	client = OmegaClient();
+	import jdebug
+	jdebug.pretty_print(client);

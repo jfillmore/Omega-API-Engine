@@ -1,0 +1,154 @@
+#!/bin/bash -u
+
+# omega - PHP server
+# http://code.google.com/p/theomega/
+# 
+# Copyright 2011, Jonathon Fillmore
+# Licensed under the MIT license. See LICENSE file.
+# http://www.opensource.org/licenses/mit-license.php
+
+
+BASE_DIR=$(cd $(dirname "$0") && pwd -P)
+SCRIPT_NAME=$(basename "$0")
+
+#===========================================================================
+
+# the directory in which we can find the omega data
+OMEGA_DATA_DIR="$BASE_DIR/../data"
+
+#===========================================================================
+
+function fail() {
+	echo "$@"
+	exit 101
+}
+
+function usage() {
+	cat << EOI
+usage: $SCRIPT_NAME [args]
+
+Clears out old omega service session data.
+
+arguments:
+	-s, --services  A comma-separated list of service names to run against. Defaults to all services.
+	-a, --age       The minimum age, in minutes, that a session file must be for it to be deleted. Defaults to '4320' (3 days).
+	-v, --verbose   Print verbose debugging information to standard error.
+	-d, --dryrun    Run without actually making changes (i.e. deleting session files).
+	-h, --help, -H  This information.
+EOI
+}
+
+function : {
+	[ $# -gt 1 ] && fail ": function called with more than one arguments. This is unsafe to do."
+	if [ $verbose -eq 1 ]; then
+		echo "+ $@" >&2
+	fi
+}
+
+#===========================================================================
+
+# whether to be verbose in actions
+declare verbose=0
+# whether or not this should be a dry-run
+declare dryrun=0
+# which services to run on
+declare services=''
+# whether or not to delete global instances
+declare del_global=0
+# whether or not to delete user instances
+declare del_user=0
+# how old, in minutes, session files must be to get wacked
+declare age=4320 # defaults to 3 days
+
+while [ $# -gt 0 ]; do
+	arg="$1"
+	shift
+	case "$arg" in
+		-h|--help|-H)
+			usage
+			exit
+			;;
+		-d|--dryrun)
+			dryrun=1
+			;;
+		-v|--verbose)
+			verbose=1
+			;;
+		-s|--service)
+			[ $# -ge 1 ] || fail "Missing argument to option '$arg'."
+			[ "$services" == '' ] || fail "Service(s) of $services has already been defined."
+			services="$1"
+			shift
+			[[ "$services" == '' ]] && fail "Invalid list of services: '$services'."
+			;;
+		-g|--global)
+			del_global=1
+			;;
+		-u|--user)
+			del_user=1
+			;;
+		-a|--age)
+			[ $# -ge 1 ] || fail "Missing argument to option '$arg'."
+			[ $1 -ge 0 ] && {
+				age="$1"
+			} || fail "Age must be a non-negative integer."
+			shift
+			;;
+		*)
+			usage
+			fail "Unrecognized option: $arg."
+			;;
+	esac
+done
+
+# a quick bit of sanity checking
+[ -d "$OMEGA_DATA_DIR" ] || fail "Failed to locate Omega data directory; "$OMEGA_DATA_DIR" is not a directory."
+
+# no list of services to run on? get a list of 'em all
+if [ "$services" == '' ]; then
+	services=($(find "$OMEGA_DATA_DIR"/* -mindepth 0 -maxdepth 0 -printf "%f\n" -type d))
+	: "using default of all services"
+else
+	# convert to an array
+	services=(${services//,/ })
+fi
+
+: "options: verbose=$verbose, dryrun=$dryrun, age=$age, services=${services[*]}"
+# go through each service to find and delete old session files
+for ((i=0; i<${#services[*]}; i++)); do
+	service="${services[$i]}"
+	: "deleting old server instance data files for service '$service'"
+	# make sure the service exists at least
+	[ ! -d "$OMEGA_DATA_DIR/$service/" ] && fail "Service '$service' does not exist within Omega data directory $OMEGA_DATA_DIR."
+	# skip anyone without a session dir
+	[ -d "$OMEGA_DATA_DIR/$service/instances/sessions/" ] && {
+		cd "$OMEGA_DATA_DIR/$service/instances/sessions/" || fail "Failed to change directory to '$OMEGA_DATA_DIR/$service/instances/sessions/' to delete old session files"
+		find -maxdepth 1 -type f -mmin "+$age" | while read file; do
+			: ".  deleting session file '$file'"
+			[ $dryrun -eq 0 ] && {
+				rm -f "$file" || fail "Failed to delete session file '$file'."
+			}
+		done
+	}
+	[[ $del_global -eq 1 && -d "$OMEGA_DATA_DIR/$service/instances/" ]] && {
+		: "deleting old global files for service '$service'"
+		cd "$OMEGA_DATA_DIR/$service/instances/" || fail "Failed to change directory to '$OMEGA_DATA_DIR/$service/instances/' to delete old global files"
+		file=$(find "$OMEGA_DATA_DIR/$service/instances/" -maxdepth 1 -name "global" -type f -mmin "+$age")
+		[ "$file" != '' ] && {
+			: ".  deleting global file 'global'"
+			[ $dryrun -eq 0 ] && {
+				rm -f "$file" || fail "Failed to delete global file '$file'."
+			}
+		}
+	}
+	[[ $del_user -eq 1 && -d "$OMEGA_DATA_DIR/$service/instances/users/" ]] && {
+		: "deleting old user files for service '$service'"
+		cd "$OMEGA_DATA_DIR/$service/instances/users/" || fail "Failed to change directory to '$OMEGA_DATA_DIR/$service/instances/users/' to delete old users files"
+		find -maxdepth 1 -type f -mmin "+$age" | while read file; do
+			: ".  deleting users file '$file'"
+			[ $dryrun -eq 0 ] && {
+				rm -f "$file" || fail "Failed to delete users file '$file'."
+			}
+		done
+	}
+done

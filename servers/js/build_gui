@@ -1,0 +1,108 @@
+#!/bin/bash -u
+
+BASE_DIR=$(cd $(dirname "$0") && pwd -P)
+SCRIPT_NAME=$(basename "$0")
+JS_LIB_DIR="$BASE_DIR/../../common/js"
+LIB_DIR="$BASE_DIR/lib"
+
+function fail {
+	# be sure we clean up well
+	rm -f .omlib.dev.js.$$ &>/dev/null
+	rm -f .omlib.js.$$ &>/dev/null
+    echo "$@" >&2
+    exit 1
+}
+
+cd "$BASE_DIR" || {
+	# don't use 'fail' or we *MIGHT* delete random files
+	echo "Failed to change directory to '$BASE_DIR'."
+	exit 1
+}
+[[ -d "$LIB_DIR" ]] || fail "huh? where am I?"
+[[ -d "$JS_LIB_DIR" ]] || fail "Failed to find JS library directory: $JS_LIB_DIR"
+jscc="java -jar $HOME/repo/scripts/compiler.jar"
+
+# ------------
+# Omega JS lib
+# ------------
+# create a separate dev build for easier debugging
+cat \
+	"$JS_LIB_DIR/core.js" \
+	"$JS_LIB_DIR/sprintf.js" \
+	"$JS_LIB_DIR/json.js" \
+	"$JS_LIB_DIR/Test.class.js" \
+	"$JS_LIB_DIR/ColorFactory.class.js" \
+	"$JS_LIB_DIR/Visualizer.class.js" \
+	"$JS_LIB_DIR/DataShed.class.js" > .omlib.dev.js.$$
+	#--js "$JS_LIB_DIR/BoxFactory.class.js" \ # not needed for JSON module
+	#--js "$JS_LIB_DIR/OmegaClient.class.js" \ # not needed for JSON module
+# write out omlib.js
+{
+	# JS header
+	cat <<-EOI
+/* omega - js lib
+   http://code.google.com/p/theomega/
+  
+   Copyright 2011, Jonathon Fillmore
+   Licensed under the MIT license. See LICENSE file.
+   http://www.opensource.org/licenses/mit-license.php */
+
+	EOI
+	# whitespace only so function names don't get clobbered
+	$jscc --compilation_level WHITESPACE_ONLY --js .omlib.dev.js.$$
+	# JS footer
+	cat <<-EOI
+
+module.exports = om;
+	EOI
+} > .omlib.js.$$
+[ $? -eq 0 ] && {
+	mv .omlib.dev.js.$$ omlib.dev.js || {
+		fail "Failed to move new omlib.dev.js lib in place."
+	}
+	mv .omlib.js.$$ omlib.js || {
+		fail "Failed to move new omlib.js lib in place."
+	}
+} || {
+	fail "Failed to generate omlib.js"
+}
+
+# --------------------
+# Omega Node.js Server
+# --------------------
+# create a separate dev build for easier debugging
+cat \
+	"$LIB_DIR/omega_server.js" \
+	"$LIB_DIR/omega_request.js" \
+	"$LIB_DIR/omega_exception.js" \
+	"$LIB_DIR/omega_config.js" \
+	"$LIB_DIR/omega_response.js" > .omega.dev.js.$$
+# write out omega.js
+{
+	# JS header
+	cat <<-EOI
+/* omega - node.js server
+   http://code.google.com/p/theomega/
+  
+   Copyright 2011, Jonathon Fillmore
+   Licensed under the MIT license. See LICENSE file.
+   http://www.opensource.org/licenses/mit-license.php */
+
+	EOI
+	$jscc --compilation_level WHITESPACE_ONLY --js .omega.dev.js.$$
+	# JS footer
+	cat <<-EOI
+	EOI
+} > .omega.js.$$
+[ $? -eq 0 ] && {
+	mv .omega.dev.js.$$ omega.dev.js || {
+		fail "Failed to move new omega.dev.js lib in place."
+	}
+	mv .omega.js.$$ omega.js || {
+		fail "Failed to move new omega.js lib in place."
+	}
+} || {
+	fail "Failed to generate omega.js"
+}
+
+exit 0

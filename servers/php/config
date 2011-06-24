@@ -1,0 +1,575 @@
+#!/bin/bash -u
+
+# omega - PHP server
+# http://code.google.com/p/theomega/
+# 
+# Copyright 2011, Jonathon Fillmore
+# Licensed under the MIT license. See LICENSE file.
+# http://www.opensource.org/licenses/mit-license.php
+
+
+BASE_DIR=$(cd $(dirname "$0") && pwd -P)
+SCRIPT_NAME=$(basename "$0")
+
+# install config options
+NGINX_VERSION="0.8.54"
+NGINX_SRC="http://nginx.org/download/nginx-$NGINX_VERSION.tar.gz"
+NGINX_USER="nobody"
+NGINX_BASE_DIR='/usr/local/nginx'
+FASTCGI_USER="nobody"
+INSTALL_SRC_DIR="_install"
+NGINX_HTTP_PORT=5858
+NGINX_HTTPS_PORT=5800
+
+#===========================================================================
+
+function fail() {
+	echo "$@" >&2
+	cleanup
+	exit 101
+}
+
+function usage() {
+	cat <<-EOI
+	Omega server configuration script.
+
+	usage: $SCRIPT_NAME [args]
+
+	arguments:
+		-a, --auto      Auto config/
+		-f, --force     Allow data to be overwritten.
+		-h, --help, -H  This information.
+		-i, --install   Guided installer option.
+		-c, --config    Configure mode.
+		-v, --verbose   Print verbose debugging information to standard error.
+	EOI
+}
+
+function : {
+	[ $# -gt 1 ] && fail ": function called with more than one arguments. This is unsafe to do."
+	if [ "$verbose" != '' ]; then
+		echo "+ $@" >&2
+	fi
+}
+
+function cleanup {
+	echo -n
+}
+
+#===========================================================================
+
+function get_netdev {
+	ip route list | awk '$1 == "default" {print $5}'
+}
+
+function get_ip {
+	local dev=''
+	[ $# -eq 1 ] || fail "Unable to get IP address without device name."
+	dev="$1"
+	ip -f inet addr show "$dev" | awk '$1 == "inet" {print $2}' | awk -F'/' '{print $1}'
+}
+
+function get_input {
+	local response=''
+	[ $# -eq 1 ] && local prompt="$1" || local prompt='> '
+	while [ 1 ]; do
+		read -e -p "$prompt" response
+		[[ "$response" != '' ]] && {
+			echo "$response"
+			return
+		}
+	done
+}
+
+function gen_pass {
+	local password=""
+	local i
+	local charBanks=("$(echo {a..z} | tr -d ' ')" "$(echo {A..Z} | tr -d ' ')" "$(echo {0..9} | tr -d ' ')")
+	for (( i = 0; i < 32; i++ )); do
+		# pick a random character bank
+		charBank=${charBanks[$(($RANDOM % ${#charBanks[*]}))]}
+		# and add random chacter from that bank to the password
+		password="$password${charBank:$(($RANDOM % ${#charBank})):1}"
+	done
+	echo "$password"
+}
+
+function do_config {
+	# how many steps in the init
+	max_steps=3
+
+	if [ $auto_mode -eq 1 ]; then
+		data_dir="$BASE_DIR/data"
+		mkdir -p "$data_dir" || fail "Failed to auto-create data directory '$data_dir'."
+		admin_email="$USER@$HOSTNAME"
+		key=$(gen_pass)
+		# report the auto-generated info we used
+		echo "Key: $key"
+		echo "Admin Email: $admin_email"
+	else
+		# prompt the user for the data directory
+		cat <<-EOI
+
+		-----------------------------------------------------------------------------
+		[1/$max_steps]
+		Please enter a path where the Omega Server may create files and folders. It
+		will use use them to store information about services it hosts. If the path
+		does not exist you will be prompted to confirm its creation. If the path
+		exists any data inside it will be preserved.
+
+		e.g.: > data/
+			  > /var/omega/data
+
+		EOI
+		data_dir=$(get_input) || exit 1
+		# make the data_dir abolute if needed
+		if [ "${data_dir:0:1}" != '/' ]; then
+			data_dir="$BASE_DIR/$data_dir"
+		fi
+		# if we end in a '/' drop it
+		[[ ${data_dir:${#data_dir}-1} == '/' ]] && data_dir=${data_dir:0:${#data_dir}-1}
+		# offer to create it if it doesn't exist
+		[ ! -d "$data_dir" ] && {
+			cat <<-EOI
+
+				Directory '$data_dir' does not exist. Create it, and any preceeding
+				directories?
+
+			EOI
+			create=''
+			while [[ ! ("$create" == 'y' || "$create" == 'n') ]]; do
+				create=$(get_input '    (y/n) > ') || exit 1
+			done
+			[ "$create" == 'n' ] && {
+				echo "Unable to continue without a valid data director.";
+				exit 0;
+			}
+			mkdir -p "$data_dir" || exit 1
+		}
+
+		# and get the admin e-mail address for the host service
+		cat <<-EOI
+
+		------------------------------------------------------------------------------
+		[2/$max_steps]
+		Please enter the e-mail address of whoever is responsible for maintaining the
+		omega service.
+
+		e.g.: > bmarley@example.com
+			
+		EOI
+		admin_email=""
+		while [[ "$admin_email" == '' ]]; do
+			admin_email=$(get_input) || exit 1
+		done
+
+		# get a key to secure the host service
+		cat <<-EOI
+
+		------------------------------------------------------------------------------
+		[3/$max_steps]
+		Please enter a secure password or pass phrase to secure the omega server. You
+		may use letters, numbers, symbols, and space. It must be between 6 and 4096
+		characters in length.
+
+		e.g.: > I am the very model of a modern major general.
+
+		EOI
+		key=""
+		while [[ ! (${#key} -ge 6 && ${#key} -le 4096 && ! "$key" =~ "^[']") ]]; do
+			key=$(get_input)
+		done
+
+		# give the user a chance to review the changes and bail out
+		cat <<-EOI
+
+		==============================================================================
+		Create default Omega configuration and the host service configuration files?
+		If these files already exist they will be overwritten.
+
+		   Omega config:
+			 $BASE_DIR/config.php
+		   Host service config:
+			 $data_dir/OmegaServer/config
+		   Omega service list:
+			 $data_dir/OmegaServer/services/config
+
+		EOI
+		create=''
+		while [[ ! ("$create" == 'y' || "$create" == 'n') ]]; do
+			create=$(get_input '(y/n) > ') || exit 1
+		done
+		[ "$create" == 'n' ] && {
+			echo "Honorably abandoning config file generation."
+			exit 0;
+		}
+	fi
+
+	# create the config file...
+	[[ -f "$BASE_DIR/config.php" && $use_force -eq 0 ]] && fail "Unable to overwrite Omega config file without force."
+	cat <<-EOI > "$BASE_DIR/config.php" || fail "Failed to write Omega configuration file to '$BASE_DIR/config.php'."
+	<?php
+
+	/** I hate constants. */
+	abstract class OmegaConstant {
+		// location to store our internal data
+		const data_dir = '$data_dir';
+	}
+
+	?>
+	EOI
+
+	# generate a default configuration file for the host service
+	include_dir="$BASE_DIR/host_service/classes"
+	mkdir -p "$data_dir/OmegaServer/subservices/instances" || fail "Failed to create directory tree '$data_dir/OmegaServer/subservices/instances'."
+	[[ -f "$data_dir/OmegaServer/config" && $use_force -eq 0 ]] && fail "Unable to overwrite Omega Server config file without force."
+	cat <<-EOI | "$php" -q > "$data_dir/OmegaServer/config" || fail "Failed to write host service configuration file to '$data_dir/OmegaServer/config'."
+	<?php
+	echo serialize(
+		array(
+			'omega' => array(
+				'nickname' => 'os',
+				'class_dirs' => array('$include_dir'),
+				'async' => false,
+				'key' => '$key',
+				'scope' => 'global',
+				'location' => '/os_admin/',
+				'admin_email' => '$admin_email'
+			)
+		)
+	);
+	?>
+	EOI
+
+	# and initialize the list of services to the host service
+	mkdir -p "$data_dir/OmegaServer/services/" || fail "Failed to create directory '$data_dir/OmegaServer/services/'."
+	mkdir -p "$data_dir/OmegaServer/instances/" || fail "Failed to create directory '$data_dir/OmegaServer/instances/'."
+	[[ -f "$data_dir/OmegaServer/services/config" && $use_force -eq 0 ]] && fail "Unable to overwrite Omega Server services config file without force."
+	cat <<-EOI | "$php" -q > "$data_dir/OmegaServer/services/config" || fail "Failed to write Omega service list '$data_dir/OmegaServer/services/config'."
+	<?php
+	echo serialize(
+		array(
+			'services' => array(
+				'OmegaServer' => true
+			)
+		)
+	);
+	?>
+	EOI
+	chown -R $NGINX_USER "$data_dir" || fail "Failed to chown nginx data directory to $NGINX_USER."
+}
+
+function do_install {
+	max_steps=3
+	if [ $auto_mode -eq 1 ]; then
+		mkdir -p "$INSTALL_SRC_DIR" || fail "Failed to create temporary working directory: '$INSTALL_SRC_DIR/'."
+		cd "$INSTALL_SRC_DIR" || fail "Failed to change to temporary working directory '$INSTALL_SRC_DIR/'."
+		# get source files
+		[[ -f "nginx-$NGINX_VERSION.tar.gz" ]] || {
+			: "Fetching source files from $NGINX_SRC."
+			wget "$NGINX_SRC" -q -O "nginx-$NGINX_VERSION.tar.gz" || fail "Failed to download nginx source '$NGINX_SRC'." 
+		}
+		[[ -d "nginx-$NGINX_VERSION" ]] || {
+			: "Extracting source files from nginx-$NGINX_VERSION.tar.gz"
+			tar -xzf "nginx-$NGINX_VERSION.tar.gz" || fail "Failed to extract nginx source from 'nginx-$NGINX_VERSION.tar.gz'."
+		}
+		# configure and compile
+		cd "nginx-$NGINX_VERSION" || fail "Failed to change to nginx src dir '$INSTALL_SRC_DIR/nginx-$NGINX_VERSION'."
+		[[ -f Makefile ]] || {
+			: "Configuring nginx"
+			./configure --with-http_ssl_module --prefix=$NGINX_BASE_DIR-$NGINX_VERSION || fail "Failed to configure nginx."
+		}
+		: "Compiling nginx"
+		make || fail "Failed to compile nginx."
+		# Ok for now... [ -d "$NGINX_BASE_DIR-$NGINX_VERSION" ] && fail "Unable to overwrite nginx install directory without force."
+		# install nginx
+		: "Installing nginx"
+		make install || fail "Failed to install nginx."
+		# create symlinks
+		: "Creating symlink from $NGINX_BASE_DIR to $NGINX_BASE_DIR-$NGINX_VERSION."
+		cd /usr/local || fail "Failed to change directory to '/usr/local/'."
+		[[ -L nginx && $(readlink nginx) != "nginx-$NGINX_VERSION" ]] && {
+			[ $use_force -eq 0 ] && fail "Unable to overwrite /usr/local/ symlink to nginx directory without force."
+		}
+		ln -sf "nginx-$NGINX_VERSION" "nginx" || fail "Failed to create $NGINX_BASE_DIR symlink to $NGINX_BASE_DIR-$NGINX_VERSION."
+		# put symlink to nginx in /usr/local/bin
+		: "Creating nginx symlinks $NGINX_BASE_DIR and /usr/local/bin/nginx"
+		cd /usr/local/bin || fail "Failed to change directory to /usr/local/bin."
+		[[ -L nginx && $(readlink nginx) != "../nginx/sbin/nginx" ]] && {
+			[ $use_force -eq 0 ] && fail "Unable to overwrite /usr/local/bin symlink to nginx binary without force."
+		}
+		ln -sf "../nginx/sbin/nginx" "nginx" || fail "Failed to create $NGINX_BASE_DIR symlink to $NGINX_BASE_DIR/sbin/nginx"
+		cd $NGINX_BASE_DIR/ || fail "Failed to change directory to $NGINX_BASE_DIR."
+		mkdir -p tmp || fail "Failed to create nginx temp directory."
+		mkdir -p ssl || fail "Failed to create nginx ssl_cert directory."
+		# not needed, actually... #chown "$NGINX_USER" tmp | |fail "Failed to chown nginx temp directory to $NGINX_USER."
+		# give nginx a good default configuration
+		: "Initializing nginx configuration file"
+		cd $NGINX_BASE_DIR/conf || fail "Failed to change directory to nginx config."
+		mkdir -p omega_services || fail "Failed to create omega_services nginx config dir."
+		hostname=$(hostname --long)
+		ip_dev=$(get_netdev);
+		ip_addr=$(get_ip "$ip_dev")
+		date=$(date +%D)
+		[ -f nginx.conf ] && {
+			cp -a nginx.conf nginx.bak.${date//\//-} || fail "Failed to backup current nginx configuration file."
+		}
+		# where are our common/public files at?
+		common_dir=$(cd "$BASE_DIR" && cd ../../common && pwd -P) || fail "Failed to detect omega common dir."
+		# and how about an SSH key for nginx?
+		openssl genrsa -out ."$hostname".key 2048 &>/dev/null || fail "Failed to generate SSL cert key"
+		{
+			echo "US"
+			echo "Somewhere"
+			echo "Podunk"
+			echo "Acme Engineering."
+			echo ""
+			echo "$hostname"
+			echo "nobody@example.com"
+			echo ""
+			echo ""
+			echo ""
+		} | openssl req -new -key ."$hostname".key -out ."$hostname".csr &>/dev/null || fail "Failed to generate SSL cert CSR"
+		openssl x509 -req -days 3650 -in ."$hostname".csr -signkey ."$hostname".key -out ."$hostname".crt || fail "Failed to create SSL certificate."
+		for ext in csr key crt; do
+			mv ".$hostname.$ext" "../ssl/$hostname.$ext" || fail "Failed to move .$hostname.$ext to nginx ssl directory."
+		done
+		ssl_crt="$NGINX_BASE_DIR/ssl/$hostname.crt"
+		ssl_key="$NGINX_BASE_DIR/ssl/$hostname.key"
+		sed "s/user nobody;/user $NGINX_USER;/" "$BASE_DIR/includes/conf/nginx.conf" \
+			| sed "s/listen 127.0.0.1:/listen $ip_addr:/g" \
+			| sed "s#%%OMEGA_COMMON%%#$common_dir#g" \
+			| sed "s#%%SSH_CRT%%#$ssl_crt#g" \
+			| sed "s#%%SSH_KEY%%#$ssl_key#g" \
+			| sed "s#%%HTTP_PORT%%#$NGINX_HTTP_PORT#g" \
+			| sed "s#%%HTTPS_PORT%%#$NGINX_HTTPS_PORT#g" \
+			| sed "s/server_name localhost;/server_name $hostname;/" \
+			> "nginx.conf" || fail "Failed to install nginx.conf."
+		# setup the omega server config file for the host service
+		[[ ! -f omega_services/OmegaServer.conf || $use_force -eq 1 ]] && {
+			: "Creating Omega Server nginx config file"
+			cat > omega_services/OmegaServer.conf <<-EOI
+			location /os_admin {
+				alias $BASE_DIR/host_service/public/;
+				try_files \$uri \$uri/ @OmegaServer;
+			}
+
+			location @OmegaServer {
+				fastcgi_pass 127.0.0.1:5859;
+				include fastcgi_params;
+				rewrite ^/os_admin/(.*) /?OMEGA_API=\$1 break;
+				fastcgi_param OMEGA_SERVICE OmegaServer;
+				fastcgi_param SCRIPT_FILENAME $BASE_DIR/init.php;
+			}
+			EOI
+		}
+		# generate localized fastcgi startup script
+		[[ ! -f "$BASE_DIR/fastcgi.local" || $use_force -eq 1 ]] && {
+			: "Creating fastcgi.local start-up script"
+			sed "s/USERID=nobody/USERID=$FASTCGI_USER/" "$BASE_DIR/fastcgi-default" > "$BASE_DIR/fastcgi.local" || fail "Failed to install fastcgi startup script."
+		}
+		chmod 755 "$BASE_DIR/fastcgi.local" || fail "Failed to chmod fastcgi.local to 755"
+		# install the appropriate init.d startup scripts (supports RHEL/CentOS and Ubuntu)
+		: "Determining OS type and config paths."
+		cd "$BASE_DIR" || fail "Failed to change directory to $BASE_DIR. Eh?"
+		os_issue=$(< /etc/issue)
+		if [ "${os_issue##*Ubuntu}" != "$os_issue" ]; then
+			os_type=ubuntu
+			init_dir="/etc/init"
+			nginx_init_file="nginx.conf"
+			php_init_file="omega-php.conf"
+			init='initctl'
+		elif [[ "${os_issue##*CentOS}" != "$os_issue" \
+			|| "${os_issue##*Red Hat Enterprise Linux}" != "$os_issue" ]]; then
+			os_type=rh_centos
+			init_dir="/etc/init.d"
+			nginx_init_file="nginx"
+			php_init_file="omega-php"
+			init='service'
+		else
+			os_type=unknown
+			echo "** No init scripts installed; unrecognized OS; install continuing."
+		fi
+		if [ "$os_type" != 'unknown' ]; then
+			[[ ! -f "$init_dir/$nginx_init_file" || $use_force -eq 1 ]] && {
+				: "Creating nginx system startup script"
+				sed "s#%%NGINX_BASE_DIR%%#$NGINX_BASE_DIR#g" "includes/init/$os_type/$nginx_init_file" > "$init_dir/$nginx_init_file" || fail "Failed to copy $nginx_init_file init file to '$init_dir'."
+				if [ "$os_type" == 'rh_centos' ]; then
+					chmod 755 "$init_dir/$nginx_init_file" || fail "Failed to chmod $nginx_init_file to 755."
+					chkconfig --list $nginx_init_file &>/dev/null
+					[ $? -eq 1 ] && {
+						: "Adding $nginx_init_file to chkconfig."
+						chkconfig --add $nginx_init_file || fail "Failed to add $nginx_init_file to chkconfig."
+						chkconfig $nginx_init_file on || fail "Failed to set $nginx_init_file to start on boot."
+					}
+				fi
+			}
+			[[ ! -f "$init_dir/$php_init_file" || $use_force -eq 1 ]] && {
+				: "Creating omega fast-cgi PHP system startup script"
+				sed "s#%%OMEGA_BASE_DIR%%#$BASE_DIR#g" "includes/init/$os_type/$php_init_file" > "$init_dir/$php_init_file" || fail "Failed to copy $php_init_file init file to '$init_dir'."
+				if [ "$os_type" == 'rh_centos' ]; then
+					chmod 755 "$init_dir/$php_init_file" || fail "Failed to chmod $php_init_file to 755."
+					chkconfig --list $php_init_file &>/dev/null
+					[ $? -eq 1 ] && {
+						: "Adding $php_init_file to chkconfig."
+						chkconfig --add $php_init_file || fail "Failed to add $php_init_file to chkconfig."
+						chkconfig $php_init_file on || fail "Failed to set $php_init_file to start on boot."
+					}
+				fi
+			}
+			: "Starting (or restarting) nginx and omega fast-cgi PHP"
+			# start nginx and the fast-cgi server up
+			$init nginx stop &>/dev/null
+			$init omega-php stop &>/dev/null
+			sleep 3
+			$init nginx start || fail "Failed to start nginx."
+			$init omega-php start || fail "Failed to start omega fast-cgi PHP."
+		fi
+		# auto-config ourself if needed
+		[[ ! -f config.php || $use_force -eq 1 ]] && {
+			do_config
+		}
+		# test whether we're alive or not
+		wget --no-check-certificate https://$ip_addr:$NGINX_HTTPS_PORT/os_admin/ -O -
+	else
+		fail "Auto-mode or bust on install right now. Sorry."
+	fi
+	return 0
+}
+
+#===========================================================================
+
+# sanity checks
+# make sure we can find the host service class files
+cd "$BASE_DIR" || fail "Failed to change dir to '$BASE_DIR'."
+[ -d 'host_service/classes/' ] || fail "Missing host service class directory: '$BASE_DIR/host_service/classes/'."
+
+declare verbose=0
+declare use_force=0
+declare auto_mode=0
+declare do_config=0
+declare do_install=0
+
+while [ $# -gt 0 ]; do
+	arg="$1"
+	shift
+	case "$arg" in
+		-h|--help|-H)
+			usage
+			exit
+			;;
+		-c|--config)
+			do_config=1
+			;;
+		-i|--install)
+			do_install=1
+			;;
+		-f|--force)
+			use_force=1
+			;;
+		-v|--verbose)
+			verbose=1
+			;;
+		-a|--auto)
+			auto_mode=1
+			;;
+		*)
+			usage
+			fail "Unrecognized option: $arg."
+			;;
+	esac
+done
+
+# make sure we can find PHP and double check the version.
+php=$(which php-cgi) || php=$(which php) || {
+	cat <<-EOI
+The PHP CLI was not found in the \$PATH. Please enter the path to the PHP fastcgi CLI.
+
+EOI
+	input=''
+	while [[ "$input" == '' ]]; do
+		input=$(get_input) || exit 1
+		# validate the input
+		[ -x "$input" ] || { 
+			echo "Invalid executable: '$input'."
+			input=''
+		}
+	done
+}
+
+# do a few quick sanity checks on PHP
+$php -v | head -n 1 | grep -q 'PHP 5\.' || fail "'$php' is not a PHP 5 CLI."
+$php -info | grep -qi 'Server api.*fastcgi' || fail "PHP binary '$php' is not fast-cgi compatible."
+$php </dev/null 2>&1 | grep -q 'X-Powered-By: PHP' || fail "PHP binary is not outputting headers as expected."
+# check for certain methods...
+for method in json_decode; do
+	{
+		cat <<-EOI
+		<?php
+		var_dump(function_exists('$method'));
+		?>
+		EOI
+	} | $php -q | grep -q 'bool(true)' || fail "PHP binary does not support method $method."
+done
+{
+	cat <<-EOI
+	<?php
+	class Foo {
+		public function bar(\$a = 0) { return \$a + 1; }
+	}
+	\$ref = new ReflectionClass('Foo');
+	\$ref_m = \$ref->getMethod('bar');
+	\$ref_ps = \$ref_m->getParameters();
+	if (\$ref_ps[0]->getPosition() !== 0) {
+		throw new Exeption('fail);
+	}
+	?>
+	EOI
+} | $php -q || fail "PHP 5.2.3+ is required for 'ReflectionParameter::getPosition'."
+
+
+input=''
+if [ $auto_mode -eq 0 ]; then
+	# welcome the user
+	cat <<-EOI
+==============================================================================
+Welcome to the interactive Omega configuration script.
+
+Please enter a command:
+
+    quit           - Exit
+    config [auto]  - Build a new configuration files for Omega and the host 
+	                 service, OmegaServer.
+    install auto   - Fetch, compile, and configure nginx; add init.d files,
+	                 and configure OmegaServer.
+
+EOI
+	auto=0
+	while [[ ! ("$input" == "config" || "$input" == "install" || "$input" == 'quit') ]]; do
+		input=$(get_input) || exit 1
+		# check for auto mode
+		[[ "${input##* }" == 'auto' ]] && {
+			auto=1
+			input="${input%% auto}"
+		} || auto=0
+	done
+	# record if we wanted auto mode
+	if [ $auto -eq 1 ]; then
+		auto_mode=1
+	fi
+	[ "$input" == "config" ] && do_config=1
+	[ "$input" == "install" ] && do_install=1
+fi
+# chicken?
+[ "$input" == 'quit' ] && exit
+
+[ $do_install -eq 1 ] && {
+	: "Installing Omega"
+	do_install || fail "Failed to install Omega."
+}
+[ $do_config -eq 1 ] && {
+	: "Configuring Omega"
+	do_config || fail "Failed to configure Omega."
+}
+
+exit 0

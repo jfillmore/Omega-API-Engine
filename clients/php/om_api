@@ -1,0 +1,257 @@
+#!/usr/local/bin/php
+<?php
+
+require_once( "includes/FsmApi.class.php" );
+
+$darkColors = array(
+	'value' => array(
+		'string' => '0;37;40',
+		'boolean' => '1;36;40',
+		'integer' => '0;32;40',
+		'decimal' => '1;32;40',
+		'null' => '0;36;40',
+		),
+	'arrayKeys' => array( '1;37;40', '1;33;40', '0;33;40', '1;31;40', '0;31;40' ),
+	//'arrayKeys' => array('0;31;40', '1;31;40', '0;33;40', '1;33;40', '1;37;40'),
+	'bullet' => '1;30;40',
+	'seperator' => '1;30;40'
+	);;
+$lightColors = $darkColors;
+
+
+try {
+	if ( count($argv) <= 1 ) {
+		throw new Exception( "Invalid parameters.\nUsage: fsmapi API_Name [Param1=Value1 ... ParamN=ValueN]" );
+	}
+	// get the API call name and validate it
+	$scriptName = array_shift( $argv );
+	$apiName = array_shift( $argv );
+	if ( ! preg_match('/^(\w+\.)+[a-z_A-Z\?]+$/', $apiName) ) {
+		throw new Exception( "Invalid API name: '$apiName'." );
+	}
+	// get the username and password from the environment, if available... otherwise default to the least privileged user
+	$fsmUser = 'default';
+	$fsmPass = '9N2CjKSl';
+	foreach ( array('fsmUser', 'fsmUsername', 'FSMUSER', 'FSMUSERNAME') as $token ) {
+		if ( isset($_ENV[$token]) ) {
+			$fsmUser = $_ENV[$token];
+		}
+	}
+	foreach ( array('fsmPass', 'fsmPasswd', 'fsmPassword', 'FSMPASS', 'FSMPASSWD', 'FSMPASSWORD') as $token ) {
+		if ( isset($_ENV[$token]) ) {
+			$fsmPass = $_ENV[$token];
+		}
+	}
+	// left off the 'fsm.' part? Just add it on automatically
+	if ( substr($apiName, 0, 4) != 'fsm.' ) {
+		$apiName = 'fsm.' . $apiName;
+	}
+	// if the caller is lazy and calls 'serviceDirector' by 'sd' then rewrite it for 'em
+	if ( substr($apiName, 0, 7) == 'fsm.sd.' ) {
+		$apiName = 'fsm.serviceDirector.' . substr( $apiName, 7 );
+	}
+	// collect the rest of the parameters
+	$params = array();
+	foreach ( $argv as $param ) {
+		if ( ! preg_match('/^(\?$|[a-zA-Z0-9\.]+=)/', $param) ) {
+			throw new Exception( "Parameter '$param' must be in the format 'name=value'." );
+		}
+		$parts = explode( '=', $param, 2 );
+		if ( count($parts) == 2 ) {
+			$params[$parts[0]] = $parts[1];
+		} else {
+			// only allow no value if we're using the magic method
+			if ( $parts[0] != '?' ) {
+			}
+			$params[$parts[0]] = '';
+		}
+	}
+	$fsm = new FsmApi( 'fsm.westservers.net', $fsmUser, $fsmPass );
+	$result = $fsm->doApi( $apiName, $params );
+	if ( isset($result->data) ) {
+		echo json_encode( $result->data ) . "\n";
+	}
+} catch ( Exception $e ) {
+	$stderr = fopen( 'php://stderr', 'w' );
+	if ( $stderr === false ) {
+		echo "Failed to open 'stderr' for write to record exception: " . $e->getMessage() . "\n";
+	} else {
+		fwrite( $stderr, $e->getMessage() . "\n" );
+		fclose( $stderr );
+	}
+	exit( 1 );
+}
+
+$flags = explode( ',', getenv('JSON_DECODER_FLAGS') );
+if ( in_array('color', $flags) ) {
+	$useColors = true;
+	if ( in_array('light-bg', $flags) ) {
+		$colors = $lightColors;
+	} else {
+		$colors = $darkColors;
+	}
+}
+$useFancyFormatting = in_array( 'fancy-formatting', $flags );
+
+function shellColor( $obj, $code ) {
+	global $useColors;
+	if ( $useColors ) {
+		return "\033[" . $code . 'm' . (string)$obj . "\033[0;0m";
+	} else {
+		return (string)$obj;
+	}
+}
+
+function indent( $indent, $indentSize ) {
+	return str_repeat( ' ', $indent * $indentSize );
+}
+
+function format_obj( $obj, $indent = 0, $indentSize = 4, $inline = false ) {
+	global $colors; // Ack! A global!
+	global $useFancyFormatting;
+	// add in any indentation
+	$str = indent( $indent, $indentSize );
+	// determine the type of object we've got
+	$objType = gettype( $obj );
+	// determine how to display each type of object, or recurse into complex objects
+	if ( $objType == 'boolean' ) {
+		if ( $obj ) {
+			$str .= shellColor( '{true}', $colors['value'][$objType] );
+		} else {
+			$str .= shellColor( '{false}', $colors['value'][$objType] );
+		}
+	} else if ( $objType == 'string' || $objType == 'integer' ) {
+		// does it look like a number?
+		if ( is_numeric($obj) ) {
+			if ( strpos($obj, '.') === false ) {
+				$str .= shellColor( $obj, $colors['value']['integer'] );
+			} else {
+				$str .= shellColor( $obj, $colors['value']['decimal'] );
+			}
+		} else {
+			$str .= shellColor( $obj, $colors['value']['string'] );
+		}
+	} else if ( $objType == 'array' || $objType == 'object' ) {
+		if ( count($obj) > 0 ) {
+			$skipFirstIndent = true;
+			foreach ( $obj as $key => $value ) {
+				if ( $skipFirstIndent ) {
+					$skipFirstIndent = false;
+				} else {
+					$str .= indent( $indent, $indentSize );
+				}
+				// automatically color keys in a cycle based on the current indentation depth
+				$str .= shellColor( $key, $colors['arrayKeys'][min(count($colors['arrayKeys'])-1, $indent)] );
+				$valueType = gettype( $value );
+				if ( $useFancyFormatting ) {
+					// if our next value is non-complex use a ), otherwise a :
+					if ( ($valueType == 'array' || $valueType == 'object') && count($value) > 0 ) { 
+						$str .= shellColor( ":", $colors['bullet'] );
+					} else {
+						$str .= shellColor( ")", $colors['bullet'] );
+					}
+				} else {
+					$str .= shellColor( ":", $colors['bullet'] );
+				}
+				// only go to a new line and indent if we have a complex type again
+				if ( $valueType == 'array' || $valueType == 'object' ) {
+					// look ahead-- if we are an empty array then don't bother dropping to a newline
+					if ( $valueType == 'array' && count($value) == 0 ) {
+						$str .= format_obj( $value, 0, $indentSize, true );
+					} else {
+						$str .= "\n";
+						$str .= format_obj( $value, $indent + 1, $indentSize, true );
+					}
+				} else {
+					$str .= format_obj( $value, 1, 1 );
+				}
+			}
+		} else {
+			$str .= ' ' . shellColor( "{none}", $colors['value']['null'] ) . "\n";
+		}
+	} else if ( $objType == 'resource' ) {
+		throw new Exception( "Unsupported object type: '$objType'." );
+	} else if ( $objType == 'Null' ) {
+		$str .= shellColor( '{null}', $colors['value']['null'] );
+	} else if ( $objType == 'unknown type' ) {
+		throw new Exception( "Unsupported object type: '$objType'." );
+	} else {
+		throw new Exception( "Unrecognized object type: '$objType'." );
+	}
+	if ( ! $inline ) {
+		$str .= "\n";
+	}
+	return $str;
+}
+
+try {
+	if ( count($argv) > 2 ) {
+		throw new Exception( "Invalid parameters.\nUsage: json_decode [filename]" );
+	}
+	$scriptName = array_shift( $argv );
+
+	$stdout = fopen( 'php://stdout', 'w' );
+	if ( $stdout === false ) {
+		throw new Exception( "Failed to open stdout for writing." );
+	}
+
+	// read in the data we need to parse from a file name if one was given, otherwise use stdin
+	$data = '';
+	if ( count($argv) == 1 ) {
+		// see if it is any kind of help "hail mary"
+		if ( in_array($argv[0], array('-h', '-H', '--help')) ) {
+			class SomeObject {}
+			$obj = new SomeObject();
+			$obj->attr1 = 'str1';
+			$obj->attr2 = array( 'key1' => 'value1', 'key2' => 'value2', array('key3a' => 'value3a', 'key3b' => 'value3b'), 'key4' => 4 );
+			echo "Usage: json_decode [filename]\n\nExample:\n[~]\$ cat some_file | json_decode\n";
+			$data = array(
+				'some_int' => 42,
+				'some_double' => 3.141559,
+				'some_str' => "'Life is the art of drawing sufficient conclusions from insufficient premises.' - Samuel Butler",
+				'some_boolean' => true,
+				'some_null_reference' => null,
+				'some_object' => $obj
+				);
+			fwrite( $stdout, format_obj($data, 0, 4, true) );
+			exit;
+		}
+		// otherwise it should be a file name
+		$inputFile = array_shift( $argv );
+		if ( ! file_exists($inputFile) ) {
+			throw new Exception( "File does not exist: '$inputFile'." );
+		}
+		$data = file_get_contents( $inputFile );
+		if ( $data === false ) {
+			throw new Exception( "Failed to read contents of '$inputFile'." );
+		}
+	} else {
+		// no filename? read from stdin
+		$stdin = fopen( 'php://stdin', 'r' );
+		if ( $stdin === false ) {
+			throw new Exception( "Failed to open stdin for reading." );
+		}
+		$data = stream_get_contents( $stdin );
+		fclose( $stdin );
+	}
+
+	if ( $data != '' ) {
+		// and now to give the output shape
+		$json = json_decode( trim($data) );
+		if ( $json === null ) {
+			if ( function_exists('json_last_error') ) {
+				throw new Exception( "Failed to decode JSON data: '" . json_last_error() );
+			} else {
+				throw new Exception( "Failed to decode JSON data: $data." );
+			}
+		} else if ( $json != '' ) {
+			fwrite( $stdout, format_obj(json_decode($data), 0, 4, true) );
+			fclose( $stdout );
+		}
+	}
+} catch ( Exception $e ) {
+	echo $e->getMessage() . "\n";
+	exit( 1 );
+}
+
+?>

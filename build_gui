@@ -1,0 +1,45 @@
+#!/bin/bash -u
+
+BASE_DIR=$(cd $(dirname "$0") && pwd -P)
+SCRIPT_NAME=$(basename "$0")
+
+function fail {
+    echo "$@" >&2
+    exit 1
+	# clean up any temp files
+	[ -f common/js/.omega.dev.js.$$ ] && rm common/js/.omega.dev.js.$$
+	[ -f common/js/.omega.js.$$ ] && rm common/js/.omega.js.$$
+}
+
+cd "$BASE_DIR" || fail "Failed to change directory to '$BASE_DIR'."
+[[ -d common/css && common/js ]] || fail "huh? where am I?"
+jscc="java -jar $HOME/repo/scripts/compiler.jar"
+
+# TODO: make sure we're not over 4096 styles due to IE fails
+cat \
+    common/css/BoxFactory.class.css \
+    > common/css/omega.css
+
+cat \
+	common/js/core.js \
+	common/js/sprintf.js \
+	common/js/json.js \
+	common/js/Test.class.js \
+	common/js/BoxFactory.class.js \
+	common/js/OmegaClient.class.js \
+	common/js/ColorFactory.class.js \
+	common/js/Visualizer.class.js \
+	common/js/DataShed.class.js \
+	> common/js/.omega.dev.js.$$
+[ $? -eq 0 ] || fail "Failed to combine JS files together."
+
+# whitespace only so function names don't get clobbered
+#$jscc --compilation_level SIMPLE_OPTIMIZATIONS \
+#$jscc --compilation_level ADVANCED_OPTIMIZATIONS \
+$jscc --compilation_level WHITESPACE_ONLY \
+	--js common/js/.omega.dev.js.$$ \
+	> common/js/.omega.js.$$
+[ $? -eq 0 ] || fail "Failed to compile JS file."
+
+mv common/js/.omega.dev.js.$$ common/js/omega.dev.js || fail "Failed to move omega.dev.js into place."
+mv common/js/.omega.js.$$ common/js/omega.js || fail "Failed to move omega.js into place."
