@@ -36,10 +36,14 @@ dark_colors = {
 }
 
 def get_obj_info(obj, include_private = False):
+	try:
+		value = str(obj)
+	except UnicodeEncodeError:
+		value = repr(obj)
 	obj_info = {
 		'type': type(obj).__name__,
 		'callable': callable(obj),
-		'value': str(obj),
+		'value': value,
 		'repr': repr(obj),
 		'description': str(getattr(obj, '__doc__', '')).strip()
 	}
@@ -47,7 +51,7 @@ def get_obj_info(obj, include_private = False):
 	if obj_info['type'] == 'function':
 		obj_info['arg_spec'] = inspect.getargspec(obj)
 	elif not obj_info['type'] in ('str', 'int', 'float', 'bool', 'NoneType', 'unicode', 'ArgSpec'):
-		for key in dir(obj):
+		for key in sorted(dir(obj)):
 			if key.startswith('__') and not include_private:
 				continue
 			item = getattr(obj, key)
@@ -82,9 +86,9 @@ def print_tb():
 	])
 
 def obj2str(obj, depth = 0, color = True, indent_char = ' ', indent_size = 4, inline = True, short_form = False):
-	def shell_color(obj, obj_color):
+	def shell_color(text, obj_color):
 		if color:
-			return '\033[%sm%s\033[0;0m' % (obj_color, str(obj))
+			return '\033[%sm%s\033[0;0m' % (obj_color, text)
 		else:
 			return str(obj)
 
@@ -124,7 +128,7 @@ def obj2str(obj, depth = 0, color = True, indent_char = ' ', indent_size = 4, in
 				dump += shell_color(' (empty)', dark_colors['object'])
 			else:
 				skip_next_indent = True
-				for key in obj:
+				for key in sorted(obj):
 					item = obj[key]
 					item_info = get_obj_info(item)
 					# handy any indentation we may need to do
@@ -151,18 +155,20 @@ def obj2str(obj, depth = 0, color = True, indent_char = ' ', indent_size = 4, in
 				dump += shell_color(' (empty)', dark_colors['object'])
 			else:
 				dump += shell_color('(', dark_colors['bullet'])
-				dump += ', '.join([str(item)[0:32] for item in obj if item != ()])
+				dump += ', '.join([str(item)[0:32] for item in sorted(obj) if item != ()])
 				dump += shell_color(')', dark_colors['bullet'])
-		elif obj_info['type'] == 'str' or obj_info['type'] == 'unicode':
+		elif obj_info['type'] == 'str':
+			dump += shell_color(obj, dark_colors[obj_info['type']])
+		elif obj_info['type'] == 'unicode':
 			dump += shell_color(obj, dark_colors[obj_info['type']])
 		elif obj_info['type'] == 'bool':
-			dump += shell_color(obj, dark_colors[obj_info['type']])
+			dump += shell_color(str(obj), dark_colors[obj_info['type']])
 		elif obj_info['type'] == 'NoneType':
 			dump += shell_color('(none/null)', dark_colors[obj_info['type']])
 		elif obj_info['type'] == 'int':
-			dump += shell_color(obj, dark_colors[obj_info['type']])
+			dump += shell_color(str(obj), dark_colors[obj_info['type']])
 		elif obj_info['type'] == 'float':
-			dump += shell_color(obj, dark_colors[obj_info['type']])
+			dump += shell_color(str(obj), dark_colors[obj_info['type']])
 		elif obj_info['type'] == 'object':
 			dump += shell_color('(object)', dark_colors[obj_info['type']])
 		elif obj_info['type'] == 'instance':
@@ -188,8 +194,8 @@ def obj2str(obj, depth = 0, color = True, indent_char = ' ', indent_size = 4, in
 			dump += '\n'
 		return dump # hack hack hack!
 	string = rdump(obj, depth, indent_size, inline, short_form)
-	if not string.endswith('\n'):
-		string += '\n'
+	if string.endswith('\n'):
+		string = string[0:-1]
 	return string 
 
 def pause():
@@ -199,7 +205,7 @@ def pause():
 
 def pretty_print(obj, depth = 0, color = True, indent_char = ' ', indent_size = 4):
 	"""Pretty-prints the contents of the list, tupple, sequence, etc."""
-	sys.stdout.write(obj2str(obj, depth, color, indent_char, indent_size, True))
+	print obj2str(obj, depth, color, indent_char, indent_size, True)
 
 pp = pretty_print
 

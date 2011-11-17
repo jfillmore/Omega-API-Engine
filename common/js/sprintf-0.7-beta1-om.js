@@ -86,8 +86,7 @@ Changelog:
 				node_type = get_type(parse_tree[i]);
 				if (node_type === 'string') {
 					output.push(parse_tree[i]);
-				}
-				else if (node_type === 'array') {
+				} else if (node_type === 'array') {
 					match = parse_tree[i]; // convenience purposes only
 					if (match[2]) { // keyword argument
 						arg = argv[cursor];
@@ -97,11 +96,9 @@ Changelog:
 							}
 							arg = arg[match[2][k]];
 						}
-					}
-					else if (match[1]) { // positional argument (explicit)
+					} else if (match[1]) { // positional argument (explicit)
 						arg = argv[match[1]];
-					}
-					else { // positional argument (implicit)
+					} else { // positional argument (implicit)
 						arg = argv[cursor++];
 					}
 
@@ -137,11 +134,9 @@ Changelog:
 			while (_fmt) {
 				if ((match = /^[^\x25]+/.exec(_fmt)) !== null) {
 					parse_tree.push(match[0]);
-				}
-				else if ((match = /^\x25{2}/.exec(_fmt)) !== null) {
+				} else if ((match = /^\x25{2}/.exec(_fmt)) !== null) {
 					parse_tree.push('%');
-				}
-				else if ((match = /^\x25(?:([1-9]\d*)\$|\(([^\)]+)\))?(\+)?(0|'[^$])?(-)?(\d+)?(?:\.(\d+))?([b-fosuxX])/.exec(_fmt)) !== null) {
+				} else if ((match = /^\x25(?:([1-9]\d*)\$|\(([^\)]+)\))?(\+)?(0|'[^$])?(-)?(\d+)?(?:\.(\d+))?([b-fosuxX])/.exec(_fmt)) !== null) {
 					if (match[2]) {
 						arg_names |= 1;
 						var field_list = [], replacement_field = match[2], field_match = [];
@@ -150,29 +145,24 @@ Changelog:
 							while ((replacement_field = replacement_field.substring(field_match[0].length)) !== '') {
 								if ((field_match = /^\.([a-z_][a-z_\d]*)/i.exec(replacement_field)) !== null) {
 									field_list.push(field_match[1]);
-								}
-								else if ((field_match = /^\[(\d+)\]/.exec(replacement_field)) !== null) {
+								} else if ((field_match = /^\[(\d+)\]/.exec(replacement_field)) !== null) {
 									field_list.push(field_match[1]);
-								}
-								else {
+								} else {
 									throw('[sprintf] huh?');
 								}
 							}
-						}
-						else {
+						} else {
 							throw('[sprintf] huh?');
 						}
 						match[2] = field_list;
-					}
-					else {
+					} else {
 						arg_names |= 2;
 					}
 					if (arg_names === 3) {
 						throw('[sprintf] mixing positional and named placeholders is not (yet) supported');
 					}
 					parse_tree.push(match);
-				}
-				else {
+				} else {
 					throw('[sprintf] huh?');
 				}
 				_fmt = _fmt.substring(match[0].length);

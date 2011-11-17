@@ -72,11 +72,11 @@ class OmegaConfig implements OmegaApi {
 			$last = array_pop($path);
 			$obj = $this->config;
 			// walk through the parts of the path, and check that each part exists
-			foreach ($path as $part) {
-				if (isset($obj[$part])) {
-					$obj = $obj[$part];
+			foreach ($path as $item) {
+				if (isset($obj[$item])) {
+					$obj = $obj[$item];
 				} else {
-					throw new Exception("Invalid config path: '$part' not found in '" . join('.' . $path) . "'.");
+					throw new Exception("Invalid config path: '$item' not found in '" . join('.' . $path) . "'.");
 				}
 			}
 			if (isset($obj[$last])) {
@@ -87,9 +87,16 @@ class OmegaConfig implements OmegaApi {
 		}
 	}
 
+	/** Appends configuration keys to a branch of the configuration tree. Returns the updated config branch.
+		expects: path=string, items=object
+		returns: object */
+	private function append($path, $items) {
+		// TODO
+	}
+
 	/** Sets (and optionally creates) a named configuration value.
-		expects: path=string, value=undefined, new_item=boolean */
-	public function set($path, $value, $new_item = false) {
+		expects: path=string, value=undefined, new=boolean */
+	public function set($path, $value, $new = false) {
 		if ($path == '') {
 			throw new Exception("Invalid config path: '$path'.");
 		}
@@ -100,7 +107,7 @@ class OmegaConfig implements OmegaApi {
 			if ($path[0] == 'core') {
 				throw new Exception("Unable to add new values to the omega configuration.");
 			}
-			if (! $new_item) {
+			if (! $new) {
 				throw new Exception("Unable to set new configuration item '$path' without force.");
 			}
 		}

@@ -76,10 +76,15 @@ class OmegaAuthority extends OmegaSubservice {
 				$session = $om->shed->get($om->service_name . '/instances/sessions', $_COOKIE['OMEGA_SESSION_ID']);
 				$creds = $session['creds'];
 				// retry authentication using the session credentials
-				if (isset($creds['username']) && isset($creds['password'])) {
-					return $this->authenticate($creds);
+				if ($creds === null) {
+					// TODO: support anon access
+					throw new Exception("Missing username or password.");
 				} else {
-					throw new Exception("Invalid session credentials.");
+					if (isset($creds['username']) && isset($creds['password'])) {
+						return $this->authenticate($creds);
+					} else {
+						throw new Exception("Invalid session credentials.");
+					}
 				}
 			}
             throw new Exception("Missing username or password.");

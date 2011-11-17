@@ -16,6 +16,8 @@ import json
 import re
 import dbg
 import StringIO
+import os
+import tempfile
 from error import Error
 
 class OmegaClient:
@@ -26,9 +28,13 @@ class OmegaClient:
 	_hostname = None
 	_folder = '/'
 	_url = None
+	_session_coookie = None
+	_cookie_file = None
 	_useragent = 'OmegaClient/0.2'
 
 	def __init__(self, url = 'localhost', credentials = None, port = 5800, use_https = True):
+		self._cookie_file = os.path.expanduser('~/.omega_cookie') # tempfile.NamedTemporaryFile()
+		self._curl = pycurl.Curl()
 		self.set_url(url)
 		self.set_credentials(credentials)
 		self.set_port(port)
@@ -36,7 +42,8 @@ class OmegaClient:
 		# TODO: python 2.7 supports an order tuple object we can use to preserve order :)
 		self.encode = json.JSONEncoder().encode
 		self.decode = json.JSONDecoder().decode
-
+		# setup cookie jar
+	
 	def set_url(self, url):
 		if url != '':
 			self._url = url
@@ -117,7 +124,6 @@ class OmegaClient:
 		if api == '':
 			raise Exception("Invalid service API: '%s'." %api)
 		api = urllib.quote(api)
-		
 		curl = pycurl.Curl()
 		data = [
 			('OMEGA_ENCODING', (curl.FORM_CONTENTS, 'json')),
@@ -147,6 +153,8 @@ class OmegaClient:
 		curl.setopt(curl.URL, url) 
 		curl.setopt(curl.POST, 1)
 		curl.setopt(curl.USERAGENT, self._useragent)
+		curl.setopt(curl.COOKIEFILE, self._cookie_file)
+		curl.setopt(curl.COOKIEJAR, self._cookie_file)
 		if self._use_https:
 			curl.setopt(curl.SSL_VERIFYPEER, 0) # TODO: don't always assume
 			curl.setopt(curl.SSL_VERIFYHOST, 0) # TODO: don't always assume

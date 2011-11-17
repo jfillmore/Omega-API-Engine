@@ -476,8 +476,11 @@ class OmegaRequest implements OmegaApi {
 		// make sure the method is exists-- if not then see if the user has a ___404 method
 		if (! $r_class->hasMethod($method)) {
 			// TODO: make this a subservice for 404's
-			if (! $this->is_query() && $r_class->hasMethod( '___404')) {
-				return call_user_func_array(array($api_branch, '___404'), null);
+			if (! $this->is_query() && $r_class->hasMethod('___404')) {
+				return call_user_func_array(
+					array($api_branch, '___404'),
+					array($branches, $method, $this->get_api_params())
+				);
 			} else {
 				throw new Exception("API method '$method' does not exist.");
 			}
@@ -486,8 +489,11 @@ class OmegaRequest implements OmegaApi {
 		// not public or hidden (/^_/)? pretend you don't exist
 		if ($r_method->isPrivate() || substr($method, 0, 1) == '_') {
 			// TODO: make this a subservice for 404's
-			if (! $this->is_query() && $r_class->hasMethod( '___404')) {
-				return call_user_func_array(array($api_branch, '___404'), null);
+			if (! $this->is_query() && $r_class->hasMethod('___404')) {
+				return call_user_func_array(
+					array($api_branch, '___404'),
+					array($branches, $method, $this->get_api_params())
+				);
 			} else {
 				throw new Exception("API method '$method' does not exist.");
 			}
@@ -676,11 +682,11 @@ class OmegaRequest implements OmegaApi {
 					}
 					continue;
 				}
-				try {
-					$branch_r_class = new ReflectionClass(get_class($branch->$prop_name));
-				} catch (Exception $e) {
-					continue;
-				}
+					try {
+						$branch_r_class = new ReflectionClass(@get_class($branch->$prop_name));
+					} catch (Exception $e) {
+						continue;
+					}
 				if ($branch_r_class === false || $branch_r_class->implementsInterface('OmegaApi') === false) {
 					continue;
 				}
@@ -694,7 +700,19 @@ class OmegaRequest implements OmegaApi {
 				}
 				// otherwise add this to our list of branches, assuming we can make a reflection class out of the prop
 				if ((! $skip_branch)) {
-					$r_branch = new ReflectionClass($branch->$prop_name);
+					try {
+						$r_branch = new ReflectionClass($branch->$prop_name);
+					} catch (Exception $e) {
+						$r_branch = null;
+						// this appears to be an exception now, whereas before it would return null
+						/*
+						throw new OmegaException('WTF? ' . $e->getMessage(), array(
+							'prop_name' => $prop_name,
+							'branch' => $branch,
+							'doc_string' => $doc_string
+						));
+						*/
+					}
 					if ($r_branch === null) {
 						continue;
 					}
@@ -744,6 +762,17 @@ class OmegaRequest implements OmegaApi {
 							$data['methods'][$method_name] = $method_info['doc']['description'];
 						}
 					}
+				}
+			}
+			// if we have a 404 method, show it as '*'
+			$method_name = '___404';
+			if ($r_class->hasMethod($method_name)) {
+				$r_method = $r_class->getMethod($method_name);
+				$method_info = $this->_get_method_info($r_method, $verbose);
+				if ($verbose) {
+					$data['methods']['*'] = $method_info;
+				} else {
+					$data['methods']['*'] = $method_info['doc']['description'];
 				}
 			}
 		}

@@ -9,6 +9,45 @@ var om = {};
 
 (function (om) {
 	// misc functions
+	om.get = function (val, args, obj1, obj2, objN) {
+		// call function if given, and use supplied args.
+		// if args are a function, call them for the args.
+		// passes 'obj' to functions
+		var type, params, i, objs;
+		type = typeof(val);
+		objs = [];
+		if (type === 'function') {
+			if (arguments.length > 2) {
+				for (i = 2; i < arguments.length; i++) {
+					objs.push(arguments[i]);
+				}
+			} else {
+				objs = [];
+			}
+			if (typeof(args) === 'function') {
+				params = [args.apply(this, objs)];
+			} else {
+				params = [args];
+			}
+			for (i = 0; i < objs.length; i++) {
+				params.push(objs[i]);
+			}
+			return val.apply(this, params);
+		} else {
+			return val;
+		}
+	};
+	om.get_args = function (my_args, args, merge) {
+		var arg;
+		for (arg in args) {
+			if (args.hasOwnProperty(arg) && args[arg] !== undefined) {
+				if (arg in my_args || merge) {
+					my_args[arg] = args[arg];
+				}
+			}
+		}
+		return my_args;
+	};
 	om.subtract = function (f1, f2) {
 		var sig_digs, d1, d2;
 		// determine how many significant digits we have and maintain that precision

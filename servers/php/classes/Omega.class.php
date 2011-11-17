@@ -241,10 +241,12 @@ class Omega implements OmegaApi {
 		} else if ($scope == 'user') {
 			// user scope means each user has their own private service instance
 			// only supported if the authority service is available
-			if ($this->subservice->is_enabled('authority')) {
-				throw new Exception("Unable to run service at the 'user' level without the authority service.");
+			if (! $this->subservice->is_enabled('authority')) {
+				//throw new Exception("Unable to run service at the 'user' level without the authority service.");
+				$username = 'nobody';
+			} else {
+				$username = $this->subservice->authority->authed_username;
 			}
-			$username = $this->subservice->authority->authed_username;
 			try {
 				$this->service = $this->shed->get($this->service_name . '/instances/users', $username);
 			} catch (Exception $e) {

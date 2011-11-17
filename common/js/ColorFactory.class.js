@@ -37,7 +37,11 @@
 				if (args.format === 'hex') {
 					return color;
 				}
-			} else if (color.substr(0, 4) === 'rgb(') {
+			} else if (color.substr(0, 3) === 'rgb') {
+				if (color.substr(0, 4) === 'rgba') {
+					// kill the alpha part if present
+					color = color.replace(/, \d+\)/, ')');
+				}
 				// e.g. rgb(255, 41, 6)
 				// no conversion needed
 				if (args.format === 'rgb') {
@@ -160,10 +164,9 @@
 			throw new Error("Unrecognized color type: " + color + '.');
 		}
 
-		// and return as the requested format
-		if (args.format === 'hex') {
+		// and return as the requested format - we're in hex by default
 			// still nothin' to do
-		} else if (args.format === 'rgb') {
+		if (args.format === 'rgb') {
 			color = 'rgb(' + parseInt(color.substr(1, 2), 16) + ', '
 				+ parseInt(color.substr(3, 2), 16) + ', '
 				+ parseInt(color.substr(5, 2), 16) + ')';
@@ -205,7 +208,8 @@
 				'g': parseInt(color.substr(3, 2), 16),
 				'b': parseInt(color.substr(5, 2), 16)
 			};
-		} else {
+		} else if (args.format !== 'hex') {
+			// we're in hex by default
 			throw new Error("Invalid color format: '" + args.format + "'.");
 		}
 		return color;

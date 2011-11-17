@@ -79,7 +79,7 @@
 .om_input input.om_input_value[type=password],
 .om_input textarea {
 	border: 1px solid #666;
-	background-color: #e0e0e0;
+	background-color: #f0f0f0;
 	color: #222;
 }
 

@@ -31,11 +31,15 @@
 		};
 
 		shed.forget = function (bin, key) {
-			delete shed.storage[bin][key];
+			if (bin in shed.storage && key in shed.storage[bin]) {
+				delete shed.storage[bin][key];
+			}
 		};
 
 		shed.dump_bin = function (bin) {
-			delete shed.storage[bin];
+			if (bin in shed.storage) {
+				delete shed.storage[bin];
+			}
 		};
 
 		shed.store = function (bin, key, value) {

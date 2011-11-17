@@ -13,9 +13,9 @@ class OmegaDatabase {
 	public $username;
 	public $password;
 	public $dbname;
-	public $type; // 'psql' or 'mysql'
+	public $type; // 'psql', 'mysql', 'mysqli'
 	private $conn;
-	private $tr_dept; // transaction depth marker
+	private $tr_depth; // transaction depth marker
 	private $tr_rolling_back; // whether or not the transaction has started rolling back
 
 	public function __construct($hostname, $username, $password, $dbname, $type) {
@@ -63,6 +63,14 @@ class OmegaDatabase {
 				if ($this->conn === false) {
 					throw new Exception("Couldn't connect to database at '" . $this->hostname . "': " . pg_result_error() . ".");
 				}
+			} else if ($this->type == 'mysqli') {
+				$this->conn = new mysqli($this->hostname, $this->username, $this->password); 
+				if ($this->conn == false){
+					throw new Exception("Couldn't connect to database at '" . $this->hostname . "': " . mysql_error() . ".");
+				}
+				if (! $this->conn->select_db($this->dbname)) {
+					throw new Exception("Couldn't select database '" . $this->dbname . "': " . mysql_error($this->conn) . ".");
+				}
 			} else if ($this->type == 'mysql') {
 				$this->conn = mysql_pconnect($this->hostname, $this->username, $this->password); 
 				if ($this->conn == false){
@@ -83,6 +91,10 @@ class OmegaDatabase {
 			IF (! pg_close($this->conn)) {
 				throw new Exception("Couldn't disconnect from database.");
 			}
+		} elseif ($this->type == 'mysqli') {
+			if (! $this->conn->close()) {
+				throw new Exception("Couldn't disconnect from database.");
+			}
 		} elseif ($this->type == 'mysql') {
 			if (! mysql_close($this->conn)) {
 				throw new Exception("Couldn't disconnect from database.");
@@ -96,14 +108,21 @@ class OmegaDatabase {
 	/** Returns a database engine specific sanitized version of the string
 		expects: string=string
 		returns: string */
-	public function escape($string) {
+	public function escape($string, $strip_slashes = false) {
+		$string = (string)$string;
+		if ($strip_slashes) {
+			stripslashes($string);
+		}
 		if ($this->type == 'psql') {
-			return pg_escape_string(stripslashes((string)$string));
-		} else if ($this->type  == 'mysql') {
-			return mysql_real_escape_string(stripslashes((string)$string)); 
+			$string = pg_escape_string($string);
+		} else if ($this->type == 'mysqli') {
+			$string = $this->conn->real_escape_string($string); 
+		} else if ($this->type == 'mysql') {
+			$string = mysql_real_escape_string($string); 
 		} else {
 			throw new Exception("Invalid database type: '$this->type'.");
 		}
+		return $string;
 	}
 
 	/** Starts a transaction the first time it is called. Increases the transaction depth each time it is called. Returns whether or not a transaction was started.
@@ -174,7 +193,7 @@ class OmegaDatabase {
 		if ($this->type == 'psql') {
 			$db_result = @pg_query($this->conn, $query);
 			if ($db_result === false) {
-				throw new Exception(pg_last_error($this->conn) . " Query: $query");
+				throw new Exception(pg_last_error($this->conn));
 			}
 			if ($parser == 'array') {
 				$result = array();
@@ -190,10 +209,38 @@ class OmegaDatabase {
 			} else {
 				throw new Exception("Invalid query parser: '$parser'.");
 			}
+		} else if ($this->type  == 'mysqli') {
+			$db_result = @$this->conn->query($query);
+			if ($db_result === false) {
+				throw new Exception('Error ' . $this->conn->errno . ' - ' . $this->conn->error);
+			} else if ($db_result === true) {
+				return true;
+			} else {
+				if ($parser == 'array') {
+					$result = array();
+					$meta = $db_result->fetch_fields();
+					while ($row = $db_result->fetch_object()) {
+						$fields = array();
+						$i = 0;
+						foreach ($row as $name => $field) {
+							$fields[$name] = $this->typecast($field, $meta[$i++]->type);
+						}
+						if ($key_col !== null && isset($fields[$key_col])) {
+							$result[$fields[$key_col]] = $fields;
+						} else {
+							$result[] = $fields;
+						}
+					}
+				} else if ($parser == 'raw') {
+					$result = $db_result;
+				} else {
+					throw new Exception("Invalid query parser: '$parser'.");
+				}
+			}
 		} else if ($this->type  == 'mysql') {
 			$db_result = @mysql_query($query, $this->conn);
 			if ($db_result === false) {
-				throw new Exception(mysql_error($this->conn) . ". Query: $query");
+				throw new Exception(mysql_error($this->conn));
 			} else if ($db_result === true) {
 				return true;
 			} else {
@@ -218,10 +265,54 @@ class OmegaDatabase {
 		return $result;
 	}
 
+	private function typecast($value, $type) {
+		$types = array(
+			0 => "DECIMAL",
+			1 => "TINYINT",
+			2 => "SMALLINT",
+			3 => "INTEGER",
+			4 => "FLOAT",
+			5 => "DOUBLE",
+			7 => "TIMESTAMP",
+			8 => "BIGINT",
+			9 => "MEDIUMINT",
+			10 => "DATE",
+			11 => "TIME",
+			12 => "DATETIME",
+			13 => "YEAR",
+			14 => "DATE",
+			16 => "BIT",
+			246 => "DECIMAL",
+			247 => "ENUM",
+			248 => "SET",
+			249 => "TINYBLOB",
+			250 => "MEDIUMBLOB",
+			251 => "LONGBLOB",
+			252 => "BLOB",
+			253 => "VARCHAR",
+			254 => "CHAR",
+			255 => "GEOMETRY",
+		);
+		$type = $types[$type];
+		if (in_array($type, array('DATE', 'TIME', 'DATETIME', 'VHARCHAR', 'CHAR', 'TIMESTAMP'))) {
+			return $value;
+		} else if (in_array($type, array('DECIMAL', 'FLOAT', 'DOUBLE'))) {
+			return (double)$value;
+		} else if (in_array($type, array('BIT'))) {
+			return (boolean)$value;
+		} else if (in_array($type, array('TINYINT', 'SMALLINT', 'INTEGER'))) {
+			return (int)$value;
+		}  else {
+			return $value;
+		}
+	}
+
 	/** Returns the ID assigned in the last INSERT query.
 		returns: string */
 	public function get_last_id() {
-		if ($this->type == 'mysql') {
+		if ($this->type == 'mysqli') {
+			return $this->conn->insert_id;
+		} else if ($this->type == 'mysql') {
 			return mysql_insert_id();
 		} else {
 			throw new Exception("The database method 'get_last_id' is not support for the database type '" . $this->type . "'.");

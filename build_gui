@@ -1,45 +1,109 @@
 #!/bin/bash -u
 
+# omega API engine
+# http://code.google.com/p/theomega/
+# 
+# Copyright 2011, Jonathon Fillmore
+# Licensed under the MIT license. See LICENSE file.
+# http://www.opensource.org/licenses/mit-license.php
+
 BASE_DIR=$(cd $(dirname "$0") && pwd -P)
 SCRIPT_NAME=$(basename "$0")
 
-function fail {
-    echo "$@" >&2
-    exit 1
-	# clean up any temp files
-	[ -f common/js/.omega.dev.js.$$ ] && rm common/js/.omega.dev.js.$$
-	[ -f common/js/.omega.js.$$ ] && rm common/js/.omega.js.$$
+function usage {
+	echo "$SCRIPT_NAME [target]" >&2
 }
 
+function fail {
+	echo "$@" >&2
+	# clean up temp files
+	[ -f "$js_dir/$name$target.js.compiling" ] && rm "$js_dir/$name$target.js.compiling"
+	[ -f "$js_dir/.$name.dev.js.$$"  ] && rm "$js_dir/.$name.dev.js.$$" 
+	[ -f "$css_dir/.$name$target.css.$$" ] && rm "$css_dir/.$name$target.css.$$"
+	exit 1
+}
+
+# variable to customize build by -- TODO: build into param system
+#======================================================
+name=$(basename "$BASE_DIR")
+js_dir="common/js"
+css_dir="common/css"
+js_files=(
+	$js_dir/core.js
+	$js_dir/sprintf.js
+	$js_dir/json.js
+	$js_dir/Test.class.js
+	$js_dir/BoxFactory.class.js
+	$js_dir/OmegaClient.class.js
+	$js_dir/ColorFactory.class.js
+	$js_dir/Visualizer.class.js
+	$js_dir/DataShed.class.js
+)
+css_files=(
+    $css_dir/BoxFactory.class.css
+)
+compiler=~/scripts/compiler.jar
+optimization=WHITESPACE_ONLY
+#optimization=SIMPLE_OPTIMIZATIONS
+#optimization=ADVANCED_OPTIMIZATIONS 
+os_user=wendel
+os_group=wendel
+os_perms=444
+
+
+# start of logic
+#======================================================
+# pick our build target
+if [ $# -eq 1 ]; then
+	target="-$1"
+else
+	target=''
+fi
+
+# sanity check
 cd "$BASE_DIR" || fail "Failed to change directory to '$BASE_DIR'."
-[[ -d common/css && common/js ]] || fail "huh? where am I?"
-jscc="java -jar $HOME/repo/scripts/compiler.jar"
+[[ -d "$css_dir" && "$js_dir" ]] || fail "huh? where am I? can't find $css_dir or $js_dir."
+java -version &>/dev/null || fail "Missing or broken java JRE."
+jscc="java -jar $compiler"
+cc_code='var a=3;'
+cc_test=$(echo "$cc_code" | $jscc)
+[ "$cc_code" == "$cc_test" ] || fail "compiler not found or working properly"
 
-# TODO: make sure we're not over 4096 styles due to IE fails
-cat \
-    common/css/BoxFactory.class.css \
-    > common/css/omega.css
+#
+# JavaScript
+# ----------
+cat ${js_files[*]} > "$js_dir/.$name.dev.js.$$" || fail "Failed to concatinate javascript files together."
+#TODO: run through jslint first and abort on errors, customizing as needed?
+$jscc --compilation_level $optimization \
+	--js $js_dir/.$name.dev.js.$$ \
+	> "$js_dir/$name$target.js.compiling"
+# set perms if root
+[ $? -eq 0 ] && {
+	chown $os_user:$os_group "$js_dir/$name$target.js.compiling" || fail "Failed to chown '$js_dir/$name$target.js.compiling' to $os_user:$os_group"
+	chmod $os_perms "$js_dir/$name$target.js.compiling" || fail "Failed to chmod '$js_dir/$name$target.js.compiling' to $os_perms"
+	chown $os_user:$os_group "$js_dir/.$name.dev.js.$$" || fail "Failed to chown '$js_dir/.$name.dev.js.$$' to $os_user:$os_group"
+	chmod $os_perms "$js_dir/.$name.dev.js.$$" || fail "Failed to chmod $js_dir/.$name.dev.js.$$ to $os_perms"
+}
+# update build target
+mv -f "$js_dir/$name$target.js.compiling" "$js_dir/$name$target.js" || fail "Failed to update '$js_dir/$name$target.js' with compiled javascript."
+ # dev build for debugging production
+mv -f "$js_dir/.$name.dev.js.$$" "$js_dir/$name.dev.js" || fail "Failed to update '$js_dir/$name.dev.js' for development build"
 
-cat \
-	common/js/core.js \
-	common/js/sprintf.js \
-	common/js/json.js \
-	common/js/Test.class.js \
-	common/js/BoxFactory.class.js \
-	common/js/OmegaClient.class.js \
-	common/js/ColorFactory.class.js \
-	common/js/Visualizer.class.js \
-	common/js/DataShed.class.js \
-	> common/js/.omega.dev.js.$$
-[ $? -eq 0 ] || fail "Failed to combine JS files together."
+#
+# CSS
+# ---
+cat ${css_files[*]} > "$css_dir/.$name$target.css.$$" || fail "Failed to concatinate CSS files together."
+# TODO: get some CSS validator/minifier?
+# set perms if root
+[ $? -eq 0 ] && {
+	chown $os_user:$os_group "$css_dir/.$name$target.css.$$" || fail "Failed to chown $css_dir/.$name$target.css.$$ to $os_user:$os_group"
+	chmod $os_perms "$css_dir/.$name$target.css.$$" || fail "Failed to chmod $css_dir/.$name$target.css.$$ to $os_perms"
+}
+# update build target
+mv -f "$css_dir/.$name$target.css.$$" "$css_dir/$name$target.css" || fail "Failed to update $css_dir/$name$target.css with compiled CSS."
 
-# whitespace only so function names don't get clobbered
-#$jscc --compilation_level SIMPLE_OPTIMIZATIONS \
-#$jscc --compilation_level ADVANCED_OPTIMIZATIONS \
-$jscc --compilation_level WHITESPACE_ONLY \
-	--js common/js/.omega.dev.js.$$ \
-	> common/js/.omega.js.$$
-[ $? -eq 0 ] || fail "Failed to compile JS file."
+# check for 4096+ styles and QQ-- I believe IE shits itself when this happens
+# TODO: find a better way to check this... but it *should* be safe enough of a check for now :)
+[[ $(grep -c '}' $css_dir/$name$target.css) -ge 4096 ]] && fail "BUILD SUCCESSFUL; BUT CSS HAS GONE OVER 4096 LINES. INTERNET EXPLODER MIGHT SHIT ITSELF."
 
-mv common/js/.omega.dev.js.$$ common/js/omega.dev.js || fail "Failed to move omega.dev.js into place."
-mv common/js/.omega.js.$$ common/js/omega.js || fail "Failed to move omega.js into place."
+exit 0

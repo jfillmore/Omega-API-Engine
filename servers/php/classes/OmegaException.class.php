@@ -61,12 +61,12 @@ class OmegaException extends Exception {
 			if (! is_array($this->data)) {
 				$this->data = array($this->data);
 			}
-		}
-		$email_body .= "\n\nOBJECTS:\n===============================\n";
-		foreach ($this->data as $i => $obj) {
-			$email_body .= "[$i]\n";
-			$email_body .= var_export($obj, true) . "\n";
-			$email_body .= "-------------------------------\n";
+			$email_body .= "\n\nOBJECTS:\n===============================\n";
+			foreach ($this->data as $i => $obj) {
+				$email_body .= "[$i]\n";
+				$email_body .= var_export($obj, true) . "\n";
+				$email_body .= "-------------------------------\n";
+			}
 		}
 		$this->subject = $om->service_name . ' (' . $om->whoami() . ') Exception: ' . $message;
 		$this->body = $email_body;

@@ -15,13 +15,11 @@ abstract class OmegaCrudable {
 		),
 		'user_id' => array(
 			'type' => 'INT',
-			
 			'default' => null,
-			'flags' => array('AUTO_INCREMENT'),
 			'foreign_key' => array(
 				'table' => 'user',
 				'prop' => 'id',
-				'crudable' => false
+				'flags' => array('ON UPDATE CASCADE', 'ON DELETE CASCADE')
 			)
 		),
 		'subject' => array(
@@ -30,15 +28,13 @@ abstract class OmegaCrudable {
 			'description' => 'Subject of comment.',
 			'default' => null,
 			'index' => true,
-			'validate_re' => '/^[a-zA-Z0-9 \.!]$/',
-			'flags' => array('AUTO_INCREMENT')
+			'validate_re' => '/^[a-zA-Z0-9 \.!]$/'
 		),
 		'comment' => array(
 			'type' => 'VARCHAR(160)',
 			'nice_name' => 'comment contents',
 			'description' => 'Your comments about anything you want to tell me about.',
-			'default' => null,
-			'flags' => array('AUTO_INCREMENT')
+			'default' => null
 		)
 	);
 	*/
@@ -88,11 +84,88 @@ abstract class OmegaCrudable {
 		return false;
 	}
 
-	/** Dump out (default 'mysql') the structure and all of the data. Includes both the structure and data by default.
+	/** Dump out (default 'mysql') the structure and all of the data. Includes both the structure and data by default, as well as drops the table if needed before creating it..
 		expects: format=string, data=boolean
 		returns: string */
-	public function _dump($format = 'mysql', $data = true) {
-		throw new Exception("TODO.");
+	public function _dump($format = 'mysql', $data = true, $reset = true) {
+		// TODO: support CSV and XML
+		$table = $this->_get_table();
+		if ($format === 'mysql') {
+			// generate the table structure
+			$structure = array();
+			// add a reset if requested
+			if ($reset) {
+				$structure[] = "DROP TABLE IF EXISTS `$table`;";
+			}
+			$structure[] = "CREATE TABLE `$table` (";
+			$props = $this->_get_props();
+			$cols = array();
+			foreach ($props as $name => $prop) {
+				$cols[] = "    " . $this->prop_sql($name, $prop);
+			}
+			$structure[] = implode(",\n", $cols);
+			$structure[] = ") ENGINE=INNODB;";
+			$retval = implode("\n", $structure);
+			// include the data if requested
+			if ($data) {
+				$data = array();
+				foreach ($this->_request() as $row) {
+					 // TODO
+					 throw new Exception("Not yet supported.");
+				}
+				$retval .= "\n-- data for table $table --\n";
+				$retval .= implode("\n", $data);
+			}
+		} else {
+			throw new Exception("Unsupported format: '$format'.");
+		}
+		return $retval;
+	}
+
+	private function prop_sql($name, $prop) {
+		$sql = "`$name` " .  strtoupper($prop['type']);
+		if (isset($prop['flags'])) {
+			if (in_array('NOT NULL', $prop['flags'])) {
+				$sql .= ' NOT NULL';
+			}
+			if (in_array('AUTO_INCREMENT', $prop['flags'])) {
+				$sql .= ' AUTO_INCREMENT';
+			}
+		}
+		if (isset($prop['default'])) {
+			if ($prop['default'] === null) {
+				$sql .= " DEFAULT null";
+			} else {
+				if ($this->_is_datetime($prop) || $this->_is_string($prop)) {
+					$sql .= " DEFAULT '" . $prop['default'] . "'";
+				} else {
+					$sql .= " DEFAULT " . $prop['default'];
+				}
+			}
+		}
+		if (isset($prop['foreign_key'])) {
+			$fk = $prop['foreign_key'];
+			$sql .= " FOREIGN KEY (`$name`) REFERENCES `" . $fk['table'] . "` (`" . $fk['prop'] . "`)";
+			// tack on our flags if we have any
+			if (isset($fk['flags'])) {
+				foreach ($fk['flags'] as $flag) {
+					if (preg_match('/^ON (UPDATE|DELETE) (RESTRICT|CASCADE|SET NULL|NO ACTION)$/i', $flag)) {
+						$sql .= strtoupper($flag);
+					} else {
+						throw new Exception("Unrecognized foreign key flag for $name: $flag.");
+					}
+				}
+			}
+		} else if (isset($prop['primary_key']) && $prop['primary_key']) {
+			$sql .= ' PRIMARY KEY';
+		}
+		if (isset($prop['unique'])) {
+			$sql .= ",\n     UNIQUE (`$name`)";
+		}
+		if (isset($prop['index'])) {
+			$sql .= ",\n    INDEX (`$name`)";
+		}
+		return $sql;
 	}
 
 	/** Returns information about the object type, optionally including additional descriptive information.
@@ -110,13 +183,51 @@ abstract class OmegaCrudable {
 		}
 		foreach ($this->_get_props() as $name => $args) {
 			$desc = '';
+			if ($verbose) {
+				if (isset($args['nice_name'])) {
+					$desc .= $args['nice_name'];
+				}
+			}
 			if (isset($args['description']) && strlen($args['description'])) {
+				if (strlen($desc)) {
+					$desc .= ' - ';
+				}
 				$desc .= $args['description'];
 			}
 			if ($verbose) {
-				if (isset($args['default'])) {
-					$desc .= ' Default: ' . $args['default'];
+				// show any type and dimensional info
+				$verb_desc = array();
+				$type_info = $this->_parse_type($args['type']);
+				if ($type_info['type_arg'] !== null) {
+					if ($this->_is_string($type_info['type'])) {
+						$verb_desc[] = 'max length: ' . $type_info['type_arg'];
+					} else if ($this->_is_float($type_info['type'])) {
+						$parts = explode(',', $type_info['type_arg']);
+						$max_value = pow(10, $parts[1] - $parts[2]);
+						$verb_desc[] = 'max value/decimal points: ' . $max_value . '/' . $parts[2];
+					} else if ($this->_is_integer($type_info['type'])) {
+						$verb_desc[] = 'max value: ' . $type_info['type_arg'];
+					} else {
+						$verb_desc[] = $type_info['type'] . ': ' . $type_info['type_arg'];
+					}
 				}
+				// show our default value
+				if (isset($args['default'])) {
+					if ($args['default'] === '') {
+						$args['default'] = '[blank]';
+					} else if ($args['default'] === null) {
+						$args['default'] = '[none]';
+					}
+					$verb_desc[] = 'default: ' . $args['default'];
+				}
+				// tack on any verbose info collected
+				if (count($verb_desc)) {
+					if (strlen($desc)) {
+						$desc .= ' ';
+					}
+					$desc .= '(' . join(', ', $verb_desc) . ')';
+				}
+				// keep track of related data in foreign key constraints
 				if (isset($args['foreign_key']) && $args['foreign_key']) {
 					$props['related_data'][] = $args['foreign_key']['table'] . '.' . $args['foreign_key']['prop'];
 				}
@@ -145,8 +256,10 @@ abstract class OmegaCrudable {
 		return $props;
 	}
 
-	public function _create($props) {
-		throw new Exception("TODO.");
+	/** Insert a row into the database using the supplied properties. Returns the ID of the created row.
+		expects: props=object, auto_escape=boolean
+		returns: number */
+	public function _create($props, $auto_escape = true) {
 		if (! is_array($props)) {
 			throw new Exception("Invalid properties to create object with $props.");
 		} else if (count($props) == 0) {
@@ -155,46 +268,72 @@ abstract class OmegaCrudable {
 			$errors = $this->_validate_props($props);
 		}
 		if (count($errors)) {
-			throw new Exception("Unable to perform update. " . join(' ', $errors));
+			$error_msgs = array();
+			foreach ($errors as $error_list) {
+				$error_msgs[] = join(' ', $error_list);
+			}
+			throw new Exception("Unable to create row. " . join(' ', $error_msgs));
 		}
 		$prop_names = array_keys($props);
-		$pairs = array();
+		$keys = array();
+		$values = array();
 		$my_props = $this->_get_props();
 		foreach ($props as $name => $value) {
 			$prop = $my_props[$name];
-			if ($this->_is_string($prop['type'])) {
+			$keys[] = '`' . $name . '`';
+			if ($value === null) {
+				$values[] = 'NULL';
+			} else if ($this->_is_string($prop['type'])) {
 				if (preg_match("/^'.*'$/", $value)) {
-					$pairs[] = $name . ' = ' . $value;
+					$values[] = $value;
 				} else {
 					if ($auto_escape) {
-						$pairs[] = $name . " = '" . $this->db->escape($value) . "'";
+						$values[] = "'" . $this->db->escape($value) . "'";
 					} else {
-						$pairs[] = $name . " = '" . $value . "'";
+						$values[] = "'" . $value . "'";
 					}
 				}
-			} else {
-				if ($auto_escape) {
-					$pairs[] = $name . ' = ' . $this->db->escape($value);
+			} else if ($this->_is_datetime($prop['type'])) {
+				// dates should always be safe to escape
+				if (preg_match("/^'.*'$/", $value)) {
+					$values[] = $this->db->escape($value);
 				} else {
-					$pairs[] = $name . ' = ' . $value;
+					$values[] = "'" . $this->db->escape($value) . "'";
 				}
+			} else {
+				// auto-escape all other types by default
+				$values[] = $this->db->escape($value);
 			}
 		}
-		$sql = 'UPDATE `' . $this->_get_table() . '` SET ' . join(', ', $pairs) . ' WHERE ' . $this->_parse_where($where);
+		$sql = 'INSERT INTO `' . $this->_get_table() . '` (' . join(', ', $keys) . ') VALUES (' . join(', ', $values) . ')';
 		$this->db->query($sql);
-		return $this->_request($where);
+		$last_id = $this->db->get_last_id();
+		return $last_id;
 	}
 
 	/** Remove the specified object. Returns information about the removed data.
 		expects: obj=object
-		returns: object. */
+		returns: object */
 	public function _remove($index) {
-		throw new Exception("TODO.");
+		$obj = $this->_get($index);
+		$pkey_name = $this->_get_primary_key();
+		$pkey_value = $obj[$pkey_name];
+		$sql = "DELETE FROM `" . $this->_get_table() . "` WHERE `$pkey_name` = ";
+		// add quotes if needed on pkey
+		$my_props = $this->_get_props();
+		$pkey_type = $my_props[$pkey_name]['type'];
+		if ($this->_is_string($pkey_type)) {
+			$sql .= "'" . $this->db->escape($pkey_value) . "'";
+		} else {
+			$sql .= $this->db->escape($pkey_value);
+		}
+		$this->db->query($sql);
+		return $obj;
 	}
 
 	/** Update the properties listed for the specified objects. Returns the updated object information.
 		expects: obj=object, props=object, auto_escape=boolean
-		returns: obj */
+		returns: object */
 	public function _update($where, $props, $auto_escape = true) {
 		if (! is_array($props)) {
 			throw new Exception("Invalid properties to update: $props.");
@@ -204,15 +343,22 @@ abstract class OmegaCrudable {
 			$errors = $this->_validate_props($props);
 		}
 		if (count($errors)) {
-			throw new Exception("Unable to perform update. " . join(' ', $errors));
+			$error_msgs = array();
+			foreach ($errors as $error_list) {
+				$error_msgs[] = join(' ', $error_list);
+			}
+			throw new Exception("Unable to perform update. " . join(' ', $error_msgs));
 		}
 		$prop_names = array_keys($props);
 		$pairs = array();
 		$my_props = $this->_get_props();
 		foreach ($props as $name => $value) {
 			$prop = $my_props[$name];
-			if ($this->_is_string($prop['type'])) {
+			if ($value === null) {
+				$pairs[] = $name . ' = NULL';
+			} else if ($this->_is_string($prop['type'])) {
 				if (preg_match("/^'.*'$/", $value)) {
+					// quoted? assume it's escaped
 					$pairs[] = $name . ' = ' . $value;
 				} else {
 					if ($auto_escape) {
@@ -221,12 +367,16 @@ abstract class OmegaCrudable {
 						$pairs[] = $name . " = '" . $value . "'";
 					}
 				}
-			} else {
-				if ($auto_escape) {
-					$pairs[] = $name . ' = ' . $this->db->escape($value);
+			} else if ($this->_is_datetime($prop['type'])) {
+				// dates should always be safe to force escape
+				if (preg_match("/^'.*'$/", $value)) {
+					$pairs[] = $name . " = " . $this->db->escape($value);
 				} else {
-					$pairs[] = $name . ' = ' . $value;
+					$pairs[] = $name . " = '" . $this->db->escape($value) . "'";
 				}
+			} else {
+				// other types should always be safe to force escape
+				$pairs[] = $name . ' = ' . $this->db->escape($value);
 			}
 		}
 		$sql = 'UPDATE `' . $this->_get_table() . '` SET ' . join(', ', $pairs) . ' WHERE ' . $this->_parse_where($where);
@@ -248,7 +398,7 @@ abstract class OmegaCrudable {
 		return $errors;
 	}
 
-	public function _is_integer($type) {
+	private function _parse_type($type) {
 		$parts = preg_split('/[\(\)]/', $type);
 		if (count($parts) === 1) {
 			$type = $type;
@@ -257,31 +407,30 @@ abstract class OmegaCrudable {
 			$type = $parts[0];
 			$type_arg = $parts[1];
 		}
-		return in_array(strtoupper($type), array('TINYINT', 'SMALLINT', 'MEDIUMINT', 'INT', 'BIGINT'));
+		return array(
+			'type' => $type,
+			'type_arg' => $type_arg
+		);
+	}
+
+	public function _is_integer($type) {
+		$type_info = $this->_parse_type($type);
+		return in_array(strtoupper($type_info['type']), array('TINYINT', 'SMALLINT', 'MEDIUMINT', 'INT', 'BIGINT'));
 	}
 
 	public function _is_float($type) {
-		$parts = preg_split('/[\(\)]/', $type);
-		if (count($parts) === 1) {
-			$type = $type;
-			$type_arg = null;
-		} else {
-			$type = $parts[0];
-			$type_arg = $parts[1];
-		}
-		return in_array(strtoupper($type), array('FLOAT', 'REAL', 'DOUBLE PRECISION', 'DECIMAL', 'NUMBER'));
+		$type_info = $this->_parse_type($type);
+		return in_array(strtoupper($type_info['type']), array('FLOAT', 'REAL', 'DOUBLE PRECISION', 'DECIMAL', 'NUMBER'));
 	}
 
 	public function _is_string($type) {
-		$parts = preg_split('/[\(\)]/', $type);
-		if (count($parts) === 1) {
-			$type = $type;
-			$type_arg = null;
-		} else {
-			$type = $parts[0];
-			$type_arg = $parts[1];
-		}
-		return in_array(strtoupper($type), array('VARCHAR', 'CHAR', 'BINARY', 'VARBINARY', 'BLOB', 'TEXT', 'SET'));
+		$type_info = $this->_parse_type($type);
+		return in_array(strtoupper($type_info['type']), array('VARCHAR', 'CHAR', 'BINARY', 'VARBINARY', 'BLOB', 'TEXT', 'SET'));
+	}
+
+	public function _is_datetime($type) {
+		$type_info = $this->_parse_type($type);
+		return in_array(strtoupper($type_info['type']), array('DATETIME'));
 	}
 
 	/** Validates the specified property. Returns a list of any errors found.
@@ -289,11 +438,11 @@ abstract class OmegaCrudable {
 		returns: array */
 	public function _validate($key, $value) {
 		$table = $this->_get_table();
-		if (! in_array($key, array_keys($this->_get_props()))) {
+		$props = $this->_get_props();
+		if (! isset($props[$key])) {
 			throw new Exception("Unrecognized key '$key' for table '$table'.");
 		}
 		// what name do we use in error messages?
-		$props = $this->_get_props();
 		$def = $props[$key];
 		if (isset($def['nice_name'])) {
 			$nice_name = $def['nice_name'];
@@ -320,8 +469,19 @@ abstract class OmegaCrudable {
 				if ($value == '' || ! preg_match('/^(-?[0-9]+)?(\.[0-9]+)?$/', $value)) {
 					$errors[] = "The value '$value' for $nice_name must be a decimal number.";
 				}
+			} else if ($this->_is_datetime($type)) {
+				if ($type_arg !== null) {
+					 if (! preg_match('/^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$/', $value)) {
+					 	throw new Exception("The value for $nice_name must be a valid date and time (e.g. 2011-04-05 16:00:00.");
+					 }
+				}
+			} else if ($this->_is_string($type)) {
+				if ($type_arg !== null) {
+					 if (strlen($value) > $type_arg) {
+					 	throw new Exception("The value for $nice_name may not exceed $type_arg characters.");
+					 }
+				}
 			}
-			// TODO: check string lengths
 		}
 		// check value based on flags
 		if (isset($def['flags'])) {
@@ -347,10 +507,9 @@ abstract class OmegaCrudable {
 	public function _request($where = null, $props = null, $joins = null, $count = null, $offset = null, $args = null) {
 		global $om;
 		$args = $om->_get_args(array(
-			'sort_by' => null, // column to sort by
-			'sort_desc' => false, // sort in descending order
 			'order_by' => null, // column to sort on
-			'keyed' => true // key data on primary key (e.g. return {"3": {"id": 3, "name": "foo"};)
+			'reverse' => false, // sort in descending order
+			'keyed' => null // key data on specified key, defaulting to primary key if true (e.g. return {"3": {"id": 3, "name": "foo"}};)
 		), $args);
 		/*
 		e.g
@@ -371,7 +530,7 @@ abstract class OmegaCrudable {
 		*/
 		$table = $this->_get_table();
 		if ($props === null || $props === true) {
-			$props = array('`' . $this->_get_table() . '`.*');
+			$props = array('*');
 		} else if (! is_array($props)) {
 			$props = array($props);
 		}
@@ -411,7 +570,12 @@ abstract class OmegaCrudable {
 		}
 		// order result
 		if ($args['order_by']) {
-			$sql .= ' ORDER BY ' . $this->db->escape($args['order_by']);
+			$sql .= ' ORDER BY `' . $this->db->escape($args['order_by']) . '`';
+		} else {
+			$sql .= ' ORDER BY `' . $this->_get_primary_key() . '`';
+		}
+		if ($args['reverse']) {
+			$sql .= ' DESC';
 		}
         // limit by count/offset if given
         if ($count > 0) {
@@ -420,8 +584,10 @@ abstract class OmegaCrudable {
                 $sql .= ' OFFSET ' . (int)$offset;
             }
         }
-		if ($args['keyed']) {
+		if ($args['keyed'] === true) {
 			$objs = $this->db->query($sql, 'array', $this->_get_primary_key());
+		} else if (strlen($args['keyed'])) {
+			$objs = $this->db->query($sql, 'array', $args['keyed']);
 		} else {
 			$objs = $this->db->query($sql, 'array');
 		}
@@ -431,6 +597,9 @@ abstract class OmegaCrudable {
 	protected function _parse_where($where) {
 		$sql = '';
 		if (is_array($where)) {
+			if (count($where) == 1) {
+				$where = array('AND' => $where);
+			}
 			foreach ($where as $bool => $items) {
 				// we're either a boolean operation or a single key/value
 				if (! in_array(strtoupper($bool), array('AND', 'OR'))) {
@@ -470,8 +639,8 @@ abstract class OmegaCrudable {
 		return $sql;
 	}
 
-	/** Return information about an object. If passed an valid object it will be returned back. Automatically escapes data not surrounded in single quotes. Returns data organized by the primary key by default; otherwise an array will be returned. Arguments: auto_escape=true
-		expects: index=string, $props=array, $joins=array, args=object
+	/** Return information about an object. If passed an valid object it will be returned back, as a quick caching method.
+		expects: index=string, props=array, joins=array, args=object
 		returns: object */
 	public function _get($index, $props = null, $joins = null, $args = null) {
 		global $om;
@@ -502,25 +671,38 @@ abstract class OmegaCrudable {
 			}
 			$where = $this->_parse_where($where);
 		} else {
-			$index = $this->db->escape($index);
+			$value = $index;
 			$my_props = $this->_get_props();
 			$pairs = array();
 			$indexes = $this->_get_indexes();
-			$pkey_type = $my_props[$pkey]['type'];
-			// we must be searching by primary key, auto-quote/escape as needed
-			if ($this->_is_string($pkey_type) && ! preg_match("/^'.*'$/", $value)) {
-				if ($args['auto_escape']) {
-					$where = $pkey . " = '" . $this->db->escape($value) . "'";
-				} else {
-					$where = $pkey . " = '" . $value . "'";
-				}
-			} else {
-				if ($args['auto_escape']) {
-					$where = $pkey . ' = ' . $this->db->escape($index);
-				} else {
-					$where = $pkey . ' = ' . $index;
+			$indexes[] = $pkey;
+			// check each of our indexes for this value, since we don't know what it is
+			$index_sql = array();
+			foreach ($indexes as $prop) {
+				if ($this->_is_string($my_props[$prop]['type'])) {
+					if (preg_match("/^'.*'$/", $value) || $value === null) {
+						// presume it to be escaped already by being quoted
+						$index_sql[] = $prop . " = " . $value;
+					} else {
+						if ($args['auto_escape']) {
+							$index_sql[] = $prop . " = '" . $this->db->escape($value) . "'";
+						} else {
+							$index_sql[] = $prop . " = '" . $value . "'";
+						}
+					}
+				} else if ($this->_is_datetime($my_props[$prop]['type'])) {
+					// dates should always be safe to force escape
+					if (preg_match("/^'.*'$/", $value) || $value === null) {
+						$index_sql[] = $prop . " = " . $this->db->escape($value);
+					} else {
+						$index_sql[] = $prop . " = '" . $this->db->escape($value) . "'";
+					}
+				} else if (is_numeric($value)) {
+					// numbers should always be safe to force escape
+					$index_sql[] = $prop . ' = ' . $this->db->escape($value);
 				}
 			}
+			$where = join(' OR ', $index_sql);
 		}
 		$req_args = array('auto_escape' => false);
 		/* // TODO: other _get args we might want to pass on

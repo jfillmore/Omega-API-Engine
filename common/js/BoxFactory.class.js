@@ -10,7 +10,6 @@
 
 */
 (function (om) {
-	// the Box Factory is a singleton, of which there can be only one :)
 	om.BoxFactory = {
 		box: function (jquery_obj, args) {
 			var box, type, part_type, i, arg;
@@ -78,7 +77,7 @@
 
 			// allow the box to grow in any direction
 			box._extend = function (direction, name, args) {
-				var box_part, classes, children;
+				var box_part, children;
 				if (args === undefined) {
 					args = {};
 				}
@@ -87,14 +86,10 @@
 					return box['_box_' + direction];
 				}
 				// otherwise, create it
-				box_part = box._add_box();
+				box_part = box._add_box(name, args);
 				box_part._owner = box;
 				box_part._direction = direction;
-
-				classes = ['om_box_' + direction];
-				if (name !== undefined && name !== null) {
-					classes.push(name);
-				}
+				box_part.$.toggleClass('om_box_' + direction, true);
 
 				// redefine _remove to remove ourself from our parent object
 				box_part._remove = function () {
@@ -102,12 +97,6 @@
 					delete box['_' + box_part._direction];
 				};
 
-				for (i = 0; i < classes.length; i += 1) {
-					box_part.$.toggleClass(classes[i], true);
-				}
-				if (args === undefined) {
-					args = {};
-				}
 				// and figure out where to orient it based on the position we extended towards
 				box_part.$.detach();
 				if (args.wrap !== undefined) {
@@ -144,6 +133,7 @@
 					// bottom positioning is always at the end of the box
 					box.$.append(box_part.$);
 				} else {
+					box_part.$.remove();
 					throw new Error('Invalid box direction: "' + direction + '".');
 				}
 				// create a property based on the direction
@@ -223,7 +213,9 @@
 			// add any events we got, e.g. on_click, on_dblclick, etc.
 			for (arg in args) {
 				if (args.hasOwnProperty(arg) && arg.match(/^on_/)) {
-					box.$.bind(arg.substr(3), args[arg]);
+					box.$.bind(arg.substr(3), function (ev) {
+						args[arg](ev, box);
+					});
 				}
 			}
 			// and finally, return the constructed box
@@ -492,8 +484,16 @@
 				};
 
 				box._draggable = function (anchor, args) {
-					// TODO: doc args
 					var on_start_move;
+					args = om.get_args({
+						constraint_auto_scroll: false,
+						toggle: true,
+						tether: 400,
+						on_start_move: undefined,
+						on_move: undefined,
+						on_end_move: undefined,
+						constraint: undefined
+					}, args);
 					// when the anchor is clicked and dragged the box will be moved along with it :)
 					if (anchor === undefined || anchor === null) {
 						// default to dragging by the top if it exists, otherwise the middle
@@ -502,19 +502,6 @@
 						} else {
 							anchor = box.$;
 						}
-					}
-					if (args === undefined) {
-						args = {};
-					}
-					if (args.constraint_auto_scroll === undefined) {
-						args.constraint_auto_scroll = false;
-					}
-					// default to enabling dragging
-					if (args.toggle === undefined) {
-						args.toggle = true;
-					}
-					if (args.tether === undefined) {
-						args.tether = 400;
 					}
 					if (args.toggle === false) {
 						anchor.unbind('mousedown');
@@ -657,20 +644,13 @@
 					var target_pos, max, delta, box_width, box_height,
 						box_target_delta, resized = false, no_def_view,
 						has_view;
-					if (args === undefined) {
-						args = {};
-					}
-					if (args.auto_scroll === undefined) {
-						args.auto_scroll = false;
-					}
-					// default to resizing to the window
-					if (target === undefined) {
-						target = $(window);
-					}
+					args = om.get_args({
+						auto_scroll: false,
+						target: undefined,
+						measure: 'position',
+						margin: 0
+					}, args);
 					has_view = target[0].ownerDocument !== undefined;
-					if (args.measure === undefined) {
-						args.measure = 'position';
-					}
 					// get our target's location and dimensions
 					if (args.measure === 'offset') {
 						box.$.css('position', 'fixed');
@@ -687,16 +667,14 @@
 							target_pos = {left: 0, top: 0};
 						}
 					} else {
-						throw new Error(
-							"Invalid measurement function: '" + args.measure + "'."
-						);
+						throw new Error("Invalid measurement function: '" + args.measure + "'.");
 					}
 					// move in position and change our widths
-					box.$.css('left', target_pos.left + 'px');
-					box.$.css('top', target_pos.top + 'px');
+					box.$.css('left', (target_pos.left + args.margin) + 'px');
+					box.$.css('top', (target_pos.top + args.margin) + 'px');
 					if (has_view) {
-						target_pos.width = target.outerWidth();
-						target_pos.height = target.outerHeight();
+						target_pos.width = target.outerWidth(true);
+						target_pos.height = target.outerHeight(true);
 					} else {
 						target_pos.width = target.width();
 						target_pos.height = target.height();
@@ -715,7 +693,7 @@
 					};
 					// are we fatter than the constraint width? if so, shrink the difference
 					if (delta.width !== 0) {
-						box.$.width(delta.width);
+						box.$.width(delta.width - (args.margin * 2));
 						// shrink the target too, if needed
 						if (args.target !== undefined) {
 							args.target.width(box_target_delta.width);
@@ -725,7 +703,7 @@
 						box_width = box.$.outerWidth(true);
 					}
 					if (delta.height !== 0) {
-						box.$.height(delta.height);
+						box.$.height(delta.height - (args.margin * 2));
 						resized = true;
 						// shrink the target too, if needed
 						if (args.target !== undefined) {
@@ -1031,12 +1009,17 @@
 					var top_box,
 						boxes;
 					if (args === undefined) {
-						args = {}
+						args = {};
 					}
 					if (args.filter) {
-						boxes = box.$.parent().find(args.filter).filter('.om_box_free:visible');
+						boxes = box.$.
+							parent().
+							find(args.filter).
+							filter('.om_box_free:visible');
 					} else {
-						boxes = box.$.parent().find('.om_box_free:visible');
+						boxes = box.$.
+							parent().
+							find('.om_box_free:visible');
 					}
 					boxes.each(function () {
 						var box = $(this),
@@ -1063,7 +1046,7 @@
 					var top_sibling,
 						siblings;
 					if (args === undefined) {
-						args = {}
+						args = {};
 					}
 					// not in the DOM? return now, as we have no siblings
 					if (box.$ === undefined) {	
@@ -1098,7 +1081,7 @@
 				box._get_bottom_sibling = function (args) {
 					var bottom_sibling;
 					if (args === undefined) {
-						args = {}
+						args = {};
 					}
 					if (args.filter) {
 						siblings = box.$.siblings(args.filter).filter('.om_box_free:visible');
@@ -1178,30 +1161,26 @@
 		om.BoxFactory.make,
 		{
 			box: function (owner, args) {
-				var html, target, box, classes = ['om_box'], jq, arg, box_args;
+				var html, target, box, jq, arg, box_args;
 				if (owner === undefined || owner === null) {
 					owner = $('body');
 				}
-				if (args === undefined) {
-					args = {};
+				args = om.get_args({
+					'classes': [],
+					'class': undefined,
+					type: 'div',
+					imbue: undefined,
+					html: undefined,
+					insert: 'append'
+				}, args, true);
+				if (typeof(args.classes) === 'string') {
+					args.classes = args.classes.split(' ');
 				}
-				if (args.classes !== undefined) {
-					if (jQuery.isArray(args.classes)) {
-						classes = classes.concat(args.classes);
-					} else if (typeof args.classes === 'string') {
-						classes = classes.concat(args.classes.split(' '));
-					} else {
-						throw new Error("Unrecognized type for 'classes' argument: '" + typeof args.classes + "'.");
-					}
+				if (! (args['class'] === undefined || args['class'] === null)) { // IE sucks
+					args.classes.push(args['class']);
 				}
-				if (args.insert === undefined) {
-					args.insert = 'append';
-				}
-				if (args['class'] !== undefined) { // IE sucks
-					classes.push(args['class']);
-				}
-				html = om.assemble('div', {
-					'class': classes,
+				html = om.assemble(args.type, {
+					'class': args.classes,
 					style: "display: none"
 				});
 				// determine if the owner is a box or a jquery
@@ -1229,6 +1208,7 @@
 					}
 				}
 				box = om.bf.box(jq, box_args);
+				box._args = args;
 				if (args.dont_show !== true) {
 					box.$.show();
 				}
@@ -1406,7 +1386,7 @@
 								on_start_resize: args.on_start_resize,
 								on_resize: args.on_resize,
 								on_end_resize: args.on_end_resize
-							}
+							};
 						}
 						if (args.resizable !== null) {
 							if (args.resize_handle === undefined) {
@@ -1421,7 +1401,7 @@
 								on_start_move: args.on_start_move,
 								on_move: args.on_move,
 								on_end_move: args.on_end_move
-							}
+							};
 						}
 						if (args.draggable !== null) {
 							win._draggable(win._toolbar.$, args.draggable);
@@ -1498,17 +1478,18 @@
 				menu._options = {};
 
 				// add some functions
-				menu._click_first = function () {
+				menu._select_first = function () {
 					var option_name;
 					for (option_name in menu._options) {
 						if (menu._options.hasOwnProperty(option_name)) {
 							if (menu._options[option_name].$.is(':visible')) {
-								menu._options[option_name].$.click();
+								menu._options[option_name]._select();
 							}
 							return menu._options[option_name];
 						}
 					}
 				};
+				menu._click_first = menu._select_first;
 
 				menu._unselect_all = function () {
 					var name;
@@ -1555,7 +1536,7 @@
 					} else {
 						throw new Error("No menu option with the name '" + name + '" exists.');
 					}
-				}
+				};
 
 				menu._set_options = function (options) {
 					menu._clear_options();
@@ -1649,9 +1630,7 @@
 					option.$.bind('unselect.om', function (unselect_event) {
 						// trigger the unselect event, if present
 						if (option._args.on_unselect !== undefined) {
-							option._args.on_unselect(
-								unselect_event, option
-							);
+							option._args.on_unselect(unselect_event, option);
 						}
 						if (! unselect_event.isDefaultPrevented()) {
 							option.$.toggleClass('om_selected', false);
@@ -1731,19 +1710,23 @@
 					max_width = 0;
 					// find the max width in our options
 					for (name in menu._options) {
-						option = menu._options[name];
-						if (option.$.is(':visible')) {
-							width = option.$.width()
-							if (width > max_width) {
-								max_width = width;
+						if (menu._options.hasOwnProperty(name)) {
+							option = menu._options[name];
+							if (option.$.is(':visible')) {
+								width = option.$.width();
+								if (width > max_width) {
+									max_width = width;
+								}
 							}
 						}
 					}
 					// having found the max width, set it on all options
 					for (name in menu._options) {
-						option = menu._options[name];
-						if (option.$.is(':visible')) {
-							option.$.width(max_width);
+						if (menu._options.hasOwnProperty(name)) {
+							option = menu._options[name];
+							if (option.$.is(':visible')) {
+								option.$.width(max_width);
+							}
 						}
 					}
 					return menu;
@@ -1836,11 +1819,21 @@
 
 				/* methods */
 				// collect the user's input
-				form._get_input = function () {
+				form._get_input = function (args) {
 					var input = {}, name;
+					args = om.get_args({
+						trim: false,
+						all: false
+					}, args);
 					for (name in form._fields) {
-						if (form._fields.hasOwnProperty(name) && form._fields[name]._type !== 'readonly') {
-							input[name] = form._fields[name]._val();
+						if (form._fields.hasOwnProperty(name) && (args.all || form._fields[name]._type !== 'readonly')) {
+							if (args.trim) {
+								input[name] = String(
+									form._fields[name]._val()
+								).trim();
+							} else {
+								input[name] = form._fields[name]._val();
+							}
 						}
 					}
 					return input;
@@ -1861,7 +1854,7 @@
 
 				// return a list of any errors found based on auto validation
 				form._get_errors = function (revalidate) {
-					var name, errors;
+					var name, errors, caption;
 					errors = [];
 					if (revalidate === undefined) {
 						revalidate = false;
@@ -1872,8 +1865,14 @@
 								form._fields[name]._validate();
 							}
 							if (form._fields[name]._value.is('.om_input_error')) {
+								if ('caption' in form._fields[name]._args) {
+									caption = name;
+								} else {
+									caption = form._fields[name]._args.caption;
+								}
 								errors.push(
-									form._fields[name]._args.caption + ': ' + form._fields[name]._error_tooltip._message
+									caption + ': ' +
+									form._fields[name]._error_tooltip._message
 								);
 							}
 						}
@@ -1904,11 +1903,6 @@
 							// fire the users's event if given
 							if (typeof on_submit === 'function') {
 								on_submit(click_event, form._get_input(), form);
-							}
-							// if we did prevent the default then rebind ourselves if default is disabled too
-							if (! click_event.isDefaultPrevented()) {
-								// no need to remove form on submit by default/ TODO: allow for multi-submit as option, like buttons?
-								// form._remove();
 							}
 						}
 					});
@@ -2032,7 +2026,7 @@
 						breaker = form._breakers.breaker(args);
 						breaker._init = function () {
 							form._tabs = [];
-							if (breaker._args.options_orient == undefined) {
+							if (breaker._args.options_orient === undefined) {
 								breaker._args.options_orient = 'top';
 							}
 							if (breaker._args.options_inline === undefined) {
@@ -2059,7 +2053,7 @@
 							for (i = 0; i < form._tabs.length; i++) {
 								tab = form._tabs[i]._option;
 								if (tab.$.is(':visible')) {
-									width = tab.$.width()
+									width = tab.$.width();
 									if (width > max_width) {
 										max_width = width;
 									}
@@ -2161,6 +2155,46 @@
 					}
 				};
 
+				form._trim_empty = function (args) {
+					var name, i, field, altered, new_fields;
+					args = om.get_args({
+						reorder: false,
+						get_reorder_name: function (name, i) {
+							// reorder by counting numbers by default
+							return String(i + 1);
+						},
+						get_reorder_caption: function (field, i) {
+							return String(i + 1) + ':';
+						}
+					}, args);
+					altered = false;
+					for (name in form._fields) {
+						if (form._fields.hasOwnProperty(name) &&
+							form._fields[name]._val() === '') {
+							form._remove_field(name);
+							altered = true;
+						}
+					}
+					// reorder the names
+					if (altered && args.reorder) {
+						// yah, we might have only trimmed the bottom. Oh well.
+						i = 0;
+						new_fields = {};
+						for (name in form._fields) {
+							if (form._fields.hasOwnProperty(name)) {
+								field = form._fields[name];
+								field._name = args.get_reorder_name(field, i);
+								field._caption.$.html(args.get_reorder_caption(field, i));
+								new_fields[field._name] = field;
+								delete form._fields[name];
+								i += 1;
+							}
+						}
+						form._fields = new_fields;
+					}
+					return form;
+				};
+
 				form._add_field = function (type, name, field_args) {
 					var field, box_remove;
 					if (field_args === undefined) {
@@ -2214,6 +2248,7 @@
 							}
 						}
 					}
+					return form;
 				};
 
 				form._add_fields = function (fields) {
@@ -2228,11 +2263,13 @@
 							form._add_field(field.type, name, field.args);
 						}
 					}
+					return form;
 				};
 
 				form._set_fields = function (fields) {
 					form._clear_fields();
 					form._add_fields(fields);
+					return form;
 				};
 
 				form._init = function (fields) {
@@ -2243,6 +2280,7 @@
 					if (form._breaker) {
 						form._breaker._select_first();
 					}
+					return form;
 				};
 
 				form._auto_break_length = args.auto_break_length;
@@ -2286,8 +2324,10 @@
 					args.orient = 'horizontal';
 				}
 				if (args.orient !== 'horizontal' && args.orient !== 'verticle') {
-					throw new Error("Invalid scroller orientation: '" + args.orient
-						+ "'. Valid orientations are 'horizontal' and 'verticle'.");
+					throw new Error(
+						"Invalid scroller orientation: '" +
+						args.orient + "'. Valid orientations are 'horizontal' and 'verticle'."
+					);
 				}
 				if (args.verticle === undefined) {
 					args.verticle = true;
@@ -2440,7 +2480,7 @@
 					mag = mag * scroller._multiplier;
 					metrics = scroller._get_metrics();
 					// figure out how far to scroll, translating pages to pixels
-					delta = parseInt(mag * metrics[measure].constraint);
+					delta = parseInt(mag * metrics[measure].constraint, 10);
 					// cap the change to keep the target from going too far in any direction
 					cur_pos = parseInt(scroller._target.css(direction), 10);
 					new_pos = cur_pos - delta;
@@ -2650,7 +2690,7 @@
 						var response;
 						if (typeof(obj._args.validate) === 'function') {
 							// run the validation
-							response = obj._args.validate(obj._val(), obj)
+							response = obj._args.validate(obj._val(), obj);
 							// remove any old errors if present
 							if (obj._error_tooltip !== undefined) {
 								obj._error_tooltip._remove();
@@ -3084,8 +3124,7 @@
 					rb.$.append(om.assemble('input', {
 						name: args.name,
 						type: 'radio',
-						'class': 'om_input_value',
-						checked: args.default_val
+						'class': 'om_input_value'
 					}));
 					rb._name = name;
 					rb._type = 'radio_button';
@@ -3100,6 +3139,9 @@
 							return rb._value.prop('checked', value);
 						}
 					};
+					if (args.default_val) {
+						rb._val(true);
+					}
 					return rb;
 				},
 				textarea: function (owner, name, args) {
@@ -3437,12 +3479,14 @@
 					if (tooltip._args.constraint) {
 						tooltip._constrain_to(tooltip._args.constraint);
 					}
+					mouse_move.stopPropagation();
 				};
 				tooltip._on_exit = function (mouse_event) {
 					tooltip.$.hide();
 					if (tooltip._args.on_exit !== undefined) {
 						tooltip._args.on_exit(mouse_event, tooltip);
 					}
+					mouse_event.stopPropagation();
 				};
 				if (args.target) {
 					args.target.bind('mousemove', tooltip._on_move);
@@ -3621,12 +3665,6 @@
 				return message;
 			},
 			loading: function (owner, args) {
-				if (args === undefined) {
-					args = {};
-				}
-				if (args.depth === undefined) {
-					args.depth = 1;
-				}
 				var loading = om.bf.make.box(
 					owner, {
 						imbue: 'free',
@@ -3634,13 +3672,19 @@
 						'class': 'om_loading'
 					}
 				);
+				args = om.get_args({
+					depth: 1,
+					resize: false
+				}, args);
 				loading._args = args;
 				if (args.options !== undefined) {
 					loading._opacity(args.opacity);
 				}
 				loading._depth = args.depth;
 				// not sure I really need to resize?
-				// loading._resize_to(owner, {measure: args.measure});
+				if (args.resize) {
+					loading._resize_to(owner, om.get(args.resize) || {});
+				}
 				// hi-jack remove to implement depth
 				loading._box_remove = loading._remove;
 				loading._remove = function () {
@@ -3720,9 +3764,15 @@
 				query._form.$.bind('keydown', function (keydown_event) {
 					if (keydown_event.keyCode === 27) {
 						// close ourself
-						keydown_event.preventDefault();
-						keydown_event.stopPropagation();
-						query._remove();
+						query.args.on_close
+						if (typeof query._args.on_cancel === 'function') {
+							query._args.on_cancel(click_event, query);
+						}
+						if (! keydown_event.isDefaultPrevented()) {
+							keydown_event.preventDefault();
+							keydown_event.stopPropagation();
+							query._remove();
+						}
 					}
 				});
 				query._form.$.bind('keydown', function (keydown_event) {

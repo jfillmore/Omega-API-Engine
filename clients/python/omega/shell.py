@@ -76,7 +76,7 @@ class Shell:
 					)
 				)
 			except Error, e:
-				self._print_response(False, 'Unable to get API information; tab completion unavabilable.' + e.message)
+				self._print_response(False, 'Unable to get API information; tab completion unavailable.\n' + e.message)
 
 	def start(self):
 		self.reload(True)

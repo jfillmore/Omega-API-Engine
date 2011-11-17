@@ -1,7 +1,7 @@
 <?php
 /* omega - PHP server
    http://code.google.com/p/theomega/
-  
+
    Copyright 2011, Jonathon Fillmore
    Licensed under the MIT license. See LICENSE file.
    http://www.opensource.org/licenses/mit-license.php */
@@ -11,6 +11,7 @@
 abstract class OmegaTest {
 	const hostname_re = '/^([a-zA-Z0-9_-]+\.)*[a-zA-Z0-9-]+\.[a-zA-Z0-9\-]+$/';
 	const ip4_address_re = '/^\d{1,3}(\.\d{1,3}){3}$/';
+	const ip6_address_re = '/^(\:{0,2}[a-fA-F0-9]{1,4}\:{0,2}){3,39}$/';
 	const email_address_re = '/^[a-zA-Z0-9+._-]+@[a-zA-Z0-9+._\-]+$/';
 	const file_name_re = '/^[\'()a-zA-Z0-9@&%^*<>, _\.\-]+$/';
 	const file_path_re = '/^[\'()\/a-zA-Z0-9@&%^*<>, _\.\-]+$/';
@@ -1836,9 +1837,9 @@ abstract class OmegaTest {
 	'syria' => '963', 'taiwan' => '886', 'tajikistan' => '992', 'tanzania' => '255', 'thailand' => '66',
 	'togo' => '228', 'tokelau' => '690', 'tonga' => '676', 'trinidad and tobago' => '1', 'tunisia' => '216',
 	'turkey' => '90', 'turkmenistan' => '993', 'turks and caicos islands' => '1', 'tuvalu' => '688', 'uganda' => '256',
-	'ukraine' => '380', 'united arab emirates' => '971', 'gb' => '44', 'united kingdom' => '44', 
-	'united states of america' => '1', 'uruguay' => '598', 'uzbekistan' => '998', 'vanuatu' => '678', 'venezuela' => '58', 
-	'vietnam' => '84', 'virgin islands' => '1', 'wallis and futuna' => '681', 'west bank' => '970', 'yemen' => '967', 'zambia' => '260', 
+	'ukraine' => '380', 'united arab emirates' => '971', 'gb' => '44', 'united kingdom' => '44',
+	'united states of america' => '1', 'uruguay' => '598', 'uzbekistan' => '998', 'vanuatu' => '678', 'venezuela' => '58',
+	'vietnam' => '84', 'virgin islands' => '1', 'wallis and futuna' => '681', 'west bank' => '970', 'yemen' => '967', 'zambia' => '260',
 	'zimbabwe' => '263'
 */
 }

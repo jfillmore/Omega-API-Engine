@@ -275,7 +275,8 @@ function do_install {
 		}
 		# configure and compile
 		cd "nginx-$NGINX_VERSION" || fail "Failed to change to nginx src dir '$INSTALL_SRC_DIR/nginx-$NGINX_VERSION'."
-		[[ -f Makefile ]] || {
+		[[ $(stat -c %s Makefile) -le 50 ]] || {
+			# sometimes there is a small make file already
 			: "Configuring nginx"
 			./configure --with-http_ssl_module --prefix=$NGINX_BASE_DIR-$NGINX_VERSION || fail "Failed to configure nginx."
 		}
@@ -350,16 +351,16 @@ function do_install {
 			: "Creating Omega Server nginx config file"
 			cat > omega_services/OmegaServer.conf <<-EOI
 			location /os_admin {
-				alias $BASE_DIR/host_service/public/;
-				try_files \$uri \$uri/ @OmegaServer;
+			    alias $BASE_DIR/host_service/public/;
+			    try_files \$uri \$uri/ @OmegaServer;
 			}
 
 			location @OmegaServer {
-				fastcgi_pass 127.0.0.1:5859;
-				include fastcgi_params;
-				rewrite ^/os_admin/(.*) /?OMEGA_API=\$1 break;
-				fastcgi_param OMEGA_SERVICE OmegaServer;
-				fastcgi_param SCRIPT_FILENAME $BASE_DIR/init.php;
+			    fastcgi_pass 127.0.0.1:5859;
+			    include fastcgi_params;
+			    rewrite ^/os_admin/(.*) /?OMEGA_API=\$1 break;
+			    fastcgi_param OMEGA_SERVICE OmegaServer;
+			    fastcgi_param SCRIPT_FILENAME $BASE_DIR/init.php;
 			}
 			EOI
 		}
@@ -521,7 +522,7 @@ done
 	\$ref_m = \$ref->getMethod('bar');
 	\$ref_ps = \$ref_m->getParameters();
 	if (\$ref_ps[0]->getPosition() !== 0) {
-		throw new Exeption('fail);
+		throw new Exception('fail');
 	}
 	?>
 	EOI
