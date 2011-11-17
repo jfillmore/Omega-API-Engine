@@ -648,7 +648,7 @@
 						auto_scroll: false,
 						target: undefined,
 						measure: 'position',
-						margin: 0
+						margin: 0,
 					}, args);
 					has_view = target[0].ownerDocument !== undefined;
 					// get our target's location and dimensions

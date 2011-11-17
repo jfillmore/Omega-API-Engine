@@ -8,102 +8,22 @@
 # http://www.opensource.org/licenses/mit-license.php
 
 BASE_DIR=$(cd $(dirname "$0") && pwd -P)
-SCRIPT_NAME=$(basename "$0")
 
-function usage {
-	echo "$SCRIPT_NAME [target]" >&2
-}
+js_dir="$BASE_DIR/common/js"
+css_dir="$BASE_DIR/common/css"
 
-function fail {
-	echo "$@" >&2
-	# clean up temp files
-	[ -f "$js_dir/$name$target.js.compiling" ] && rm "$js_dir/$name$target.js.compiling"
-	[ -f "$js_dir/.$name.dev.js.$$"  ] && rm "$js_dir/.$name.dev.js.$$" 
-	[ -f "$css_dir/.$name$target.css.$$" ] && rm "$css_dir/.$name$target.css.$$"
-	exit 1
-}
-
-# variable to customize build by -- TODO: build into param system
-#======================================================
-name=$(basename "$BASE_DIR")
-js_dir="common/js"
-css_dir="common/css"
-js_files=(
-	$js_dir/core.js
-	$js_dir/sprintf.js
-	$js_dir/json.js
-	$js_dir/Test.class.js
-	$js_dir/BoxFactory.class.js
-	$js_dir/OmegaClient.class.js
-	$js_dir/ColorFactory.class.js
-	$js_dir/Visualizer.class.js
-	$js_dir/DataShed.class.js
-)
-css_files=(
-    $css_dir/BoxFactory.class.css
-)
-compiler=~/scripts/compiler.jar
-optimization=WHITESPACE_ONLY
-#optimization=SIMPLE_OPTIMIZATIONS
-#optimization=ADVANCED_OPTIMIZATIONS 
-os_user=wendel
-os_group=wendel
-os_perms=444
-
-
-# start of logic
-#======================================================
-# pick our build target
-if [ $# -eq 1 ]; then
-	target="-$1"
-else
-	target=''
-fi
-
-# sanity check
-cd "$BASE_DIR" || fail "Failed to change directory to '$BASE_DIR'."
-[[ -d "$css_dir" && "$js_dir" ]] || fail "huh? where am I? can't find $css_dir or $js_dir."
-java -version &>/dev/null || fail "Missing or broken java JRE."
-jscc="java -jar $compiler"
-cc_code='var a=3;'
-cc_test=$(echo "$cc_code" | $jscc)
-[ "$cc_code" == "$cc_test" ] || fail "compiler not found or working properly"
-
-#
-# JavaScript
-# ----------
-cat ${js_files[*]} > "$js_dir/.$name.dev.js.$$" || fail "Failed to concatinate javascript files together."
-#TODO: run through jslint first and abort on errors, customizing as needed?
-$jscc --compilation_level $optimization \
-	--js $js_dir/.$name.dev.js.$$ \
-	> "$js_dir/$name$target.js.compiling"
-# set perms if root
-[ $? -eq 0 ] && {
-	chown $os_user:$os_group "$js_dir/$name$target.js.compiling" || fail "Failed to chown '$js_dir/$name$target.js.compiling' to $os_user:$os_group"
-	chmod $os_perms "$js_dir/$name$target.js.compiling" || fail "Failed to chmod '$js_dir/$name$target.js.compiling' to $os_perms"
-	chown $os_user:$os_group "$js_dir/.$name.dev.js.$$" || fail "Failed to chown '$js_dir/.$name.dev.js.$$' to $os_user:$os_group"
-	chmod $os_perms "$js_dir/.$name.dev.js.$$" || fail "Failed to chmod $js_dir/.$name.dev.js.$$ to $os_perms"
-}
-# update build target
-mv -f "$js_dir/$name$target.js.compiling" "$js_dir/$name$target.js" || fail "Failed to update '$js_dir/$name$target.js' with compiled javascript."
- # dev build for debugging production
-mv -f "$js_dir/.$name.dev.js.$$" "$js_dir/$name.dev.js" || fail "Failed to update '$js_dir/$name.dev.js' for development build"
-
-#
-# CSS
-# ---
-cat ${css_files[*]} > "$css_dir/.$name$target.css.$$" || fail "Failed to concatinate CSS files together."
-# TODO: get some CSS validator/minifier?
-# set perms if root
-[ $? -eq 0 ] && {
-	chown $os_user:$os_group "$css_dir/.$name$target.css.$$" || fail "Failed to chown $css_dir/.$name$target.css.$$ to $os_user:$os_group"
-	chmod $os_perms "$css_dir/.$name$target.css.$$" || fail "Failed to chmod $css_dir/.$name$target.css.$$ to $os_perms"
-}
-# update build target
-mv -f "$css_dir/.$name$target.css.$$" "$css_dir/$name$target.css" || fail "Failed to update $css_dir/$name$target.css with compiled CSS."
-
-# check for 4096+ styles and QQ-- I believe IE shits itself when this happens
-# TODO: find a better way to check this... but it *should* be safe enough of a check for now :)
-[[ $(grep -c '}' $css_dir/$name$target.css) -ge 4096 ]] && fail "BUILD SUCCESSFUL; BUT CSS HAS GONE OVER 4096 LINES. INTERNET EXPLODER MIGHT SHIT ITSELF."
-
-exit 0
+$BASE_DIR/gen_gui omega \
+	--compiler ~/scripts/compiler.jar \
+	--opt WHITESPACE_ONLY \
+	--js-dir "$js_dir" \
+	--css-dir "$css_dir" \
+	--js $js_dir/core.js \
+	--js $js_dir/sprintf.js \
+	--js $js_dir/json.js \
+	--js $js_dir/Test.class.js \
+	--js $js_dir/BoxFactory.class.js \
+	--js $js_dir/OmegaClient.class.js \
+	--js $js_dir/ColorFactory.class.js \
+	--js $js_dir/Visualizer.class.js \
+	--js $js_dir/DataShed.class.js \
+	--css $css_dir/BoxFactory.class.css 
