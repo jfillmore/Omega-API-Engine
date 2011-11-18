@@ -1,7 +1,7 @@
 #!/usr/bin/python -tt
 
 # omega - python client
-# http://code.google.com/p/theomega/
+# https://github.com/jfillmore/Omega-API-Engine
 # 
 # Copyright 2011, Jonathon Fillmore
 # Licensed under the MIT license. See LICENSE file.
