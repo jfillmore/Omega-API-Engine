@@ -63,7 +63,7 @@ declare optimization=WHITESPACE_ONLY
 #optimization=ADVANCED_OPTIMIZATIONS 
 declare os_user=$(whoami)
 declare os_group=$(groups | awk '{print $1}')
-declare os_perms=400
+declare os_perms=444
 
 
 # start of logic

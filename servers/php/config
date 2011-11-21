@@ -275,7 +275,7 @@ function do_install {
 		}
 		# configure and compile
 		cd "nginx-$NGINX_VERSION" || fail "Failed to change to nginx src dir '$INSTALL_SRC_DIR/nginx-$NGINX_VERSION'."
-		[[ $(stat -c %s Makefile) -le 50 ]] || {
+		[ \! -e Makefile ] || [ $(stat -c %s Makefile) -le 50 ] && {
 			# sometimes there is a small make file already
 			: "Configuring nginx"
 			./configure --with-http_ssl_module --prefix=$NGINX_BASE_DIR-$NGINX_VERSION || fail "Failed to configure nginx."
