@@ -418,13 +418,22 @@ function do_install {
 					}
 				fi
 			}
+			if [ "$os_type" == 'ubuntu' ]; then
+				# start nginx and the fast-cgi server up
+				$init stop nginx &>/dev/null
+				$init stop omega-php &>/dev/null
+				sleep 3
+				$init start nginx || fail "Failed to start nginx."
+				$init start omega-php || fail "Failed to start omega fast-cgi PHP."
+			else
+				# start nginx and the fast-cgi server up
+				$init nginx stop &>/dev/null
+				$init omega-php stop &>/dev/null
+				sleep 3
+				$init nginx start || fail "Failed to start nginx."
+				$init omega-php start || fail "Failed to start omega fast-cgi PHP."
+			fi
 			: "Starting (or restarting) nginx and omega fast-cgi PHP"
-			# start nginx and the fast-cgi server up
-			$init nginx stop &>/dev/null
-			$init omega-php stop &>/dev/null
-			sleep 3
-			$init nginx start || fail "Failed to start nginx."
-			$init omega-php start || fail "Failed to start omega fast-cgi PHP."
 		fi
 		# auto-config ourself if needed
 		[[ ! -f config.php || $use_force -eq 1 ]] && {
