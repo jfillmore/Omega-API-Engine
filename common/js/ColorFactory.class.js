@@ -388,13 +388,15 @@
 			color.h += args.hue_shift;
 		} else if (args.hue_mult !== undefined) {
 			color.h *= args.hue_mult;
-		} else if (args.saturation !== undefined) {
+		}
+		if (args.saturation !== undefined) {
 			color.s = args.saturation;
 		} else if (args.saturation_shift !== undefined) {
 			color.s += args.saturation_shift;
 		} else if (args.saturation_mult !== undefined) {
 			color.s *= args.saturation_mult;
-		} else if (args.value !== undefined) {
+		}
+		if (args.value !== undefined) {
 			color.v = args.value;
 		} else if (args.value_shift !== undefined) {
 			color.v += args.value_shift;
