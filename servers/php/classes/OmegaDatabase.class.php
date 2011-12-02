@@ -18,6 +18,8 @@ class OmegaDatabase {
 	private $tr_depth; // transaction depth marker
 	private $tr_rolling_back; // whether or not the transaction has started rolling back
 
+	private $split_joins = false; // whether or not to auto-split sql JOIN table data into their own array
+
 	public function __construct($hostname, $username, $password, $dbname, $type) {
 		$this->hostname = $hostname;
 		$this->username = $username;
@@ -50,6 +52,13 @@ class OmegaDatabase {
 		if ($this->tr_depth) {
 			$this->tr_ditch();
 		}
+	}
+
+	public function split_joins($val = null) {
+		if ($val !== null) {
+			$this->split_joins = ($val ? true : false);
+		}
+		return $this->split_joins;
 	}
 
 	private function connect() {
@@ -187,9 +196,9 @@ class OmegaDatabase {
 	}
 
 	/** Execute an SQL query and return the result through a specific parser. Available parsers are 'array' and 'raw'. If 'key_col' is set, the 'array' parser will use the value of $key_col for each row's array index, returning an associative array.
-		expects: query=string, parser=string */
-	public function query($query, $parser = 'array', $key_col = null) {
-		// assumes that input has already been sanitize
+		expects: query=string, parser=string, key_col=string, auto_split=boolean
+		returns: object */
+	public function query($query, $parser = 'array', $key_col = null, $auto_split = false) {
 		if ($this->type == 'psql') {
 			$db_result = @pg_query($this->conn, $query);
 			if ($db_result === false) {
@@ -217,17 +226,40 @@ class OmegaDatabase {
 				return true;
 			} else {
 				if ($parser == 'array') {
+					// get a list of join'd tables
+					preg_match_all('/JOIN\s+`?(\w+)`?\s*/i', $query, $joins);
+					if (count($joins) == 2) {
+						// the second row has the goodies!
+						$joins = $joins[1];
+					} else {
+						$joins = array();
+					}
 					$result = array();
-					$meta = $db_result->fetch_fields();
+					$row_meta = $db_result->fetch_fields();
 					while ($row = $db_result->fetch_object()) {
 						$fields = array();
 						$i = 0;
+						// format and typecast return data
 						foreach ($row as $name => $field) {
-							$fields[$name] = $this->typecast($field, $meta[$i++]->type);
+							$meta = $row_meta[$i++];
+							// type cast each bit of data to it's proper format (e.g. so 1 => 1, not "1")
+							$value = $this->typecast($field, $meta->type);
+							if (($this->split_joins() || $auto_split)
+								&& in_array($meta->orgtable, $joins)) {
+								// check to see if we're a join, and branch as needed
+								if (! isset($fields[$meta->table])) {
+									$fields[$meta->table] = array();
+								}
+								$fields[$meta->table][$name] = $value;
+							} else {
+								$fields[$name] = $value;
+							}
 						}
 						if ($key_col !== null && isset($fields[$key_col])) {
+							// if we have a key column we need to order by that
 							$result[$fields[$key_col]] = $fields;
 						} else {
+							// otherwise order by natural order
 							$result[] = $fields;
 						}
 					}

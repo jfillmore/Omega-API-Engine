@@ -507,9 +507,10 @@ abstract class OmegaCrudable {
 	public function _request($where = null, $props = null, $joins = null, $count = null, $offset = null, $args = null) {
 		global $om;
 		$args = $om->_get_args(array(
+			'auto_split' => true, // auto split JOIN data to subarray, e.g. {foo: {bar:{name:'bob'}, foodbar:3}}
+			'keyed' => null, // key data on specified key, defaulting to primary key if true (e.g. return {"3": {"id": 3, "name": "foo"}};)
 			'order_by' => null, // column to sort on
-			'reverse' => false, // sort in descending order
-			'keyed' => null // key data on specified key, defaulting to primary key if true (e.g. return {"3": {"id": 3, "name": "foo"}};)
+			'reverse' => false // sort in descending order
 		), $args);
 		/*
 		e.g
@@ -585,11 +586,11 @@ abstract class OmegaCrudable {
             }
         }
 		if ($args['keyed'] === true) {
-			$objs = $this->db->query($sql, 'array', $this->_get_primary_key());
+			$objs = $this->db->query($sql, 'array', $this->_get_primary_key(), $args['auto_split']);
 		} else if (strlen($args['keyed'])) {
-			$objs = $this->db->query($sql, 'array', $args['keyed']);
+			$objs = $this->db->query($sql, 'array', $args['keyed'], $args['auto_split']);
 		} else {
-			$objs = $this->db->query($sql, 'array');
+			$objs = $this->db->query($sql, 'array', null, $args['auto_split']);
 		}
 		return $objs;
 	}
