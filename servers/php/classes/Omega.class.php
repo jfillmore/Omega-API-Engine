@@ -558,7 +558,7 @@ class Omega implements OmegaApi {
 
 	/** Abort execution, dumping structure of supplied object. Arguments are passed to thrown OmegaException for notifications/etc.
 		expects: obj=object, args=object */
-	public function _die($obj, $args) {
+	public function _die($obj, $args = null) {
 		$args = $this->_get_args(array(
 			'alert' => false
 		), $args);
