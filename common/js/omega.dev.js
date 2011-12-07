@@ -1480,6 +1480,18 @@ om.json = om.JSON;
 
 				box._resizable = function (anchor, args) {
 					var on_start_move, on_loosen;
+					args = om.get_args({
+						toggle: true, // default to enabling resizing
+						tether: 600,
+						loosen: false,
+						constraint: undefined,
+						constraint_target: box.$, // what to measure when detecting constraints
+						grow: 'se', // what direction to grow/shrink in
+						target: box.$, // what to move when dragging
+						on_start_resize: undefined,
+						on_end_resize: undefined,
+						on_resize: undefined
+					}, args);
 					// when the anchor is clicked and dragged the box will be moved along with it :)
 					if (anchor === undefined || anchor === null) {
 						// default to dragging by the bottom if it exists
@@ -1488,39 +1500,6 @@ om.json = om.JSON;
 						} else {
 							anchor = box.$;
 						}
-					}
-					/* args = {
-						toggle = true,
-						tether = 600,
-						loosen = false,
-						constraint_target = box.$,
-						grow: 'se', // ne, se, nw, sw
-						target = box.$
-					}; */
-					// default to enabling resizing
-					if (args === undefined) {
-						args = {};
-					}
-					if (args.toggle === undefined) {
-						args.toggle = true;
-					}
-					if (args.tether === undefined) {
-						args.tether = 600;
-					}
-					// whether or not to loosen (width/height: inherit)
-					if (args.loosen === undefined) {
-						args.loosen = false;
-					}
-					// where to apply the constraint resizing too (e.g. to shrink an inner component)
-					if (args.constraint_target === undefined) {
-						args.constraint_target = box.$;
-					}
-					// what direction to grow/shrink in
-					if (args.grow === undefined) {
-						args.grow = 'se';
-					}
-					if (args.target === undefined) {
-						args.target = box.$;
 					}
 					on_start_move = function (start_move_event) {
 						var start_width, start_height, box_pos, start,
@@ -1533,9 +1512,7 @@ om.json = om.JSON;
 						}
 						// we've started a click-down, so flag our box as moving
 						box.$.toggleClass('om_box_resizing', true);
-						if (args.on_start_resize !== undefined) {
-							args.on_start_resize(start_move_event, box);
-						}
+						om.get(args.on_start_resize, start_move_event, box);
 						// record where the move started
 						start_width = args.target.width();
 						start_height = args.target.height();
@@ -1812,12 +1789,9 @@ om.json = om.JSON;
 
 				box._toggle_fullscreen = function (args) {
 					var last;
-					if (args === undefined) {
-						args = {};
-					}
-					if (args.target === undefined) {
-						args.target = box.$;
-					}
+					args = om.get_args({
+						target: box.$
+					}, args);
 					// record the last width/height before we maximize
 					box.$.toggleClass('om_box_fullscreen');
 					if (args.target !== box.$) {
@@ -1926,21 +1900,16 @@ om.json = om.JSON;
 
 				box._growable = function (anchor, args) {
 					var orig_bounds;
+					args = om.get_args({
+						event: 'dblclick',
+						target: box.$
+					}, args);
 					if (anchor === undefined) {
 						if (box._box_top === undefined) {
 							anchor = box.$;
 						} else {
 							anchor = box._box_top.$;
 						}
-					}
-					if (args === undefined) {
-						args = {};
-					}
-					if (args.event === undefined) {
-						args.event = 'dblclick';
-					}
-					if (args.target === undefined) {
-						args.target = box.$;
 					}
 					anchor.bind(args.event, function (grow_event) {
 						var old_bounds, new_bounds, resized;
@@ -1974,12 +1943,12 @@ om.json = om.JSON;
 					// TODO: add arg to resize to fit, otherwise act as 'viewport')
 					var box_pos, box_off, con, delta, box_width, box_height, resized;
 					resized = false;
-					if (args === undefined) {
-						args = {};
-					}
-					if (args.auto_scroll === undefined) {
-						args.auto_scroll = false;
-					}
+					args = om.get_args({
+						auto_scroll: false,
+						with_resize: false,
+						target: undefined,
+						target_only: false
+					}, args);
 					// default to contraining to the body
 					if (constraint === undefined) {
 						constraint = $(window);
@@ -2194,9 +2163,9 @@ om.json = om.JSON;
 				box._get_top_box = function (args) {
 					var top_box,
 						boxes;
-					if (args === undefined) {
-						args = {};
-					}
+					args = om.get_args({
+						filter: undefined
+					}, args);
 					if (args.filter) {
 						boxes = box.$.
 							parent().
@@ -2231,9 +2200,9 @@ om.json = om.JSON;
 				box._get_top_sibling = function (args) {
 					var top_sibling,
 						siblings;
-					if (args === undefined) {
-						args = {};
-					}
+					args = om.get_args({
+						filter: undefined
+					}, args);
 					// not in the DOM? return now, as we have no siblings
 					if (box.$ === undefined) {	
 						return;
@@ -2266,9 +2235,9 @@ om.json = om.JSON;
 
 				box._get_bottom_sibling = function (args) {
 					var bottom_sibling;
-					if (args === undefined) {
-						args = {};
-					}
+					args = om.get_args({
+						filter: undefined
+					}, args);
 					if (args.filter) {
 						siblings = box.$.siblings(args.filter).filter('.om_box_free:visible');
 					} else {
@@ -2296,9 +2265,9 @@ om.json = om.JSON;
 
 				box._sink = function (args) {
 					var bottom_sibling, top_sibling;
-					if (args === undefined) {
-						args = {};
-					}
+					args = om.get_args({
+						no_refocus: false
+					}, args);
 					bottom_sibling = box._get_bottom_sibling();
 					if (bottom_sibling !== undefined) {
 						box.$.css('z-index', parseInt(bottom_sibling.css('z-index'), 10) - 1);
@@ -2316,9 +2285,10 @@ om.json = om.JSON;
 
 				box._raise = function (args) {
 					var top_box;
-					if (args === undefined) {
-						args = {};
-					}
+					args = om.get_args({
+						deep: false,
+						no_focus: false
+					}, args);
 					if (args.deep) {
 						top_box = box._get_top_sibling();
 					} else {
@@ -2402,47 +2372,31 @@ om.json = om.JSON;
 			},
 			win: function (owner, args) {
 				var win, i;
-				/* args format:
-				args = {
-					toolbar: ['title', 'min', 'max', 'close'],
-					title: 'Window',
-					resize_handle: $('...'),
-					resizable: [free._resizable params],
-					draggable: [free._draggable params],
-					on_close: function,
-					on_fullscreen: function,
-					on_min: function,
-					on_start_move: function,
-					on_move: function
-					on_end_move: function,
-					on_start_resize: function,
-					on_resize: function
-					on_end_resize: function,
-					icon: 'url',
-					icon_orient: 'left', // left, top, bottom, right, inline
-					class: 'foo',
-					classes: ['foo', 'bar']
-				} */
-				if (args === undefined) {
-					args = {};
-				}
-				if (args.toolbar === undefined) {
-					args.toolbar = ['title', 'grow', 'min', 'max', 'close'];
-				}
-				if (args.title === undefined) {
-					args.title = '';
-				}
+				args = om.get_args({
+					'class': undefined,
+					classes: [],
+					draggable: true,
+					dont_show: false,
+					icon: undefined,
+					icon_orient: 'left',
+					insert: undefined,
+					on_min: undefined,
+					on_close: undefined,
+					on_fullscreen: undefined,
+					on_min: undefined,
+					on_start_move: undefined,
+					on_move: undefined,
+					on_end_move: undefined,
+					on_start_resize: undefined,
+					on_resize: undefined,
+					on_end_resize: undefined,
+					resizable: undefined,
+					resize_handle: undefined,
+					title: '',
+					toolbar: ['title', 'grow', 'min', 'max', 'close']
+				}, args);
 				if (owner === undefined) {
 					owner = $('body');
-				}
-				if (args.icon_orient === undefined) {
-					args.icon_orient = 'left';
-				}
-				if (args.classes === undefined) {
-					args.classes = [];
-				}
-				if (args.dont_show === undefined) {
-					args.dont_show = false;
 				}
 				args.classes.push('om_win');
 				if (args['class'] !== undefined) {
@@ -4860,6 +4814,7 @@ om.json = om.JSON;
 				);
 				args = om.get_args({
 					depth: 1,
+					on_complete: undefined,
 					resize: false
 				}, args);
 				loading._args = args;
