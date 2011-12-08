@@ -2789,14 +2789,12 @@ om.json = om.JSON;
 						}
 						// handle any events
 						if (selected) {
-							if (option._args.on_select !== undefined) {
-								om.get(option._args.on_select, select_event, option);
-								if (! select_event.isDefaultPrevented()) {
-									if (to_unselect !== null) {
-										to_unselect.trigger('unselect.om');
-									}
-									node.toggleClass('om_selected', selected);
+							om.get(option._args.on_select, select_event, option);
+							if (! select_event.isDefaultPrevented()) {
+								if (to_unselect !== null) {
+									to_unselect.trigger('unselect.om');
 								}
+								node.toggleClass('om_selected', selected);
 							}
 							om.get(option._args.on_selected, select_event, option);
 						} else {
