@@ -1510,30 +1510,21 @@
 
 				menu._add_option = function (name, args) {
 					var option, img_html;
-					/* args format:
-					args = {
-						caption: 'foo',
-						icon: "../images/foo.jpg",
+					args = om.get_args({
+						caption: name,
+						'class': undefined,
+						classes: [],
+						icon: undefined,
 						icon_orient: 'left', // left, top, bottom, right, inline
-						on_select: function () {},
-						on_unselect: function () {},
-						class: 'foo',
-						classes: ['foo', 'bar']
-					} */
+						on_select: undefined, // before the select occurs, can cancel selection
+						on_selected: undefined, // after the selection occurs
+						on_unselect: undefined
+					}, args);
 					if (name === undefined) {
 						throw new Error("Unable to add an option without a name.");
 					}
-					if (args === undefined) {
-						args = {};
-					}
-					if (args.caption === undefined) {
-						args.caption = name;
-					}
-					if (args.classes === undefined) {
-						args.classes = [];
-					}
 					args.classes.push('om_menu_option');
-					if ('class' in args) {
+					if (args['class']) {
 						args.classes.push(args['class']);
 					}
 					option = om.bf.make.box(
@@ -1613,7 +1604,7 @@
 						// handle any events
 						if (selected) {
 							if (option._args.on_select !== undefined) {
-								option._args.on_select(select_event, option);
+								om.get(option._args.on_select, select_event, option);
 								if (! select_event.isDefaultPrevented()) {
 									if (to_unselect !== null) {
 										to_unselect.trigger('unselect.om');
@@ -1621,6 +1612,7 @@
 									node.toggleClass('om_selected', selected);
 								}
 							}
+							om.get(option._args.on_selected, select_event, option);
 						} else {
 							option.$.trigger('unselect.om');
 						}
