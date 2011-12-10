@@ -13,6 +13,7 @@ js_dir="$BASE_DIR/common/js"
 css_dir="$BASE_DIR/common/css"
 
 $BASE_DIR/gen_gui omega \
+	--dev \
 	--compiler ~/scripts/compiler.jar \
 	--opt WHITESPACE_ONLY \
 	--js-dir "$js_dir" \

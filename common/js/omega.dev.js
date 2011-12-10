@@ -1199,8 +1199,15 @@ om.json = om.JSON;
 	om.BoxFactory = {
 		box: function (jquery_obj, args) {
 			var box, type, part_type, i, arg;
+			// allow own own boxes to be passed in
+			if (typeof(jquery_obj) === 'object' && om.is_jquery(jquery_obj.$)) {
+				jquery_obj = jquery_obj.$;
+			}
 			if (! om.is_jquery(jquery_obj)) {
 				throw new Error("Invalid jquery object: '" + jquery_obj + "'; jQuery object expected.");
+			}
+			if (om.is_jquery(jquery_obj)) {
+				jquery_obj
 			}
 			if (jquery_obj.length === 0) {
 				throw new Error("Target '" + jquery_obj.selector + "' has no length; unable to box.");
@@ -2342,7 +2349,7 @@ om.json = om.JSON;
 				// determine if the owner is a box or a jquery
 				if (owner.$ !== undefined && owner.$.jquery !== undefined && owner.$.length !== undefined && owner.$.length > 0) {
 					target = owner.$;
-				} else if (owner.jquery !== undefined && owner.length !== undefined && owner.length > 0) {
+				} else if (om.is_jquery(owner)) {
 					target = owner;
 				} else {
 					throw new Error("Invalid box or jquery object: '" + owner + "'.");

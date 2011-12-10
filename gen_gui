@@ -21,6 +21,8 @@ function usage {
       $name.css
 
 	OPTIONS
+	   -d, --dev           Generate an extra JavaScript build for debugging.
+	                         (e.g. $name.dev.js)
 	   -j, --js FILE       Include JavaScript file FILE.
 	   -c, --css FILE      Include CSS file FILE.
 	                         (WHITESPACE_ONLY, SIMPLE_OPTIMIZATIONS,
@@ -50,7 +52,7 @@ function fail {
 	exit 1
 }
 
-# variable to customize build by -- TODO: build into param system
+# variables to customize build by; defaults below
 #======================================================
 declare name=$(basename $(pwd -P))
 declare js_dir='./'
@@ -58,6 +60,7 @@ declare css_dir='./'
 declare js_files=()
 declare css_files=()
 declare compiler=~/scripts/compiler.jar
+declare dev_build=0
 declare optimization=WHITESPACE_ONLY
 #optimization=SIMPLE_OPTIMIZATIONS
 #optimization=ADVANCED_OPTIMIZATIONS 
@@ -66,7 +69,7 @@ declare os_group=$(groups | awk '{print $1}')
 declare os_perms=444
 
 
-# start of logic
+# collect up parameters from the command line
 #======================================================
 while [ $# -gt 0 ]; do
 	arg="$1"
@@ -75,6 +78,9 @@ while [ $# -gt 0 ]; do
 		-h|--help|-H)
 			usage
 			exit
+			;;
+		-d|--dev)
+			dev_build=1
 			;;
 		-j|--js)
 			[ $# -gt 0 ] || fail "Missing argument to --js."
@@ -136,6 +142,7 @@ while [ $# -gt 0 ]; do
 done
 
 # sanity check
+#======================================================
 [[ -d "$css_dir" && -d "$js_dir" ]] \
 	|| fail "Can't find CSS directory $css_dir or JavaScript directory $js_dir."
 java -version &>/dev/null \
@@ -148,9 +155,10 @@ cc_test=$(echo "$cc_code" | $jscc)
 [[ ${#js_files[*]} -eq 0 && ${#css_files[*]} -eq 0 ]] \
 	&& fail "You must supply at least one JavaScript or CSS file."
 
+# compile the javascript and css
+#======================================================
 #
 # JavaScript
-# ----------
 [ ${#js_files[*]} -gt 0 ] && {
 	cat ${js_files[*]} > "$js_dir/.$name.dev.js.$$" \
 		|| fail "Failed to concatinate javascript files together."
@@ -186,14 +194,17 @@ cc_test=$(echo "$cc_code" | $jscc)
 	# update build target
 	mv -f "$js_dir/$name.js.compiling" "$js_dir/$name.js" \
 		|| fail "Failed to update '$js_dir/$name.js' with compiled javascript."
-	 # dev build for debugging production
-	mv -f "$js_dir/.$name.dev.js.$$" "$js_dir/$name.dev.js" \
-		|| fail "Failed to update '$js_dir/$name.dev.js' for development build"
+	 # dev build for debugging production, if requested
+	if [ $dev_build -eq 1 ]; then
+		mv -f "$js_dir/.$name.dev.js.$$" "$js_dir/$name.dev.js" \
+			|| fail "Failed to update '$js_dir/$name.dev.js' for development build"
+	else
+		rm -f "$js_dir/.$name.dev.js.$$" || fail "Failed to remove the javascript development build file."
+	fi
 }
 
 #
 # CSS
-# ---
 [ ${#css_files[*]} -gt 0 ] && {
 	cat ${css_files[*]} > "$css_dir/.$name.css.$$" \
 		|| fail "Failed to concatinate CSS files together."
@@ -212,7 +223,7 @@ cc_test=$(echo "$cc_code" | $jscc)
 	# check for 4096+ styles and QQ-- I believe IE shits itself when this happens
 	# TODO: find a better way to check this... but it *should* be safe enough of a check for now :)
 	[[ $(grep -c '}' $css_dir/$name.css) -ge 4096 ]] \
-		&& fail "BUILD SUCCESSFUL; BUT CSS HAS GONE OVER 4096 LINES. INTERNET EXPLODER MIGHT SHIT ITSELF."
+		&& fail "BUILD SUCCESSFUL; BUT CSS HAS GONE OVER 4096 LINES. INTERNET EXPLODER MIGHT CRAP OUT."
 }
 
 exit 0
