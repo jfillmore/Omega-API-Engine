@@ -3379,30 +3379,12 @@
 			},
 			tooltip: function (owner, message, args) {
 				var tooltip;
-				if (! om.is_jquery(owner)) {
-					throw new Error("Invalid jquery object: '" + owner + "'; jQuery object expected.");
-				}
-				if (args === undefined) {
-					args = {};
-				}
-				if (args.speed === undefined) {
-					args.speed = 0;
-				}
-				if (args.classes === undefined) {
-					args.classes = [];
-				}
-				if (args.offset === undefined) {
-					args.offset = {};
-				}
-				if (args.offset.x === undefined) {
-					args.offset.x = 8;
-				}
-				if (args.offset.y === undefined) {
-					args.offset.y = 8;
-				}
-				if (args.target === undefined) {
-					args.target = owner;
-				}
+				args = om.get_args({
+					classes: [],
+					offset: {x: 8, y: 8},
+					speed: 0,
+					target: owner
+				}, args, true);
 				args.classes.push('om_tooltip');
 				if ('class' in args) {
 					args.classes.push(args['class']);
@@ -3656,20 +3638,20 @@
 			},
 			confirm: function (owner, title, html, args) {
 				var conf = om.bf.make.message(owner, title, html, args);
-				if (args === undefined) {
-					args = {};
-				}
+				args = om.get_args({
+					caption: 'Close',
+					on_close: undefined,
+					dont_show: false
+				}, args);
 				conf.$.toggleClass('om_confirm', true);
 				// add in a close button to the bottom of the box
 				conf._extend('bottom');
 				om.bf.make.input.button(conf._box_bottom.$, 'close', {
-					caption: 'Close',
+					caption: om.get(args.caption, conf),
 					'class': 'om_confirm_close',
 					on_click: function (click_event) {
 						// and fire the users's on_close event if present
-						if (args.on_close !== undefined && typeof args.on_close === 'function') {
-							args.on_close(click_event);
-						}
+						om.get(args.on_close, click_event, conf);
 						// if we did prevent the default then rebind ourselves if default is disabled too
 						if (click_event.isDefaultPrevented()) {
 							conf._box_bottom.$.find('.om_confirm_close').one('click dblclick', arguments.callee);
@@ -3789,9 +3771,7 @@
 				collect._form = om.bf.make.form(collect._box_middle.$, fields);
 				collect._form._add_submit(args.submit_caption, function (click_event, input) {
 					// and fire the users's on_submit event if present
-					if (args.on_submit !== undefined && typeof args.on_submit === 'function') {
-						args.on_submit(click_event, input);
-					}
+					om.get(args.on_submit, click_event, input, collect);
 					// if we did prevent the default then rebind ourselves if default is disabled too
 					if (! click_event.isDefaultPrevented()) {
 						// remove ourselves from the DOM
@@ -3800,9 +3780,7 @@
 				});
 				collect._form._add_cancel(args.cancel_caption, function (click_event) {
 					// and fire the users's on_cancel event if present
-					if (args.on_cancel !== undefined && typeof args.on_cancel === 'function') {
-						args.on_cancel(click_event);
-					}
+					om.get(args.on_cancel, click_event, collect);
 					// if we did prevent the default then rebind ourselves if default is disabled too
 					if (! click_event.isDefaultPrevented()) {
 						// remove ourselves from the DOM

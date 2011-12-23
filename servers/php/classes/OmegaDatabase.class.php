@@ -278,7 +278,7 @@ class OmegaDatabase {
 			} else {
 				if ($parser == 'array') {
 					$result = array();
-					while($row = mysql_fetch_assoc($db_result)) {
+					while ($row = mysql_fetch_assoc($db_result)) {
 						if ($key_col != null && isset($row[$key_col])) {
 							$result[$row[$key_col]] = $row;
 						} else {
