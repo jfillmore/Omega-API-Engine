@@ -4823,12 +4823,13 @@ om.json = om.JSON;
 				return loading;
 			},
 			confirm: function (owner, title, html, args) {
-				var conf = om.bf.make.message(owner, title, html, args);
+				var conf;
 				args = om.get_args({
 					caption: 'Close',
 					on_close: undefined,
 					dont_show: false
-				}, args);
+				}, args, true);
+				conf = om.bf.make.message(owner, title, html, args);
 				conf.$.toggleClass('om_confirm', true);
 				// add in a close button to the bottom of the box
 				conf._extend('bottom');
@@ -4849,6 +4850,8 @@ om.json = om.JSON;
 				});
 				if (args.dont_show !== true) {
 					conf._show();
+				} else {
+					conf._hide();
 				}
 				if (! conf.$.is(':hidden')) {
 					// auto-focus the first input, if there is one
