@@ -2176,6 +2176,7 @@
 					} else {
 						field = om.bf.make.input[type](form._create_target, name, field_args); 
 						field._form = form;
+						field._type = type;
 						box_remove = field._remove;
 						field._remove = function () {
 							box_remove();

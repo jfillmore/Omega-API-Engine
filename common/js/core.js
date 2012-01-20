@@ -7,8 +7,18 @@
    
 var om = {};
 
+/* The 'om' object serves as the base point for all other libraries
+(e.g. om.BoxFactory/om.bf, om.ColorFactory/om.cf).
+It also comtains various useful, generic functions. */
 (function (om) {
-	// misc functions
+	/* Recursive smart get - starting from the beginning, for each argument
+	that is a function it recursively calls itself with the remaining
+	arguments as parameters. Otherwise if the value is not a function the
+	value is returned. Makes it easy to allow argument values to be more dynamic.
+	e.g.
+	var foo = function (bar) { return bar + 1 };
+	om.get(foo, 3); // = 4
+	om.get(3, 3); // 3 */
 	om.get = function (val, args, obj1, obj2, objN) {
 		// call function if given, and use supplied args.
 		// if args are a function, call them for the args.
@@ -37,6 +47,10 @@ var om = {};
 			return val;
 		}
 	};
+
+	/* Iterate through the object and collect up parameters, using the
+	default value provided in "my_args" if the value is not present in "args".
+	Can optionally also merge extra arguments in "args" into result. */
 	om.get_args = function (my_args, args, merge) {
 		var arg;
 		for (arg in args) {
@@ -48,6 +62,10 @@ var om = {};
 		}
 		return my_args;
 	};
+
+	/* Subtract two numbers while properly maintaining the best precision possible.
+	e.g. om.subtract(3.33, 1.10999); // = 2.22001
+	 js> 3.33 - 1.10999 // = 2.2200100000000003 */
 	om.subtract = function (f1, f2) {
 		var sig_digs, d1, d2;
 		// determine how many significant digits we have and maintain that precision
@@ -67,14 +85,18 @@ var om = {};
 		return om.round(f1 - f2, {decimal: sig_digs});
 	};
 
+	/* Upper-case first letter of string. */
 	om.ucfirst = function (str) {
 		return str.substr(0, 1).toUpperCase() + str.substr(1, str.length - 1);
 	};
 
+	/* Lower-case first letter of string */
 	om.lcfirst = function (str) {
 		return str.substr(0, 1).toLowerCase() + str.substr(1, str.length - 1);
 	};
 
+	/* Strip a string of extra spacing and non alpha-numerical characters.
+	Optionally also try to replace 'fooBar' as 'foo bar'. */
 	om.flatten = function (str, add_cap_gap) {
 		// lowercase the first char
 		str = str.substr(0, 1).toLowerCase() + str.substr(1);
@@ -87,18 +109,22 @@ var om = {};
 		return str.toLowerCase().replace(/( |_)+/g, '_').replace(/[^a-z0-9_]+/g, '');
 	};
 
+	/* Returns whether the object is a vailid jQuery object. */
 	om.is_jquery = function (obj) {
 		return typeof(obj) === 'object' && obj.length !== undefined && obj.jquery !== undefined;
 	};
 
+	/* Best way of determining whether or not a string is numerical. */
 	om.is_numeric = function (str) {
 		return (! isNaN(parseFloat(str))) && isFinite(str);
 	};
 
+	/* Same as "om.is_numeric", but negated for the pedantic. */
 	om.isnt_numeric = function (str) {
 		return ! om.is_numeric(str);
 	};
 
+	/* Returns whether or not an object has more than one property. */
 	om.plural = function (obj) {
 		var item;
 		for (item in obj) {
@@ -109,14 +135,15 @@ var om = {};
 		return false;
 	};
 
-	// event magic
+	/* Cause events from one object to automatically trigger on the other object. */
 	om.link_event = function (event_type, from_obj, to_obj) {
 		from_obj.bind(event_type, function (e) {
-			to_obj.trigger(event_type, e);
+			to_obj.trigger(event_type);
 			// let the link be processed up the DOM from here too
 		});
 	};
 
+	/* Cause events from one object to instead trigger on another. */
 	om.reflect_event = function (event_type, from_obj, to_obj) {
 		from_obj.bind(event_type, function (e) {
 			to_obj.trigger(event_type, e);
@@ -126,7 +153,7 @@ var om = {};
 		});
 	};
 
-	// a method to assemble HTML nodes dynamically
+	/* Returns a string of an assembled HTML element. */
 	om.assemble = function (type, attributes, inner_html, leave_open) {
 		// check the type
 		if (! type.match(/^[a-zA-Z]+/)) {
@@ -168,7 +195,7 @@ var om = {};
 		return html;
 	};
 
-	// cookie fun
+	/* Set a cookie with the specified value (which will be JSON encoded) & TTL. */
 	om.set_cookie = function (name, value, ttl) {
 		if (value === undefined || value === null) {
 			value = '';
@@ -185,6 +212,7 @@ var om = {};
 		document.cookie = cookie;
 	};
 
+	/* Get a list of the cookies as an object. */
 	om.get_cookies = function () {
 		var cookies = {},
 			dough,
@@ -213,6 +241,7 @@ var om = {};
 		return cookies;
 	};
 
+	/* Returns a cookie by name, optionally decoding it as JSON. */
 	om.get_cookie = function (name, decode) {
 		var cookies = om.get_cookies();
 		if (name in cookies) {
@@ -224,14 +253,14 @@ var om = {};
 		}
 	};
 
-	om.delete_cookie = function (name) {
-		// TODO
-	};
+	/*
+	// TODO
+	om.delete_cookie = function (name) { };
+	// TODO
+	om.delete_cookies = function (re) { };
+	*/
 
-	om.delete_cookies = function (re) {
-		// TODO
-	};
-
+	/* Returns an array of cookies matching with the given RE obj. */
 	om.find_cookies = function (re, decode) {
 		var matches = [],
 			cookies = om.get_cookies(),
@@ -250,6 +279,7 @@ var om = {};
 		return matches;
 	};
 
+	/* Round numbers to some arbitrary precision or interval. */
 	om.round = function (num, args) {
 		var mod, int_half, multiplier, i, to_add;
 		/* args = {
@@ -326,7 +356,7 @@ var om = {};
 		return num;
 	};
 
-	// error handling
+	/* Generic error handling. */
 	om.Error = function (message, args) {
 		// failed? throw a polite error to the user
 		var error;

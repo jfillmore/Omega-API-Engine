@@ -6,6 +6,7 @@
    http://www.opensource.org/licenses/mit-license.php */
 
 (function (om) {
+	/* A data-dumper routine to recursively iterate over an object and pretty-print it's contents. */
 	om.Visualizer = {
 		obj2html: function (data, args) {
 			var html = '',

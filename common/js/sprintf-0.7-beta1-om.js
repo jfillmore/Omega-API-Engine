@@ -62,6 +62,7 @@ Changelog:
 **/
 
 (function (om) {
+	/* Everyone knows and loves sprintf. It needs no introduction. */
 	om.sprintf = (function () {
 		var str_format;
 

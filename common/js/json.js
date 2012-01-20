@@ -161,441 +161,440 @@
 */
 
 
-// Create a JSON object only if one does not already exist. We create the
-// methods in a closure to avoid creating global variables.
-
+/* Exports om.json/om.JSON with the methods 'auto_complete', 'encode', and 'decode' */
 (function(om) {
+	om.JSON = {};
 
-om.JSON = {};
-
-om.JSON.auto_complete = function(json, encode) {
-	// trace through the JSON and track the depth so we can auto-complete it
-	var i,
-		queue = [],
-		chr,
-		next_expected = null;
-	for (i = 0; i < json.length; i++) {
-		chr = json[i];
-		if (next_expected !== null && chr !== next_expected) {
-			continue;
-		}
-		if (chr === '\\') {
-			// escape char? skip the next char and go on
-			continue;
-		}
-		if (chr === '{') {
-			queue.push(chr);
+	/* Simple logic to auto-complete some simple JSON expressions.
+	Can optionally also return the encoded value. */
+	om.JSON.auto_complete = function(json, encode) {
+		// trace through the JSON and track the depth so we can auto-complete it
+		var i,
+			queue = [],
+			chr,
 			next_expected = null;
-		} else if (chr === '[') {
-			queue.push(chr);
-			next_expected = null;
-		} else if (chr === '"') {
-			if (queue[queue.length-1] === '"') {
-				// matched what we wanted? excellent-- mark it off
-				if (next_expected === chr) {
-					next_expected = null;
-				}
-				queue.pop();
-			} else {
+		for (i = 0; i < json.length; i++) {
+			chr = json[i];
+			if (next_expected !== null && chr !== next_expected) {
+				continue;
+			}
+			if (chr === '\\') {
+				// escape char? skip the next char and go on
+				continue;
+			}
+			if (chr === '{') {
 				queue.push(chr);
-				next_expected = chr;
-			}
-		} else if (chr === '}') {
-			if (queue[queue.length-1] === '{') {
-				queue.pop();
-			} else {
-				throw new Error("JSON auto-complete parse error on character '" + chr + "' (#" + i + ").");
-			}
-		} else if (chr === ']') {
-			if (queue[queue.length-1] === '[') {
-				queue.pop();
-			} else {
-				throw new Error("JSON auto-complete parse error on character '" + chr + "' (#" + i + ").");
+				next_expected = null;
+			} else if (chr === '[') {
+				queue.push(chr);
+				next_expected = null;
+			} else if (chr === '"') {
+				if (queue[queue.length-1] === '"') {
+					// matched what we wanted? excellent-- mark it off
+					if (next_expected === chr) {
+						next_expected = null;
+					}
+					queue.pop();
+				} else {
+					queue.push(chr);
+					next_expected = chr;
+				}
+			} else if (chr === '}') {
+				if (queue[queue.length-1] === '{') {
+					queue.pop();
+				} else {
+					throw new Error("JSON auto-complete parse error on character '" + chr + "' (#" + i + ").");
+				}
+			} else if (chr === ']') {
+				if (queue[queue.length-1] === '[') {
+					queue.pop();
+				} else {
+					throw new Error("JSON auto-complete parse error on character '" + chr + "' (#" + i + ").");
+				}
 			}
 		}
-	}
-	// take anything left in the queue and close it off
-	for (i = queue.length - 1; i >= 0; i--) {
-		chr = queue[i];
-		if (chr === '{') {
-			/*
-			// look back and make sure we've got a key and value
-			var back_chr;
-			for (var j = json.length - 1; j >= 0; j--) {
-				back_chr = json[j];
-				// see if we find a ':' or a '{' first to see whats next
-				if (back_chr == '"') {
-					// complete the key value if needed
-					// is the next sig char before this also a '"'? if so, we've got the value
-					var have_key = false;
-					for (var k = j - 1; k > 0; k--) {
-						if (json[i] == '"') {
-							have_key = true;
-							break;
-						} else if (json[i] == '[') {
-							break;
-						} else if (json[i] == '{') {
-							break;
-						}
-					}
-					if (! have_key) {
-						json += ': null';
-					}
-				} else if (back_chr == ':') {
-					// make sure the key is complete
-					var fwd_char;
-					var key_present = false;
-					// end of the line? we know we need a key
-					if (j == json.length - 1) {
-						key_present = false;
-					} else {
-						for (var k = j + 1; k < json.length; k++) {
-							fwd_char = json[k];
-							if (fwd_char != ' ') {
-								key_present = true;
-								j = -1;
+		// take anything left in the queue and close it off
+		for (i = queue.length - 1; i >= 0; i--) {
+			chr = queue[i];
+			if (chr === '{') {
+				/*
+				// look back and make sure we've got a key and value
+				var back_chr;
+				for (var j = json.length - 1; j >= 0; j--) {
+					back_chr = json[j];
+					// see if we find a ':' or a '{' first to see whats next
+					if (back_chr == '"') {
+						// complete the key value if needed
+						// is the next sig char before this also a '"'? if so, we've got the value
+						var have_key = false;
+						for (var k = j - 1; k > 0; k--) {
+							if (json[i] == '"') {
+								have_key = true;
+								break;
+							} else if (json[i] == '[') {
+								break;
+							} else if (json[i] == '{') {
 								break;
 							}
 						}
-					}
-					if (! key_present) {
-						json += 'null';
-						break;
+						if (! have_key) {
+							json += ': null';
+						}
+					} else if (back_chr == ':') {
+						// make sure the key is complete
+						var fwd_char;
+						var key_present = false;
+						// end of the line? we know we need a key
+						if (j == json.length - 1) {
+							key_present = false;
+						} else {
+							for (var k = j + 1; k < json.length; k++) {
+								fwd_char = json[k];
+								if (fwd_char != ' ') {
+									key_present = true;
+									j = -1;
+									break;
+								}
+							}
+						}
+						if (! key_present) {
+							json += 'null';
+							break;
+						}
 					}
 				}
+				*/
+				json += '}';
+			} else if (chr === '[') {
+				json += ']';
+			} else if (chr === '"') {
+				json += '"';
+			} else {
+				throw new Error("Unrecognized token in JSON auto-complete: '" + chr + "'.");
 			}
-			*/
-			json += '}';
-		} else if (chr === '[') {
-			json += ']';
-		} else if (chr === '"') {
-			json += '"';
+		}
+		if (encode === true) {
+			return om.JSON.encode(json);
 		} else {
-			throw new Error("Unrecognized token in JSON auto-complete: '" + chr + "'.");
+			return json;
 		}
-	}
-	if (encode === true) {
-		return om.JSON.encode(json);
-	} else {
-		return json;
-	}
-};
-
-function f(n) {
-	// Format integers to have at least two digits.
-	return n < 10 ? '0' + n : n;
-}
-
-if (typeof Date.prototype.decode !== 'function') {
-
-	Date.prototype.decode = function (key) {
-
-		return isFinite(this.valueOf()) ?
-			   this.getUTCFullYear()   + '-' +
-			 f(this.getUTCMonth() + 1) + '-' +
-			 f(this.getUTCDate())      + 'T' +
-			 f(this.getUTCHours())     + ':' +
-			 f(this.getUTCMinutes())   + ':' +
-			 f(this.getUTCSeconds())   + 'Z' : null;
 	};
 
-	String.prototype.decode =
-	Number.prototype.decode =
-	Boolean.prototype.decode = function (key) {
-		return this.valueOf();
-	};
-}
-
-var cx = /[\u0000\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
-	escapable = /[\\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
-	gap,
-	indent,
-	meta = {    // table of character substitutions
-		'\b': '\\b',
-		'\t': '\\t',
-		'\n': '\\n',
-		'\f': '\\f',
-		'\r': '\\r',
-		'"' : '\\"',
-		'\\': '\\\\'
-	},
-	rep;
-
-
-function quote(string) {
-
-// If the string contains no control characters, no quote characters, and no
-// backslash characters, then we can safely slap some quotes around it.
-// Otherwise we must also replace the offending characters with safe escape
-// sequences.
-
-	escapable.lastIndex = 0;
-	return escapable.test(string) ?
-		'"' + string.replace(escapable, function (a) {
-			var c = meta[a];
-			return typeof c === 'string' ? c :
-				'\\u' + ('0000' + a.charCodeAt(0).toString(16)).slice(-4);
-		}) + '"' :
-		'"' + string + '"';
-}
-
-
-function str(key, holder) {
-
-// Produce a string from holder[key].
-
-	var i,          // The loop counter.
-		k,          // The member key.
-		v,          // The member value.
-		length,
-		mind = gap,
-		partial,
-		value = holder[key];
-
-// If the value has a decode method, call it to obtain a replacement value.
-
-	if (value && typeof value === 'object' &&
-			typeof value.decode === 'function') {
-		value = value.decode(key);
+	function f(n) {
+		// Format integers to have at least two digits.
+		return n < 10 ? '0' + n : n;
 	}
 
-// If we were called with a replacer function, then call the replacer to
-// obtain a replacement value.
+	if (typeof Date.prototype.decode !== 'function') {
 
-	if (typeof rep === 'function') {
-		value = rep.call(holder, key, value);
+		Date.prototype.decode = function (key) {
+
+			return isFinite(this.valueOf()) ?
+				   this.getUTCFullYear()   + '-' +
+				 f(this.getUTCMonth() + 1) + '-' +
+				 f(this.getUTCDate())      + 'T' +
+				 f(this.getUTCHours())     + ':' +
+				 f(this.getUTCMinutes())   + ':' +
+				 f(this.getUTCSeconds())   + 'Z' : null;
+		};
+
+		String.prototype.decode =
+		Number.prototype.decode =
+		Boolean.prototype.decode = function (key) {
+			return this.valueOf();
+		};
 	}
 
-// What happens next depends on the value's type.
+	var cx = /[\u0000\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
+		escapable = /[\\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
+		gap,
+		indent,
+		meta = {    // table of character substitutions
+			'\b': '\\b',
+			'\t': '\\t',
+			'\n': '\\n',
+			'\f': '\\f',
+			'\r': '\\r',
+			'"' : '\\"',
+			'\\': '\\\\'
+		},
+		rep;
 
-	switch (typeof value) {
-	case 'string':
-		return quote(value);
 
-	case 'number':
+	function quote(string) {
 
-// JSON numbers must be finite. Encode non-finite numbers as null.
+	// If the string contains no control characters, no quote characters, and no
+	// backslash characters, then we can safely slap some quotes around it.
+	// Otherwise we must also replace the offending characters with safe escape
+	// sequences.
 
-		return isFinite(value) ? String(value) : 'null';
+		escapable.lastIndex = 0;
+		return escapable.test(string) ?
+			'"' + string.replace(escapable, function (a) {
+				var c = meta[a];
+				return typeof c === 'string' ? c :
+					'\\u' + ('0000' + a.charCodeAt(0).toString(16)).slice(-4);
+			}) + '"' :
+			'"' + string + '"';
+	}
 
-	case 'boolean':
-	case 'null':
 
-// If the value is a boolean or null, convert it to a string. Note:
-// typeof null does not produce 'null'. The case is included here in
-// the remote chance that this gets fixed someday.
+	function str(key, holder) {
 
-		return String(value);
+	// Produce a string from holder[key].
 
-// If the type is 'object', we might be dealing with an object or an array or
-// null.
+		var i,          // The loop counter.
+			k,          // The member key.
+			v,          // The member value.
+			length,
+			mind = gap,
+			partial,
+			value = holder[key];
 
-	case 'object':
+	// If the value has a decode method, call it to obtain a replacement value.
 
-// Due to a specification blunder in ECMAScript, typeof null is 'object',
-// so watch out for that case.
-
-		if (!value) {
-			return 'null';
+		if (value && typeof value === 'object' &&
+				typeof value.decode === 'function') {
+			value = value.decode(key);
 		}
 
-// Make an array to hold the partial results of encode this object value.
+	// If we were called with a replacer function, then call the replacer to
+	// obtain a replacement value.
 
-		gap += indent;
-		partial = [];
+		if (typeof rep === 'function') {
+			value = rep.call(holder, key, value);
+		}
 
-// Is the value an array?
+	// What happens next depends on the value's type.
 
-		if (Object.prototype.toString.apply(value) === '[object Array]') {
+		switch (typeof value) {
+		case 'string':
+			return quote(value);
 
-// The value is an array. Stringify every element. Use null as a placeholder
-// for non-JSON values.
+		case 'number':
 
-			length = value.length;
-			for (i = 0; i < length; i += 1) {
-				partial[i] = str(i, value) || 'null';
+	// JSON numbers must be finite. Encode non-finite numbers as null.
+
+			return isFinite(value) ? String(value) : 'null';
+
+		case 'boolean':
+		case 'null':
+
+	// If the value is a boolean or null, convert it to a string. Note:
+	// typeof null does not produce 'null'. The case is included here in
+	// the remote chance that this gets fixed someday.
+
+			return String(value);
+
+	// If the type is 'object', we might be dealing with an object or an array or
+	// null.
+
+		case 'object':
+
+	// Due to a specification blunder in ECMAScript, typeof null is 'object',
+	// so watch out for that case.
+
+			if (!value) {
+				return 'null';
 			}
 
-// Join all of the elements together, separated with commas, and wrap them in
-// brackets.
+	// Make an array to hold the partial results of encode this object value.
 
-			v = partial.length === 0 ? '[]' :
-				gap ? '[\n' + gap +
-						partial.join(',\n' + gap) + '\n' +
-							mind + ']' :
-					  '[' + partial.join(',') + ']';
-			gap = mind;
-			return v;
-		}
+			gap += indent;
+			partial = [];
 
-// If the replacer is an array, use it to select the members to be stringified.
+	// Is the value an array?
 
-		if (rep && typeof rep === 'object') {
-			length = rep.length;
-			for (i = 0; i < length; i += 1) {
-				k = rep[i];
-				if (typeof k === 'string') {
-					v = str(k, value);
-					if (v) {
-						partial.push(quote(k) + (gap ? ': ' : ':') + v);
+			if (Object.prototype.toString.apply(value) === '[object Array]') {
+
+	// The value is an array. Stringify every element. Use null as a placeholder
+	// for non-JSON values.
+
+				length = value.length;
+				for (i = 0; i < length; i += 1) {
+					partial[i] = str(i, value) || 'null';
+				}
+
+	// Join all of the elements together, separated with commas, and wrap them in
+	// brackets.
+
+				v = partial.length === 0 ? '[]' :
+					gap ? '[\n' + gap +
+							partial.join(',\n' + gap) + '\n' +
+								mind + ']' :
+						  '[' + partial.join(',') + ']';
+				gap = mind;
+				return v;
+			}
+
+	// If the replacer is an array, use it to select the members to be stringified.
+
+			if (rep && typeof rep === 'object') {
+				length = rep.length;
+				for (i = 0; i < length; i += 1) {
+					k = rep[i];
+					if (typeof k === 'string') {
+						v = str(k, value);
+						if (v) {
+							partial.push(quote(k) + (gap ? ': ' : ':') + v);
+						}
 					}
 				}
-			}
-		} else {
+			} else {
 
-// Otherwise, iterate through all of the keys in the object.
+	// Otherwise, iterate through all of the keys in the object.
 
-			for (k in value) {
-				if (Object.hasOwnProperty.call(value, k)) {
-					v = str(k, value);
-					if (v) {
-						partial.push(quote(k) + (gap ? ': ' : ':') + v);
-					}
-				}
-			}
-		}
-
-// Join all of the member texts together, separated with commas,
-// and wrap them in braces.
-
-		v = partial.length === 0 ? '{}' :
-			gap ? '{\n' + gap + partial.join(',\n' + gap) + '\n' +
-					mind + '}' : '{' + partial.join(',') + '}';
-		gap = mind;
-		return v;
-	}
-}
-
-// If the JSON object does not yet have a encode method, give it one.
-
-if (typeof om.JSON.encode !== 'function') {
-	om.JSON.encode = function (value, replacer, space) {
-
-// The encode method takes a value and an optional replacer, and an optional
-// space parameter, and returns a JSON text. The replacer can be a function
-// that can replace values, or an array of strings that will select the keys.
-// A default replacer method can be provided. Use of the space parameter can
-// produce text that is more easily readable.
-
-		var i;
-		gap = '';
-		indent = '';
-
-// If the space parameter is a number, make an indent string containing that
-// many spaces.
-
-		if (typeof space === 'number') {
-			for (i = 0; i < space; i += 1) {
-				indent += ' ';
-			}
-
-// If the space parameter is a string, it will be used as the indent string.
-
-		} else if (typeof space === 'string') {
-			indent = space;
-		}
-
-// If there is a replacer, it must be a function or an array.
-// Otherwise, throw an error.
-
-		rep = replacer;
-		if (replacer && typeof replacer !== 'function' &&
-				(typeof replacer !== 'object' ||
-				 typeof replacer.length !== 'number')) {
-			throw new Error('om.JSON.encode');
-		}
-
-// Make a fake root object containing our value under the key of ''.
-// Return the result of encode the value.
-
-		return str('', {'': value});
-	};
-}
-
-
-// If the JSON object does not yet have a parse method, give it one.
-
-if (typeof om.JSON.decode !== 'function') {
-	om.JSON.decode = function (text, reviver) {
-
-// The parse method takes a text and an optional reviver function, and returns
-// a JavaScript value if the text is a valid JSON text.
-
-		var j;
-
-		function walk(holder, key) {
-
-// The walk method is used to recursively walk the resulting structure so
-// that modifications can be made.
-
-			var k, v, value = holder[key];
-			if (value && typeof value === 'object') {
 				for (k in value) {
 					if (Object.hasOwnProperty.call(value, k)) {
-						v = walk(value, k);
-						if (v !== undefined) {
-							value[k] = v;
-						} else {
-							delete value[k];
+						v = str(k, value);
+						if (v) {
+							partial.push(quote(k) + (gap ? ': ' : ':') + v);
 						}
 					}
 				}
 			}
-			return reviver.call(holder, key, value);
+
+	// Join all of the member texts together, separated with commas,
+	// and wrap them in braces.
+
+			v = partial.length === 0 ? '{}' :
+				gap ? '{\n' + gap + partial.join(',\n' + gap) + '\n' +
+						mind + '}' : '{' + partial.join(',') + '}';
+			gap = mind;
+			return v;
 		}
+	}
+
+	// If the JSON object does not yet have a encode method, give it one.
+
+	if (typeof om.JSON.encode !== 'function') {
+		om.JSON.encode = function (value, replacer, space) {
+
+	// The encode method takes a value and an optional replacer, and an optional
+	// space parameter, and returns a JSON text. The replacer can be a function
+	// that can replace values, or an array of strings that will select the keys.
+	// A default replacer method can be provided. Use of the space parameter can
+	// produce text that is more easily readable.
+
+			var i;
+			gap = '';
+			indent = '';
+
+	// If the space parameter is a number, make an indent string containing that
+	// many spaces.
+
+			if (typeof space === 'number') {
+				for (i = 0; i < space; i += 1) {
+					indent += ' ';
+				}
+
+	// If the space parameter is a string, it will be used as the indent string.
+
+			} else if (typeof space === 'string') {
+				indent = space;
+			}
+
+	// If there is a replacer, it must be a function or an array.
+	// Otherwise, throw an error.
+
+			rep = replacer;
+			if (replacer && typeof replacer !== 'function' &&
+					(typeof replacer !== 'object' ||
+					 typeof replacer.length !== 'number')) {
+				throw new Error('om.JSON.encode');
+			}
+
+	// Make a fake root object containing our value under the key of ''.
+	// Return the result of encode the value.
+
+			return str('', {'': value});
+		};
+	}
 
 
-// Parsing happens in four stages. In the first stage, we replace certain
-// Unicode characters with escape sequences. JavaScript handles many characters
-// incorrectly, either silently deleting them, or treating them as line endings.
+	// If the JSON object does not yet have a parse method, give it one.
 
-		cx.lastIndex = 0;
-		if (cx.test(text)) {
-			text = text.replace(cx, function (a) {
-				return '\\u' +
-					('0000' + a.charCodeAt(0).toString(16)).slice(-4);
-			});
-		}
+	if (typeof om.JSON.decode !== 'function') {
+		om.JSON.decode = function (text, reviver) {
 
-// In the second stage, we run the text against regular expressions that look
-// for non-JSON patterns. We are especially concerned with '()' and 'new'
-// because they can cause invocation, and '=' because it can cause mutation.
-// But just to be safe, we want to reject all unexpected forms.
+	// The parse method takes a text and an optional reviver function, and returns
+	// a JavaScript value if the text is a valid JSON text.
 
-// We split the second stage into 4 regexp operations in order to work around
-// crippling inefficiencies in IE's and Safari's regexp engines. First we
-// replace the JSON backslash pairs with '@' (a non-JSON character). Second, we
-// replace all simple value tokens with ']' characters. Third, we delete all
-// open brackets that follow a colon or comma or that begin the text. Finally,
-// we look to see that the remaining characters are only whitespace or ']' or
-// ',' or ':' or '{' or '}'. If that is so, then the text is safe for eval.
+			var j;
 
-		if (/^[\],:{}\s]*$/.
-test(text.replace(/\\(?:["\\\/bfnrt]|u[0-9a-fA-F]{4})/g, '@').
-replace(/"[^"\\\n\r]*"|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?/g, ']').
-replace(/(?:^|:|,)(?:\s*\[)+/g, ''))) {
+			function walk(holder, key) {
 
-// In the third stage we use the eval function to compile the text into a
-// JavaScript structure. The '{' operator is subject to a syntactic ambiguity
-// in JavaScript: it can begin a block or an object literal. We wrap the text
-// in parens to eliminate the ambiguity.
+	// The walk method is used to recursively walk the resulting structure so
+	// that modifications can be made.
 
-			j = eval('(' + text + ')');
+				var k, v, value = holder[key];
+				if (value && typeof value === 'object') {
+					for (k in value) {
+						if (Object.hasOwnProperty.call(value, k)) {
+							v = walk(value, k);
+							if (v !== undefined) {
+								value[k] = v;
+							} else {
+								delete value[k];
+							}
+						}
+					}
+				}
+				return reviver.call(holder, key, value);
+			}
 
-// In the optional fourth stage, we recursively walk the new structure, passing
-// each name/value pair to a reviver function for possible transformation.
 
-			return typeof reviver === 'function' ?
-				walk({'': j}, '') : j;
-		}
+	// Parsing happens in four stages. In the first stage, we replace certain
+	// Unicode characters with escape sequences. JavaScript handles many characters
+	// incorrectly, either silently deleting them, or treating them as line endings.
 
-// If the text is not JSON parseable, then a SyntaxError is thrown.
+			cx.lastIndex = 0;
+			if (cx.test(text)) {
+				text = text.replace(cx, function (a) {
+					return '\\u' +
+						('0000' + a.charCodeAt(0).toString(16)).slice(-4);
+				});
+			}
 
-		throw new SyntaxError('om.JSON.decode');
-	};
-}
+	// In the second stage, we run the text against regular expressions that look
+	// for non-JSON patterns. We are especially concerned with '()' and 'new'
+	// because they can cause invocation, and '=' because it can cause mutation.
+	// But just to be safe, we want to reject all unexpected forms.
 
-// create an alias
-om.json = om.JSON;
+	// We split the second stage into 4 regexp operations in order to work around
+	// crippling inefficiencies in IE's and Safari's regexp engines. First we
+	// replace the JSON backslash pairs with '@' (a non-JSON character). Second, we
+	// replace all simple value tokens with ']' characters. Third, we delete all
+	// open brackets that follow a colon or comma or that begin the text. Finally,
+	// we look to see that the remaining characters are only whitespace or ']' or
+	// ',' or ':' or '{' or '}'. If that is so, then the text is safe for eval.
+
+			if (/^[\],:{}\s]*$/.
+	test(text.replace(/\\(?:["\\\/bfnrt]|u[0-9a-fA-F]{4})/g, '@').
+	replace(/"[^"\\\n\r]*"|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?/g, ']').
+	replace(/(?:^|:|,)(?:\s*\[)+/g, ''))) {
+
+	// In the third stage we use the eval function to compile the text into a
+	// JavaScript structure. The '{' operator is subject to a syntactic ambiguity
+	// in JavaScript: it can begin a block or an object literal. We wrap the text
+	// in parens to eliminate the ambiguity.
+
+				j = eval('(' + text + ')');
+
+	// In the optional fourth stage, we recursively walk the new structure, passing
+	// each name/value pair to a reviver function for possible transformation.
+
+				return typeof reviver === 'function' ?
+					walk({'': j}, '') : j;
+			}
+
+	// If the text is not JSON parseable, then a SyntaxError is thrown.
+
+			throw new SyntaxError('om.JSON.decode');
+		};
+	}
+
+	// create an alias
+	om.json = om.JSON;
 
 }(om));

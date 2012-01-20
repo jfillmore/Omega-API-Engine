@@ -15,6 +15,8 @@ License: http://shjs.sourceforge.net/doc/gplv3.html
 
 (function (om) {
 	var shjs;
+	/* Exports om.sh.highlight to add syntax highlighting to the specified
+	jQuery object's HTML. */
 	shjs = {
 		requests: {},
 		tag: 'shjs_',

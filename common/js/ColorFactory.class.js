@@ -1,4 +1,3 @@
-
 /* omega - web client
    http://code.google.com/p/theomega/
   
@@ -7,10 +6,21 @@
    http://www.opensource.org/licenses/mit-license.php */
    
 (function (om) {
+	/* The color factory library contains color manipulation routines. e.g.:
+	- Color math for hue/value/saturation manipulation.
+	- Generating fades and blending colors.
+	- Converting between hex, rbg, rgba, etc. */
 	om.ColorFactory = {};
 	om.cf = om.ColorFactory;
+
+	/* Fetch a color, or color of a jQuery obj.
+	Returns hex value by default. */
 	om.cf.get = function (color, args) {
 		var hue, result, i, rgb_clr, min, max, delta, tmp;
+		args = om.get_args({
+			format: 'hex',
+			surface: 'color'
+		}, args);
 		if (color === undefined) {
 			throw new Error("Invalid color to get value of.");
 		}
@@ -215,29 +225,22 @@
 		return color;
 	};
 
+	/* Collection of various color-related objects. */
 	om.cf.make = {
+		/* Returns an object with methods to fade colors in the specified
+		number of steps together. e.g.:
+		om.cf.make.fade(['#ffffff', '#333333']).get_color(1); // = "#bbbbbb" */
 		fade: function (colors, args) {
-			// validate our colors object
 			var fade;
-			/* args = {
+			args = om.get_args({
 				steps: 1, // how many steps between colors
 				allow_oob: true // whether or not to allow out-of-bounds colors
-			} */
-			if (args === undefined) {
-				args = {};
-			}
-			if (args.steps === undefined) {
-				args.steps = 1;
-			}
-			if (args.allow_oob === undefined) {
-				args.allow_oob = true;
-			}
-			
+			}, args);
+			// validate our colors object
 			fade = {
 				_args: args,
 				colors: []
 			};
-
 			fade.set_steps = function (steps) {
 				if (typeof(steps) === 'number' && steps >= 0) {
 					fade.steps = steps;
@@ -246,7 +249,6 @@
 					throw new Error("The number of steps must be 0 or greater.");
 				}
 			};
-
 			fade.set_size = function (count) {
 				// make sure this size can be used with this many colors
 				if (count === fade.colors.length) {
@@ -289,7 +291,6 @@
 					fade.colors[i] = om.cf.get(colors[i], args);
 				}
 			};
-
 			fade.get_color = function (i, args) {
 				var start_color_num, end_color_num, offset, blend_ratio,
 					depth = 0;
@@ -330,25 +331,21 @@
 					{ratio: blend_ratio, format: args.format}
 				);
 			};
-
 			fade.set_colors(colors);
 			fade.set_steps(args.steps);
 			return fade;
 		}
 	};
 
+	/* Blend two colors (or DOM objects) together by some amount. e.g.:
+	om.cf.blend('#ffffff', '#abc123', {ratio: 0.3}); // = "#e5ecbd" */
 	om.cf.blend = function (source, target, args) {
 		var color, part;
 		// if there are no steps or the offset is zero take the easy way out
-		if (args === undefined) {
-			args = {};
-		}
-		if (args.format === undefined) {
-			args.format = 'hex';
-		}
-		if (args.ratio === undefined) {
-			args.ratio = 0.5;
-		}
+		args = om.get_args({
+			format: 'hex',
+			ratio: 0.5
+		}, args);
 		source = om.cf.get(source, {format: 'rgb_obj'});
 		target = om.cf.get(target, {format: 'rgb_obj'});
 		// easy cases
@@ -377,30 +374,53 @@
 		return om.cf.get(color, {format: args.format});
 	};
 	
+	/* Alter the hue, value, or saturation of a color. Can either set to some
+	specific value or multiple/offset of some amount. e.g.
+	om.cf.mix('#333AA0', {saturation: 0.5}); // = #5055a0 */
 	om.cf.mix = function (color, args) {
+		/* arguments:
+		args = {
+			format: 'hex', // or any other format supported by "om.cf.get"
+			hue: 0 - 360,
+			hue_shift: 0 - 360,
+			hue_mult: 0.0 - 1.0,
+			saturation: 0.0 - 1.0,
+			saturation_shift: 0 - 360,
+			saturation_mult: 0.0 - 1.0,
+			value: 0.0 - 1.0,
+			value_shift: 0 - 360,
+			value_mult: 0.0 - 1.0
+		};
+		*/
 		if (args === undefined) {
 			args = {};
 		}
 		color = om.cf.get(color, {format: 'hsv_obj'});
 		if (args.hue !== undefined) {
 			color.h = args.hue;
-		} else if (args.hue_shift !== undefined) {
+		} 
+		if (args.hue_shift !== undefined) {
 			color.h += args.hue_shift;
-		} else if (args.hue_mult !== undefined) {
+		} 
+		if (args.hue_mult !== undefined) {
 			color.h *= args.hue_mult;
 		}
 		if (args.saturation !== undefined) {
 			color.s = args.saturation;
-		} else if (args.saturation_shift !== undefined) {
+		} 
+		if (args.saturation_shift !== undefined) {
 			color.s += args.saturation_shift;
-		} else if (args.saturation_mult !== undefined) {
+		} 
+		if (args.saturation_mult !== undefined) {
 			color.s *= args.saturation_mult;
 		}
 		if (args.value !== undefined) {
 			color.v = args.value;
-		} else if (args.value_shift !== undefined) {
+		} 
+		if (args.value_shift !== undefined) {
 			color.v += args.value_shift;
-		} else if (args.value_mult !== undefined) {
+		} 
+		if (args.value_mult !== undefined) {
 			color.v *= args.value_mult;
 		}
 		if (color.h < 0) {

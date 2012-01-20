@@ -6,6 +6,7 @@
    http://www.opensource.org/licenses/mit-license.php */
    
 (function (om) {
+	/** Auto-gui for interacting with and browsing through a service. */
 	om.Diviner = function (owner, omega_client, args) {
 		var diviner;
 

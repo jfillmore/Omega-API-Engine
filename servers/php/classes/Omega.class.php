@@ -14,6 +14,7 @@ class Omega implements OmegaApi {
 	private $session_id; // used when scope = 'session'
 
 	// service information
+	public $api; // alias to $this->service
 	public $service; // the current hosted service e.g. 'new Marian(...);'
 	public $service_name; // the service's name, used to initialize the client service, e.g. 'Marian'
 	
@@ -95,6 +96,7 @@ class Omega implements OmegaApi {
 		}
 		if ($service !== null) {
 			$this->service = $service;
+			$this->api = $this->service;
 		} else {
 			throw new Exception("Failed to initialize $class_name.");
 		}
@@ -131,6 +133,7 @@ class Omega implements OmegaApi {
 		if ($this->request->get_api() == '?' || ($this->request->get_api() === $service_nickname && $this->request->is_query())) {
 			$this->save_service_state = false;
 			$this->service = null;
+			$this->api = $this->service;
 			$this->session = null;
 		} else {
 			$this->_load_session();
@@ -228,6 +231,7 @@ class Omega implements OmegaApi {
 			// global scope means every request is served by the same server
 			try {
 				$this->service = $this->shed->get($this->service_name . '/instances', 'global');
+				$this->api = $this->service;
 			} catch (Exception $e) {
 				// failed to get it? start one up fresh
 				$this->_init_service();
@@ -249,6 +253,7 @@ class Omega implements OmegaApi {
 			}
 			try {
 				$this->service = $this->shed->get($this->service_name . '/instances/users', $username);
+				$this->api = $this->service;
 			} catch (Exception $e) {
 				// failed to get it? start one up fresh
 				$this->_init_service();
@@ -274,6 +279,7 @@ class Omega implements OmegaApi {
 				&& $this->request->get_api() != $this->config->get('omega.nickname')) {
 				$this->session = $this->shed->get($this->service_name . '/instances/sessions', $session_id);
 				$this->service = $this->session['service'];
+				$this->api = $this->service;
 				$this->session_id = $_COOKIE['OMEGA_SESSION_ID'];
 			} else {
 				$this->_create_session();
