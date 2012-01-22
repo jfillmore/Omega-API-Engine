@@ -11,8 +11,16 @@
 */
 (function (om) {
 	om.BoxFactory = {
+		/* Takes a jQuery DOM object and turns it into a box, storing the jQuery reference as ".$".
+		Boxes have some basic functions to nest/move
+		*/
 		box: function (jquery_obj, args) {
 			var box, type, part_type, i, arg;
+			args = om.get_args({
+				html: '',
+				imbue: undefined // object from om.bf
+				// on_* will be auto
+			}, args, true);
 			// allow own own boxes to be passed in
 			if (typeof(jquery_obj) === 'object' && om.is_jquery(jquery_obj.$)) {
 				jquery_obj = jquery_obj.$;
@@ -26,28 +34,19 @@
 			if (jquery_obj.length === 0) {
 				throw new Error("Target '" + jquery_obj.selector + "' has no length; unable to box.");
 			}
-			if (args === undefined) {
-				args = {};
-			}
 			// create the box, starting with our jquery reference
 			box = {$: jquery_obj};
 			box.$.toggleClass('om_box', true);
 
-			// and add in our box logic
-			box._remove = function () {
-				var top_sibling;
-				// TODO: make this cleanup dynamic based on imbuements
-				if (box.$.is('.om_box_free')) {
-					top_sibling = box._get_top_sibling();
-					if (top_sibling) {
-						box._focus_out();
-						top_sibling.triggerHandler('focusin.om');
-					}
+			/* Remove ourself via jQuery. */
+			box._remove = function (args) {
+				if ('$' in box) {
+					box.$.remove();
+					delete(box.$);
 				}
-				box.$.remove();
-				delete(box.$);
 			};
 
+			/* Add another box inside. */
 			box._add_box = function (name, args) {
 				var i, classes, new_box;
 				new_box = om.bf.make.box(box.$, args);
@@ -60,6 +59,7 @@
 				return new_box;
 			};
 
+			/* Add an input object inside. */
 			box._add_input = function (type, name, args) {
 				if (type in om.bf.make.input) {
 					return om.bf.make.input[type](box.$, name, args);
@@ -68,6 +68,7 @@
 				}
 			};
 
+			/* Change box opacity */
 			box._opacity = function (fade_ratio) {
 				if (fade_ratio === undefined) {
 					return box.$.css('opacity');
@@ -82,12 +83,14 @@
 				}	
 			};
 
-			// allow the box to grow in any direction
+			/* Create another box inside, in a specific layout position.
+			Positions: (top, left, right, bottom */
 			box._extend = function (direction, name, args) {
 				var box_part, children;
-				if (args === undefined) {
-					args = {};
-				}
+				args = om.get_args({
+					wrap: undefined,
+					dont_show: false
+				}, args, true);
 				// if we've already extended in the direction then just return that direction
 				if ('_box_' + direction in box) {
 					return box['_box_' + direction];
@@ -106,7 +109,7 @@
 
 				// and figure out where to orient it based on the position we extended towards
 				box_part.$.detach();
-				if (args.wrap !== undefined) {
+				if (args.wrap) {
 					box.$.children(args.wrap).detach().appendTo(box_part.$);
 				}
 				if (direction === 'top') {
@@ -152,7 +155,8 @@
 				return box_part;
 			};
 
-			// let box parts shift directions, possibly overwriting the contents of another box
+			/* Test, TODO: remove at some point */
+			/*
 			box._shift = function (from, to, clobber) {
 				var from_obj, to_obj;
 				if (clobber === undefined) {
@@ -180,6 +184,7 @@
 				delete box['_box_' + from];
 				return box;
 			};
+			*/
 
 			// see if there is any post-processing to do
 			if (args.imbue !== undefined && args.imbue !== null) {
@@ -264,7 +269,8 @@
 						box.$.triggerHandler('cursorout.om');
 					}
 				});
-
+		
+				/*
 				box._title = function (html) {
 					// make sure the box is extended to 'top'
 					if (html !== undefined) {
@@ -298,6 +304,7 @@
 						}
 					}
 				};
+				*/
 
 				box._resizable = function (anchor, args) {
 					var on_start_move, on_loosen;
@@ -885,9 +892,9 @@
 					return box;
 				};
 
+				/*
 				box._dodge_cursor = function (x, y, margin) {
 					return; // TODO
-					/*
 					var mouse_size = 15,
 						box_pos,
 						cur_pos,
@@ -914,8 +921,8 @@
 						// assume we'll have enough room up top for the tooltip... if not, oh well, we tried
 						box.$.css('top', box_pos.top - (delta.bottom + cur_pos.height) + 'px');
 					}
-					*/
 				};
+				*/
 					
 				box._move_to = function (x, y) {
 					box.$.css('left', x + 'px').css('top', y + 'px');
@@ -1137,6 +1144,7 @@
 	jQuery.extend(
 		om.BoxFactory.make,
 		{
+			/* Create a box from scratch. */
 			box: function (owner, args) {
 				var html, target, box, jq, arg, box_args;
 				if (owner === undefined || owner === null) {
@@ -1191,6 +1199,8 @@
 				}
 				return box;
 			},
+
+			/* Generic window object. */
 			win: function (owner, args) {
 				var win, i;
 				args = om.get_args({
@@ -1377,58 +1387,32 @@
 				win._init();
 				return win;
 			},
+
+			/* Generic menu object. Contains list of options w/ events. */
 			menu: function (owner, options, args) {
-				var menu, option, option_args;
+				var menu;
+				args = om.get_args({
+					dont_show: false,
+					equal_option_widths: false,
+					multi_select: false,
+					name: '', // name of menu, also set as class
+					options_inline: false, // defaults to true if options_orient is 'top' or 'bottom' 
+					options_orient: undefined, // whether or not to orient menu options towards a particular box position
+					peer_group: undefined // a jQuery ref to a DOM object to find menu option peers in (e.g. for nested single-select menus)
+				}, args, true);
 				/* options format:
 				option = {
 					name: {option_args},
 					...
 				} */
-				/* args format:
-				args = {
-					name: '', // added as a class
-					options_inline: true, // defaults to true if options_orient is 'top' or 'bottom' 
-					options_orient: null, // whether or not to orient menu options towards a particular box position
-					multi_select: false,
-					peer_group: null, // a jQuery ref to a DOM object to find menu option peers in (e.g. for nested single-select menus)
-					dont_show: false, // whether or not to show the menu by default
-					equal_option_widths: false, // make all options as wide as widest
-					class: 'foo',
-					classes: ['foo', 'bar']
-				} */
-				if (! om.is_jquery(owner)) {
-					throw new Error("Invalid jquery object: '" + owner + "'; jQuery object expected.");
-				}
-				if (args === undefined) {
-					args = {};
-				}
-				if (args.multi_select === undefined) {
-					args.multi_select = false;
-				}
-				if (args.dont_show === undefined) {
-					args.dont_show = false;
-				}
-				if (args.equal_option_widths === undefined) {
-					args.equal_option_widths = false;
-				}
-				if (args.classes === undefined) {
-					args.classes = [];
-				}
-				args.classes.push('om_menu');
-				if ('class' in args) {
-					args.classes.push(args['class']);
-				}
 				// create the menu
-				menu = om.bf.make.box(owner, {
-					dont_show: true,
-					classes: args.classes,
-					insert: args.insert
-				});
+				menu = om.bf.make.box(owner, args);
+				menu.$.toggleClass('om_menu', true);
 				menu._args = args;
-				if (args.name !== undefined) {
+				if (args.name) {
 					menu.$.toggleClass(args.name, true);
 				}
-				if (args.options_orient === undefined) {
+				if (args.options_orient) {
 					menu._options_box = menu._add_box('om_menu_options');
 				} else {
 					menu._options_box = menu._extend(
@@ -1690,80 +1674,51 @@
 
 				// load up the initial options into the menu
 				menu._init();
-				if (args.dont_show !== true) {
-					menu.$.show();
-					if (args.equal_option_widths) {
-						menu._equalize_option_widths();
-					}
+				if (args.dont_show !== true && args.equal_option_widths) {
+					menu._equalize_option_widths();
 				}
 				return menu;
 			},
-			/* automatically generates a form with the most intelligent objects available */
+
+			/* Form container and methods to set/fetch data, as well as do basic layout. */
 			form: function (owner, fields, args) {
 				var form, classes, name, field;
-				/* args = {
-						break_type: null, // null, 'column', 'tab', 'page'
-						breaker_args: { // arguments to use when creating break manager
-							options_orient: 'top',
-							options_inline: true,
-							equalize_tab_widths: false,
-							on_tab_change: function () {}
+				args = om.get_args({
+					auto_break_length: null, // automatically insert a break after every X options
+					breaker_args: { // arguments to use when creating break manager
+						options_orient: 'top',
+						options_inline: true,
+						equalize_tab_widths: false,
+						on_tab_change: undefined
+					},
+					break_type: undefined, // null, 'column', 'tab', 'page'
+					dont_show: false
+				}, args, true);
+				/* // example of fields
+				fields = {
+					cost: {
+						type: 'text',
+						args: {
+							default_val: '1',
+							caption: 'Product price:',
+							caption_orient: left,
+							...
 						},
-				//      auto_break_length: null, // automatically insert a break after every X characters
-				// };
-				*/
-				// fields = {
-				//	cost: {
-				//		type: 'text',
-				//		args: {
-				//			default_val: '1',
-				//			caption: 'Product price:',
-				//			caption_orient: left,
-				//			...
-				//		},
-				//  },
-				//	name: {
-				//		type: 'input type',
-				//		args: {
-				//			'arg_name': 'arg_value'
-				//		}
-				//	};
-				// };
-				// ... */
-				if (! om.is_jquery(owner)) {
-					throw new Error("Invalid jquery object: '" + owner + "'; jQuery object expected.");
-				}
-				if (args === undefined) {
-					args = {};
-				}
-				classes = ['om_form'];
-				if (args.classes !== undefined) {
-					if (jQuery.isArray(args.classes)) {
-						classes = classes.concat(args.classes);
-					} else if (typeof args.classes === 'string') {
-						classes = classes.concat(args.classes.split(' '));
-					} else {
-						throw new Error("Unrecognized type for 'classes' argument: '" + typeof args.classes + "'.");
-					}
-				}
-				if (args['class'] !== undefined) { // IE sucks
-					classes.push(args['class']);
-				}
-				if (args.breaker_args === undefined) {
-					args.breaker_args = {};
-				}
-				if (args.auto_break_length !== undefined) {
-					if (! args.auto_break_length > 0) {
-						throw new Error("Form auto break length must be greater than 0.");
-					}
-				} else {
-					args.auto_break_length = null;
-				}
+				  },
+					name: {
+						type: 'input type',
+						args: {
+							'arg_name': 'arg_value'
+						}
+					};
+				 };
+				 ... */
 				form = om.bf.make.box(owner, {
 					dont_show: true,
 					'classes': classes,
 					insert: args.insert
 				});
+				form.$.toggleClass('om_form', true);
 				form._args = args;
 				form._canvas = form._extend('middle', 'om_form_fields', {wrap: '*'});
 				form._fields = {};
@@ -2250,6 +2205,8 @@
 				form._init(fields);
 				return form;
 			},
+
+			/* Initial work at a scroll-bar duplication, but limited browser support for mousewheel. */
 			scroller: function (owner, args) {
 				var scroller;
 				/* 	args = {
@@ -2557,9 +2514,11 @@
 				scroller._init();
 				return scroller;
 			},
-			/* common form objects with a bit more intelligence than the average object */
+
+			/* Common form objects with a bit more intelligence than the average object. */
 			input: {
-				// hint the input with a predefined value, which changes to the default value on focus (e.g. to give instructions that auto-clear on focus)
+
+				/* Hint an input with a predefined value, which changes to the default value on focus (e.g. to give instructions that auto-clear on focus). */
 				_hint: function (obj, hint, args) {
 					if (args === undefined) {
 						args = {};
@@ -2593,41 +2552,25 @@
 					}
 					return obj;
 				},
+				
+				/* Generic object creation. Base object for input objects. */
 				obj: function (owner, args) {
 					var obj;
-					/* args = {
-						caption_orient: top, // where to put the input object caption
-						caption: '', // the label for the input object
+					args = om.get_args({
+						caption: undefined,
+						caption_orient: 'top',
+						classes: [],
+						dont_show: false,
 						link_caption: true, // whether or not to link DOM events to thecaption to actual input object
-						validate: function () {}, // called to verify input contents when they change, using tooltips to communicate any errors-- returns 'true' is good, otherwise return a string with the error message
-						tooltip: '', // a tooltip to show on mouse-over
-						default_val: '', // the default value of the input, called through _val() to be object specific
-						on_change: function (change_event, obj) {} // what to do when the value changes
-						on_click: function (click_event, obj) {} // what to do when the input is clicked
+						on_change: undefined, // what to do when the value changes
+						on_click: undefined, // what to do when the input is clicked
+						tooltip: undefined, // a tooltip to show on mouse-over
+						validate: undefined
+					}, args);
+					/* args = {
 					}; */
-					if (! om.is_jquery(owner)) {
-						throw new Error("Invalid jquery object: '" + owner + "'; jQuery object expected.");
-					}
-					if (args === undefined) {
-						args = {};
-					}
-					if (args.caption_orient === undefined) {
-						args.caption_orient = 'top';
-					}
-					if (args.on_change === undefined) {
-						args.on_change = null;
-					}
-					if (args.classes === undefined) {
-						args.classes = [];
-					}
-					args.classes.push('om_input');
-					if ('class' in args) {
-						args.classes.push(args['class']);
-					}
-					obj = om.bf.make.box(owner, { 
-						'classes': args.classes,
-						insert: args.insert
-					});
+					obj = om.bf.make.box(owner, args);
+					obj.$.toggleClass('om_input', true);
 					// create a generic _val() function to get or set the value
 					obj._args = args;
 					obj._val = function (value) {
@@ -2642,7 +2585,7 @@
 						var response;
 						if (typeof(obj._args.validate) === 'function') {
 							// run the validation
-							response = obj._args.validate(obj._val(), obj);
+							response = om.get(obj._args.validate, obj._val(), obj);
 							// remove any old errors if present
 							if (obj._error_tooltip !== undefined) {
 								obj._error_tooltip._remove();
@@ -2730,41 +2673,30 @@
 					};
 					return obj;
 				},
+
+				/* Generic button object. Can be set to be single-clickable to prevent double clicks.*/
 				button: function (owner, name, args) {
 					var button;
-					if (! om.is_jquery(owner)) {
-						throw new Error("Invalid jquery object: '" + owner + "'; jQuery object expected.");
-					}
+					args = om.get_args({
+						caption: undefined,
+						classes: [],
+						enabled: true,
+						multi_click: true,
+						on_click: undefined
+					}, args, true);
 					if (name === undefined) {
 						name = '';
 					}
-					if (args === undefined) {
-						args = {};
-					}
-					if (args.multi_click === undefined) {
-						args.multi_click = true;
-					}
-					if (args.caption === undefined) {
+					if (! args.caption) {
 						args.caption = name;
 					}
-					if (args.classes === undefined) {
-						args.classes = [];
-					}
-					if (args.enabled === undefined) {
-						args.enabled = true;
-					}
-					args.classes.push('om_button');
-					if ('class' in args) {
-						args.classes.push(args['class']);
-					}
-					if (name !== '' && name !== null) {
-						args.classes.push(name);
-					}
 					// add the button to the DOM
-					button = om.bf.make.input.obj(owner, {
-						'classes': args.classes
-					});
+					button = om.bf.make.input.obj(owner, args);
+					button.$.toggleClass('om_button', true);
 					button._name = name;
+					if (button._name) {
+						button.$.toggleClass(button._name);
+					}
 					button._type = 'button';
 					button.$.html('<button>' + args.caption + '</button>');
 					button._value = button.$.find('button:last');
@@ -2813,81 +2745,54 @@
 					};
 					return button;
 				},
+
+				/* HTTP link object. */
 				link: function (owner, name, args) {
 					var link;
-					/* args = {
-						href: "javascript:", // href attribute of link
-						target: '', // target attribute of link
-						on_click: function () {},
-						caption: "", // text to go inside the link
-						tooltip: '', // tooltip to show
-						inline: false // show link inline
-					} */
+					args = om.get_args({
+						caption: undefined,
+						href: 'javascript:',
+						inline: false,
+						target: undefined
+					}, args, true);
 					if (owner === undefined) {
 						owner = $('body');
 					}
 					if (name === undefined) {
 						name = '';
 					}
-					if (args === undefined) {
-						args = {};
-					}
-					if (args.href === undefined) {
-						args.href = 'javascript:';
-					}
-					if (args.target === undefined) {
-						args.target = '';
-					}
-					if (args.caption === undefined) {
+					if (! args.caption) {
 						args.caption = name;
 					}
-					if (args.classes === undefined) {
-						args.classes = [];
-					}
-					args.classes.push('om_link');
-					if ('class' in args) {
-						args.classes.push(args['class']);
-					}
-					if (name !== '' && name !== null) {
-						args.classes.push(name);
-					}
 					link = om.bf.make.input.obj(owner, args);
+					link.$.toggleClass('om_link', true);
+					if (name) {
+						link.$.toggleClass(name, true);
+					}
 					if (args.inline) {
 						link.$.css('inline', true);
 					}
 					link._args = args;
 					link._type = 'link';
 					link._name = name;
-					link.$.html('<a href="' + args.href + '">' + args.caption + '</a>');
+					link.$.html('<a href="' + args.href + '">' +
+						(args.caption ? args.caption : '' ) + '</a>');
 					link._value = link.$.find('a:last');
-					if (args.target !== '') {
+					if (args.target) {
 						link._value.prop('target', args.target);
 					}
 					link._value.toggleClass('om_input_value', true);
 					return link;
 				},
+
+				/* Read-only (e.g. label) input. */
 				readonly: function (owner, name, args) {
 					var readonly;
-					if (! om.is_jquery(owner)) {
-						throw new Error("Invalid jquery object: '" + owner + "'; jQuery object expected.");
-					}
+					args = om.get_args({
+						default_val: undefined
+					}, args, true);
 					if (name === undefined) {
 						name = 'readonly';
-					}
-					if (args === undefined) {
-						args = {};
-					}
-					if (args.default_val === undefined) {
-						args.default_val = '';
-					}
-					if (args.classes === undefined) {
-						args.classes = [];
-					}
-					if (args.link_caption === undefined) {
-						args.link_caption = false;
-					}
-					if ('class' in args) {
-						args.classes.push(args['class']);
 					}
 					readonly = om.bf.make.input.obj(owner, args);
 					readonly._extend('middle', 'om_input_value');
@@ -2906,28 +2811,17 @@
 					}
 					return readonly;
 				},
+
+				/* Text input form field. */
 				text: function (owner, name, args) {
 					var text;
-					if (! om.is_jquery(owner)) {
-						throw new Error("Invalid jquery object: '" + owner + "'; jQuery object expected.");
-					}
+					args = om.get_args({
+						default_val: '',
+						enabled: true,
+						hint: undefined
+					}, args, true);
 					if (name === undefined) {
 						name = 'text';
-					}
-					if (args === undefined) {
-						args = {};
-					}
-					if (args.default_val === undefined) {
-						args.default_val = '';
-					}
-					if (args.classes === undefined) {
-						args.classes = [];
-					}
-					if (args.enabled === undefined) {
-						args.enabled = true;
-					}
-					if ('class' in args) {
-						args.classes.push(args['class']);
 					}
 					text = om.bf.make.input.obj(owner, args);
 					text.$.append(om.assemble('input', {
@@ -2936,6 +2830,9 @@
 						'class': 'om_input_value',
 						value: args.default_val
 					}));
+					if (name) {
+						text.$.toggleClass(name, true);
+					}
 					text._name = name;
 					text._type = 'text';
 					text._value = text.$.children('input.om_input_value:first');
@@ -2949,33 +2846,23 @@
 							return text._value.val(value);
 						}
 					};
-					if (args.hint !== undefined) {
-						om.bf.make.input._hint(text, args.hint, {default_val: args.default_val});
+					if (args.hint) {
+						om.bf.make.input._hint(text, args.hint, {
+							default_val: args.default_val
+						});
 					}
 					return text;
 				},
+
+				/* Password input form field. */
 				password: function (owner, name, args) {
 					var password;
-					if (! om.is_jquery(owner)) {
-						throw new Error("Invalid jquery object: '" + owner + "'; jQuery object expected.");
-					}
+					args = om.get_args({
+						default_val: '',
+						enabled: true
+					}, args, true);
 					if (name === undefined) {
 						name = 'password';
-					}
-					if (args === undefined) {
-						args = {};
-					}
-					if (args.default_val === undefined) {
-						args.default_val = '';
-					}
-					if (args.classes === undefined) {
-						args.classes = [];
-					}
-					if (args.enabled === undefined) {
-						args.enabled = true;
-					}
-					if ('class' in args) {
-						args.classes.push(args['class']);
 					}
 					password = om.bf.make.input.obj(owner, args);
 					password.$.append(om.assemble('input', {
@@ -2999,28 +2886,16 @@
 					};
 					return password;
 				},
+
+				/* Checkbox input form field. */
 				checkbox: function (owner, name, args) {
 					var cb;
-					if (! om.is_jquery(owner)) {
-						throw new Error("Invalid jquery object: '" + owner + "'; jQuery object expected.");
-					}
+					args = om.get_args({
+						default_val: false,
+						enabled: true
+					}, args, true);
 					if (name === undefined) {
 						name = 'checkbox';
-					}
-					if (args === undefined) {
-						args = {};
-					}
-					if (args.default_val === undefined) {
-						args.default_val = false;
-					}
-					if (args.classes === undefined) {
-						args.classes = [];
-					}
-					if (args.enabled === undefined) {
-						args.enabled = true;
-					}
-					if ('class' in args) {
-						args.classes.push(args['class']);
 					}
 					cb = om.bf.make.input.obj(owner, args);
 					cb.$.append(om.assemble('input', {
@@ -3046,32 +2921,18 @@
 					}
 					return cb;
 				},
+
+				/* Radio button form field. */
 				radio_button: function (owner, name, args) {
 					var rb;
-					if (! om.is_jquery(owner)) {
-						throw new Error("Invalid jquery object: '" + owner + "'; jQuery object expected.");
-					}
 					if (name === undefined) {
 						name = 'radio_button';
 					}
-					if (args === undefined) {
-						args = {};
-					}
-					if (args.default_val === undefined) {
-						args.default_val = false;
-					}
-					if (args.name === undefined) {
-						args.name = 'radio_button';
-					}
-					if (args.classes === undefined) {
-						args.classes = [];
-					}
-					if (args.enabled === undefined) {
-						args.enabled = true;
-					}
-					if ('class' in args) {
-						args.classes.push(args['class']);
-					}
+					args = om.get_args({
+						default_val: false,
+						name: name, // confusing, I know, but the RB name needs to be the same for multiple objs
+						enabled: true
+					}, args, true);
 					rb = om.bf.make.input.obj(owner, args);
 					rb.$.append(om.assemble('input', {
 						name: args.name,
@@ -3096,28 +2957,17 @@
 					}
 					return rb;
 				},
+
+				/* Text area form field. */
 				textarea: function (owner, name, args) {
 					var textarea;
-					if (! om.is_jquery(owner)) {
-						throw new Error("Invalid jquery object: '" + owner + "'; jQuery object expected.");
-					}
+					args = om.get_args({
+						default_val: '',
+						enabled: true,
+						hint: undefined
+					}, args, true);
 					if (name === undefined) {
 						name = 'text';
-					}
-					if (args === undefined) {
-						args = {};
-					}
-					if (args.default_val === undefined) {
-						args.default_val = '';
-					}
-					if (args.classes === undefined) {
-						args.classes = [];
-					}
-					if (args.enabled === undefined) {
-						args.enabled = true;
-					}
-					if ('class' in args) {
-						args.classes.push(args['class']);
 					}
 					textarea = om.bf.make.input.obj(owner, args);
 					textarea.$.append(om.assemble('textarea', {
@@ -3138,36 +2988,22 @@
 							return textarea._value.val(value);
 						}
 					};
-					if (args.hint !== undefined) {
+					if (args.hint) {
 						om.bf.make.input._hint(textarea, args.hint, {default_val: args.default_val});
 					}
 					return textarea;
 				},
+
+				/* Select form field. */
 				select: function (owner, name, args) {
-					var select, key, i;
-					if (! om.is_jquery(owner)) {
-						throw new Error("Invalid jquery object: '" + owner + "'; jQuery object expected.");
-					}
+					var select;
+					args = om.get_args({
+						default_val: undefined, // e.g. value2
+						enabled: true,
+						options: {} // {value: "Option Name", value2: "Name 2"}
+					}, args, true);
 					if (name === undefined) {
 						name = 'text';
-					}
-					if (args === undefined) {
-						args = {};
-					}
-					if (args.default_val === undefined) {
-						args.default_val = null;
-					}
-					if (args.options === undefined) {
-						args.options = {};
-					}
-					if (args.classes === undefined) {
-						args.classes = [];
-					}
-					if (args.enabled === undefined) {
-						args.enabled = true;
-					}
-					if ('class' in args) {
-						args.classes.push(args['class']);
 					}
 					select = om.bf.make.input.obj(owner, args);
 					select.$.append(om.assemble('select', {
@@ -3187,9 +3023,11 @@
 							return select._value.val(value);
 						}
 					};
+					/* Remove all the options. */
 					select._clear_options = function () {
 						select._value.html('');
 					};
+					/* Add an option, optionally with the specified value. */
 					select._add_option = function (name, value) {
 						if (value === undefined) {
 							select._value.append(
@@ -3202,18 +3040,23 @@
 						}
 						return select;
 					};
-					// add in our options
-					if (jQuery.isArray(args.options)) {
-						for (i = 0; i < args.options.length; i++) {
-							select._add_option(args.options[i]);
-						}
-					} else {
-						for (key in args.options) {
-							if (args.options.hasOwnProperty(key)) {
-								select._add_option(args.options[key], key);
+					/* Add in a set of options, replacing any existing ones. */
+					select._set_options = function (options) {
+						var i, key;
+						if (jQuery.isArray(options)) {
+							for (i = 0; i < options.length; i++) {
+								select._add_option(options[i]);
+							}
+						} else {
+							for (key in options) {
+								if (options.hasOwnProperty(key)) {
+									select._add_option(options[key], key);
+								}
 							}
 						}
-					}
+					};
+					// add in our options, 
+					select._set_options(args.options);
 					// when we are typed in consider it a change
 					select._value.bind('keyup', function(key_event) {
 						select._value.trigger('change');
@@ -3224,28 +3067,15 @@
 					}
 					return select;
 				},
+
+				/* File upload dialog object. */
 				file: function (owner, name, args) {
-					var file, key, i;
-					if (! om.is_jquery(owner)) {
-						throw new Error("Invalid jquery object: '" + owner + "'; jQuery object expected.");
-					}
+					var file;
+					args = om.get_args({
+						enabled: true
+					}, args, true);
 					if (name === undefined) {
 						name = 'text';
-					}
-					if (args === undefined) {
-						args = {};
-					}
-					if (args.options === undefined) {
-						args.options = {};
-					}
-					if (args.classes === undefined) {
-						args.classes = [];
-					}
-					if ('class' in args) {
-						args.classes.push(args['class']);
-					}
-					if (args.enabled === undefined) {
-						args.enabled = true;
 					}
 					file = om.bf.make.input.obj(owner, args);
 					file.$.append(om.assemble('input', {
@@ -3268,31 +3098,18 @@
 					file._name = name;
 					return file;
 				},
+
+				/* JSON-aware text form field.
+				Has a pop-up HUD to show an formatted copy of input. */
 				json: function (owner, name, args) {
 					var json;
-					if (! om.is_jquery(owner)) {
-						throw new Error("Invalid jquery object: '" + owner + "'; jQuery object expected.");
-					}
+					args = om.get_args({
+						help: true,
+						default_val: '',
+						enabled: true
+					}, args, true);
 					if (name === undefined) {
 						name = 'json';
-					}
-					if (args === undefined) {
-						args = {};
-					}
-					if (args.help === undefined) {
-						args.help = true;
-					}
-					if (args.classes === undefined) {
-						args.classes = [];
-					}
-					if (args.default_val === undefined) {
-						args.default_val = '';
-					}
-					if (args.enabled === undefined) {
-						args.enabled = true;
-					}
-					if ('class' in args) {
-						args.classes.push(args['class']);
 					}
 					json = om.bf.make.input.obj(owner, args);
 					json.$.append(om.assemble('input', {
@@ -3333,6 +3150,7 @@
 					if (args.help) {
 						// create a param HUD to help the user
 						json._help = json._add_box('om_input_help', {imbue: 'free', dont_show: true});
+						// show the HUD next to the JSON input form field, or hide if the focus is out.
 						json._value.bind('keyup focusin focusout', function (event) {
 							var text, json_obj, obj_type, value_loc;
 							// show the param HUD to the right of the API runner, but only show it if there is data in the input box
@@ -3378,6 +3196,8 @@
 					return json;
 				}
 			},
+
+			/* Tooltip GUI object. */
 			tooltip: function (owner, message, args) {
 				var tooltip;
 				args = om.get_args({
@@ -3445,6 +3265,8 @@
 				};
 				return tooltip;
 			},
+
+			/* GUI object to cover/obscure other objects. Covers inside owner object. */
 			blanket: function (owner, args) {
 				var blanket;
 				if (owner === undefined) {
@@ -3470,6 +3292,8 @@
 				}
 				return blanket;
 			},
+
+			/* GUI object to cover/obscure other objects. Covers behind owner object. */
 			skirt: function (owner, args) {
 				var skirt;
 				if (owner === undefined) {
@@ -3498,23 +3322,17 @@
 				}
 				return skirt;
 			},
+
+			/* Basic pop-up box to show a message. */
 			message: function (owner, title, html, args) {
 				var message, func;
+				args = om.get_args({
+					classes: [],
+					dont_show: false,
+					modal: false // automatically cover owning object with a skirt obj
+				}, args);
 				if (owner === undefined) {
 					owner = $('body');
-				}
-				if (args === undefined) {
-					args = {};
-				}
-				if (args.modal === undefined) {
-					args.modal = false;
-				}
-				if (args.classes === undefined) {
-					args.classes = [];
-				}
-				args.classes.push('om_message');
-				if ('class' in args) {
-					args.classes.push(args['class']);
 				}
 				// create the box
 				message = om.bf.make.box(owner, {
@@ -3523,6 +3341,7 @@
 					classes: args.classes,
 					insert: args.insert
 				});
+				message.$.toggleClass('om_message', true);
 				// add in a skirt if in modal mode
 				if (args.modal === true) {
 					message._blanket = om.bf.make.skirt(message.$, {
@@ -3598,25 +3417,27 @@
 				message._raise();
 				return message;
 			},
+
+			/* Loading screen for covering GUI components. */
 			loading: function (owner, args) {
-				var loading = om.bf.make.box(
+				var loading;
+				args = om.get_args({
+					depth: 1, // each time _remove is called the depth is lowered by one; the loading box is removed when it hits 0
+					on_complete: undefined, // callback on completion; args: loading obj
+					resize: false // auto resize to fit owner using supplied arguments
+				}, args);
+				loading= om.bf.make.box(
 					owner, {
 						imbue: 'free',
 						dont_show: true,
 						'class': 'om_loading'
 					}
 				);
-				args = om.get_args({
-					depth: 1,
-					on_complete: undefined,
-					resize: false
-				}, args);
 				loading._args = args;
 				if (args.options !== undefined) {
 					loading._opacity(args.opacity);
 				}
 				loading._depth = args.depth;
-				// not sure I really need to resize?
 				if (args.resize) {
 					loading._resize_to(owner, om.get(args.resize) || {});
 				}
@@ -3626,9 +3447,7 @@
 					// stall our removal until the depth is cleared
 					loading._depth -= 1;
 					if (loading._depth === 0) {
-						if (args.on_complete !== undefined) {
-							args.on_complete();
-						}
+						om.get(args.on_complete, loading);
 						loading._box_remove();
 					}
 				};
@@ -3637,11 +3456,13 @@
 				}
 				return loading;
 			},
+
+			/* Confirmation pop-up. */
 			confirm: function (owner, title, html, args) {
 				var conf;
 				args = om.get_args({
 					caption: 'Close',
-					on_close: undefined,
+					on_close: undefined, // callback for when pop-up is dismissed
 					dont_show: false
 				}, args, true);
 				conf = om.bf.make.message(owner, title, html, args);
@@ -3674,23 +3495,18 @@
 				}
 				return conf;
 			},
+
+			/* Data/form query pop-up object. */
 			query: function (owner, title, html, args) {
 				var query;
-				if (args === undefined) {
-					args = {};
-				}
-				if (args.ok_caption === undefined) {
-					args.ok_caption = 'Ok';
-				}
-				if (args.cancel_caption === undefined) {
-					args.cancel_caption = 'Cancel';
-				}
-				if (args.form_fields === undefined) {
-					args.form_fields = {};
-				}
-				if (args.form_args === undefined) {
-					args.form_args = {};
-				}
+				args = om.get_args({
+					cancel_caption: 'Cancel',
+					form_fields: {}, // form fields to include
+					form_args: {}, // form arguments
+					ok_caption: 'Ok',
+					on_ok: undefined, // callback for when Ok/submit button clicked
+					on_cancel: undefined // callback for cancel/close
+				}, args, true);
 				query = om.bf.make.message(owner, title, html, args);
 				query.$.toggleClass('om_query', true);
 				query._args = args;
@@ -3701,20 +3517,11 @@
 				);
 				query._form.$.bind('keydown', function (keydown_event) {
 					if (keydown_event.keyCode === 27) {
-						// close ourself
-						query.args.on_close
-						if (typeof query._args.on_cancel === 'function') {
-							query._args.on_cancel(click_event, query);
-						}
-						if (! keydown_event.isDefaultPrevented()) {
-							keydown_event.preventDefault();
-							keydown_event.stopPropagation();
-							query._remove();
-						}
-					}
-				});
-				query._form.$.bind('keydown', function (keydown_event) {
-					if (keydown_event.keyCode === 13) {
+						// escape pressed, so close
+						keydown_event.preventDefault();
+						keydown_event.stopPropagation();
+						query._cancel_button._value.click();
+					} else if (keydown_event.keyCode === 13) {
 						// user pressed enter, activate the submit button!
 						keydown_event.preventDefault();
 						keydown_event.stopPropagation();
@@ -3729,16 +3536,13 @@
 					'class': 'om_query_ok',
 					on_click: function (click_event) {
 						// and fire the users's ok event if present, passing any data
-						if (typeof query._args.on_ok === 'function') {
-							query._args.on_ok(
-								click_event,
-								query._form._get_input(),
-								query
-							);
-						}
-						// if we did prevent the default then rebind ourselves if default is disabled too
+						om.get(
+							query._args.on_ok,
+							click_event,
+							query._form._get_input(),
+							query
+						);
 						if (! click_event.isDefaultPrevented()) {
-							// remove ourselves from the DOM
 							query._remove();
 						}
 					}
@@ -3748,71 +3552,50 @@
 					'class': 'om_query_cancel',
 					multi_click: false,
 					on_click: function (click_event) {
-						// and fire the users's cancel event if present
-						if (typeof query._args.on_cancel === 'function') {
-							query._args.on_cancel(click_event, query);
-						}
-						// if we did prevent the default then rebind ourselves if default is disabled too
+						// fire the users's cancel event if present
+						om.get(query._args.on_cancel, click_event, query);
 						if (! click_event.isDefaultPrevented()) {
-							// remove ourselves from the DOM
 							query._remove();
 						}
 					}
 				});
-				if (query._args.dont_show !== true) {
+				query.$.toggleClass('om_query', true);
+				if (args.dont_show !== true) {
 					query._show();
-					// auto-focus first input, if we have any
-					query.$.find('input, select, textarea, button').slice(0, 1).focus();
+				}
+				if (! query.$.is(':hidden')) {
+					// auto-focus the first input, if there is one
+					query.$.find('input,button').slice(0, 1).focus();
 				}
 				return query;
 			},
+
+			/* Deprecated; replaced by 'query'. */
 			collect: function (owner, title, html, fields, args) {
 				var collect;
-				if (args === undefined) {
-					args = {};
+				args = om.get_args({
+					form_fields: fields,
+					on_submit: undefined // old name in collect obj
+				}, args, true);
+				if (! args.on_ok) {
+					args.on_ok = args.on_submit; // new name in query obj
 				}
-				collect = om.bf.make.message(owner, title, html, args);
-				collect._form = om.bf.make.form(collect._box_middle.$, fields);
-				collect._form._add_submit(args.submit_caption, function (click_event, input) {
-					// and fire the users's on_submit event if present
-					om.get(args.on_submit, click_event, input, collect);
-					// if we did prevent the default then rebind ourselves if default is disabled too
-					if (! click_event.isDefaultPrevented()) {
-						// remove ourselves from the DOM
-						collect._remove();
-					}
-				});
-				collect._form._add_cancel(args.cancel_caption, function (click_event) {
-					// and fire the users's on_cancel event if present
-					om.get(args.on_cancel, click_event, collect);
-					// if we did prevent the default then rebind ourselves if default is disabled too
-					if (! click_event.isDefaultPrevented()) {
-						// remove ourselves from the DOM
-						collect._remove();
-					}
-				});
+				collect = om.bf.make.query(owner, title, html, args);
 				collect.$.toggleClass('om_collect', true);
-				if (args.dont_show !== true) {
-					collect._show();
-				}
-				if (! collect.$.is(':hidden')) {
-					// auto-focus the first input, if there is one
-					collect.$.find('input,button').slice(0, 1).focus();
-				}
 				return collect;
 			},
+
+			/* Browser window object. */
 			browser: function (owner, url, args) {
 				var browser;
+				args = om.get_args({
+					icon: "/omega/images/diviner/globe.png",
+					title: undefined
+				}, args);
 				if (url === undefined) {
 					throw new Error("Invalid browser URL.");
 				}
-				if (args === undefined) {
-					args = {};
-				}
-				if (args.icon === undefined) {
-					args.icon = "/omega/images/diviner/globe.png";
-				}
-				if (args.title === undefined) {
+				if (! args.title) {
 					args.title = url;
 				}
 				browser = om.bf.make.win(

@@ -54,6 +54,7 @@
 .om_box.om_button button {
 	cursor: pointer;
 }
+
 .om_box_moving {
 	cursor: move;
 }
@@ -333,17 +334,8 @@
 	overflow: auto;
 }
 
-.om_skirt {
-	background-color: #000;
-	bottom: 0px;
-	right: 0px;
-	left: 0px;
-	top: 0px;
-	position: absolute;
-	filter: alpha(opacity=50);
-	opacity:.50;
-}
-
+.om_skirt,
+.om_loading,
 .om_blanket {
 	background-color: #000;
 	bottom: 0px;
@@ -361,15 +353,6 @@
 	background-position: center center;
 	background-repeat: no-repeat;
 	background-color: #000;
-	/*height: 100%;
-	width: 100%;*/
-	bottom: 0px;
-	right: 0px;
-	top: 0px;
-	left: 0px;
-	position: absolute;
-	filter: alpha(opacity=50);
-	opacity:.50;
 	cursor: progress;
 }
 
