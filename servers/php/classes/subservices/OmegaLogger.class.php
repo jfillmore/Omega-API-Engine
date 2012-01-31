@@ -15,15 +15,27 @@ class OmegaLogger extends OmegaSubservice {
 	private $log_dir;
 	private $log_aborted;
 	private $verbosity;
+	private $verbose_opts = array(
+		'api_params' => 'The API parameters',
+		'api_data' => 'The request URL, GET/POST data',
+		'api_environ' => 'PHP SERVER and ENVIRON data.',
+		'app_dump' => 'Dump of API/application state.',
+		'data_verbosity' => 'Verbosity level for logging data.'
+	);
 
 	public function __construct() {
+		global $om;
 		$this->log_dir = OmegaConstant::data_dir . '/' . $this->_localize('logs');
 		$this->mkdir_r($this->log_dir);
 		$this->buffer = '';
 		$this->log = array();
 		$this->data = array();
 		$this->log_aborted = false;
-		$this->verbosity = 0;
+		try {
+			$this->verbosity = $om->config->get('omega.logger.verbosity');
+		} catch (Exception $e) {
+			$this->verbosity = array();
+		}
 	}
 
 	private function mkdir_r($path) {
@@ -38,16 +50,39 @@ class OmegaLogger extends OmegaSubservice {
 		$this->buffer .= $data;
 	}
 
+	/** Returns a list of the options that can be set to manipulate log verbosity.
+		returns: array */
+	public function get_verbosity_options() {
+		return $this->verbose_opts;
+	}
+
 	/** Return the log verbosity for the request.
-		expects: verbosity=number */
-	public function _get_verbosity() {
+		returns: number */
+	public function get_verbosity() {
 		return $this->verbosity;
 	}
 	
-	/** Set the log verbosity for the request.
-		expects: verbosity=number */
+	/** Set the log verbosity for the request. See 'get_verbocity_options' for list of options.
+		expects: verbosity=array */
 	public function _set_verbosity($verbosity) {
-		$this->verbosity = (bool)$verbosity;
+		if (! is_array($verbosity)) {
+			$verbosity = array($verbosity);
+		}
+		$errors = array();
+		$options = array();
+		$keys = array_keys($this->verbose_opts);
+		foreach ($verbosity as $item) {
+			$item = strtolower($item);
+			if (! in_array($item, $keys)) {
+				$errors[] = "Verbosity option '$item' not recognized.";
+			} else {
+				$options[] = $item;
+			}
+		}
+		if (count($errors)) {
+			throw new Exception(join(' ', $errors));
+		}
+		$this->verbosity = $options;
 	}
 	
 	/** Validates the subservice configuration.
@@ -65,7 +100,7 @@ class OmegaLogger extends OmegaSubservice {
 	}
 
 	/** Writes the log file to permanent storage, seperating errors out from successful requests.
-		expects: successful=boolean, verbosity=number */
+		expects: successful=boolean, verbosity=string */
 	public function commit_log($successful = true, $verbosity = null) {
 		global $om;
 		// record the time
@@ -73,14 +108,12 @@ class OmegaLogger extends OmegaSubservice {
 		if ($verbosity !== null) {
 			$this->_set_verbosity($verbosity);
 		} else {
-			$verbosity = $this->verbosity;
+			$verbosity = $this->get_verbosity();
 		}
 		// determine the log file path based on the current date
 		$log_path = $this->log_dir . '/' . date('Y');
 		$this->mkdir_r($log_path);
 
-		// see if we should include any other information about the request based on the log verbosity
-		$bits = str_split(strrev(decbin($verbosity)));
 		// Lead with writing the date, user, and API/method called.
 		$this->buffer_write(date('[Y-m-d H:i:s]', $start_time)); // e.g. 2009-04-05 13:50:59
 		$this->buffer_write(' ' . $om->request->get_api());
@@ -104,35 +137,41 @@ class OmegaLogger extends OmegaSubservice {
 				}
 			}
 		}
-		// aborted logs don't get data stored for privacy reasons
+		// aborted logs don't get data stored for privacy/security reasons
 		if (! $this->log_aborted) {
 			// and look for any log data
+			if (isset($verbosity['data_verbosity'])) {
+				$data_verbosity = $verbosity['data_verbosity'];
+			} else {
+				$data_verbosity = 0;
+			}
 			if ($this->data != null) {
 				foreach ($this->data as $label => $meta) {
-					if ($meta['verbosity'] >= $this->verbosity) {
+					if ($meta['verbosity'] >= $data_verbosity) {
 						$this->buffer_write("\t$label: " . json_encode($meta['data']) . "\n");
 					}
 				}
 			}
-			// +1: API parameters
-			if (isset($bits[0]) && $bits[0]) {
+			// see if we should include any other information about the request based on the log verbosity
+			if (in_array('api_params', $verbosity)) {
 				$this->buffer_write("\tParameters:\t");
 				$this->buffer_write(json_encode($om->request->get_api_params()) . "\n");
 			}
-			// +2: the Request URI
-			if (isset($bits[1]) && $bits[1]) {
+			if (in_array('api_data', $verbosity)) {
 				$this->buffer_write("\tRequest URI:\t");
 				$this->buffer_write($_SERVER['REQUEST_URI'] . "\n");
-			}
-			// +4: GET/POST data
-			if (isset($bits[2]) && $bits[2]) {
 				$this->buffer_write("\tGET:\t");
 				$this->buffer_write(json_encode($_GET) . "\n");
 				$this->buffer_write("\tPOST:\t");
 				$this->buffer_write(json_encode($_POST) . "\n");
 			}
-			// +8: application dump
-			if (isset($bits[3]) && $bits[3]) {
+			if (in_array('api_environ', $verbosity)) {
+				$this->buffer_write("\tSERVER:\t");
+				$this->buffer_write(json_encode($_SERVER) . "\n");
+				$this->buffer_write("\tENV:\t");
+				$this->buffer_write(json_encode($_ENV) . "\n");
+			}
+			if (in_array('app_dump', $verbosity)) {
 				$this->buffer_write("\tApplication State:\t");
 				$this->buffer_write(json_encode($om->service) . "\n");
 			}
@@ -165,7 +204,7 @@ class OmegaLogger extends OmegaSubservice {
 	}
 
 	/** Adds data to the log.
-		expects: label=string, data=object */
+		expects: label=string, data=object, verbosity=number */
 	public function log_data($label, $data, $verbosity = 0) {
 		$this->data[$label] = array(
 			'verbosity' => (int)$verbosity,
@@ -207,6 +246,7 @@ class OmegaLogger extends OmegaSubservice {
 		$log_item = array();
 		$line_num = 0;
 		$cur_date = null;
+		// ugly as all hell :(
 		while (! feof($file_handle)) {
 			$buffer_start = strlen($buffer);
 			$buffer .= fread($file_handle, 4096);

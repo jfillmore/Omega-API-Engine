@@ -168,9 +168,11 @@ class Omega implements OmegaApi {
 					'data' => $e->data,
 					'backtrace' => $this->_clean_trace($e->getTrace())
 				);
+				/* // API framework stuff?
 				array_pop($data['backtrace']);
 				array_pop($data['backtrace']);
 				array_pop($data['backtrace']);
+				*/
 				$this->response->set_result(false);
 				if ($this->subservice->is_enabled('logger')) {
 					$this->subservice->logger->log_data('api_error', $e->getMessage());
@@ -186,9 +188,11 @@ class Omega implements OmegaApi {
 				$data = array(
 					'backtrace' => $this->_clean_trace($e->getTrace())
 				);
+				/* // API framework stuff?
 				array_pop($data['backtrace']);
 				array_pop($data['backtrace']);
 				array_pop($data['backtrace']);
+				*/
 				$this->response->set_result(false);
 			}
 			if (! $this->response->get_result()) {

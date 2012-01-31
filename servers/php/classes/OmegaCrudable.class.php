@@ -1,6 +1,6 @@
 <?php
 
-abstract class OmegaCrudable {
+abstract class OmegaCrudable implements OmegaApi {
 	protected $db;
 	abstract protected function _get_table(); // e.g. example
 	abstract protected function _get_props();
@@ -104,6 +104,7 @@ abstract class OmegaCrudable {
 				$cols[] = "    " . $this->prop_sql($name, $prop);
 			}
 			$structure[] = implode(",\n", $cols);
+			// TODO: determine engine dynamically
 			$structure[] = ") ENGINE=INNODB;";
 			$retval = implode("\n", $structure);
 			// include the data if requested
@@ -111,7 +112,7 @@ abstract class OmegaCrudable {
 				$data = array();
 				foreach ($this->_request() as $row) {
 					 // TODO
-					 throw new Exception("Not yet supported.");
+					 throw new Exception("Dumping data not yet supported.");
 				}
 				$retval .= "\n-- data for table $table --\n";
 				$retval .= implode("\n", $data);
@@ -407,30 +408,41 @@ abstract class OmegaCrudable {
 			$type = $parts[0];
 			$type_arg = $parts[1];
 		}
+		$type = strtoupper($type);
+		if ($type === 'ENUM') {
+			// parse "'foo', 'bar', 'salad'" into array
+			$type_args = trim($type_args, "'");
+			$type_args = preg_split("', '", $type_args);
+		}
 		return array(
 			'type' => $type,
 			'type_arg' => $type_arg
 		);
 	}
 
+	public function _is_enum($type) {
+		$type_info = $this->_parse_type($type);
+		return in_array($type_info['type'], array('ENUM'));
+	}
+
 	public function _is_integer($type) {
 		$type_info = $this->_parse_type($type);
-		return in_array(strtoupper($type_info['type']), array('TINYINT', 'SMALLINT', 'MEDIUMINT', 'INT', 'BIGINT'));
+		return in_array($type_info['type'], array('TINYINT', 'SMALLINT', 'MEDIUMINT', 'INT', 'BIGINT'));
 	}
 
 	public function _is_float($type) {
 		$type_info = $this->_parse_type($type);
-		return in_array(strtoupper($type_info['type']), array('FLOAT', 'REAL', 'DOUBLE PRECISION', 'DECIMAL', 'NUMBER'));
+		return in_array($type_info['type'], array('FLOAT', 'REAL', 'DOUBLE PRECISION', 'DECIMAL', 'NUMBER'));
 	}
 
 	public function _is_string($type) {
 		$type_info = $this->_parse_type($type);
-		return in_array(strtoupper($type_info['type']), array('VARCHAR', 'CHAR', 'BINARY', 'VARBINARY', 'BLOB', 'TEXT', 'SET'));
+		return in_array($type_info['type'], array('VARCHAR', 'CHAR', 'BINARY', 'VARBINARY', 'BLOB', 'TEXT', 'SET'));
 	}
 
 	public function _is_datetime($type) {
 		$type_info = $this->_parse_type($type);
-		return in_array(strtoupper($type_info['type']), array('DATETIME'));
+		return in_array($type_info['type'], array('DATETIME'));
 	}
 
 	/** Validates the specified property. Returns a list of any errors found.
@@ -481,6 +493,10 @@ abstract class OmegaCrudable {
 					 	throw new Exception("The value for $nice_name may not exceed $type_arg characters.");
 					 }
 				}
+			} else if ($this->_is_enum($type)) {
+				if (! in_array($value, $type_arg)) {
+					$errors[] = "Invalid value: '$value'. Valid options are: " . join(', ', $type_arg) . '.';
+				}
 			}
 		}
 		// check value based on flags
@@ -502,6 +518,7 @@ abstract class OmegaCrudable {
 	}
 
 	/** Build a custom query to find data dynamically, including joining data from other tables. Returns all data by default.
+		Arguments: auto_split: true, keyed: null, order_by: null, reverse: false.
 		expects: where=array, props=array, joins=array, count=number, offset=number, args=array
 		returns: object */
 	public function _request($where = null, $props = null, $joins = null, $count = null, $offset = null, $args = null) {
@@ -660,6 +677,7 @@ abstract class OmegaCrudable {
 				if (! $this->_has_index($key)) {
 					throw new Exception("Invalid index name: '$key'.");
 				}
+				// TODO: check type and only auto_escape strings?
 				if (preg_match("/^'.*'$/", $value)) {
 					$where['AND'][] = $key . ' = ' . $value;
 				} else {

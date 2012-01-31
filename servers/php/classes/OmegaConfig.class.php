@@ -76,13 +76,13 @@ class OmegaConfig implements OmegaApi {
 				if (isset($obj[$item])) {
 					$obj = $obj[$item];
 				} else {
-					throw new Exception("Invalid config path: '$item' not found in '" . join('.' . $path) . "'.");
+					throw new Exception("Invalid config path: '$item' not found in '" . join('.', $path) . "'.");
 				}
 			}
 			if (isset($obj[$last])) {
 				return $obj[$last];
 			} else {
-				throw new Exception("Invalid config path: '$last' not found in '" . join('.' . $path) . "'.");
+				throw new Exception("Invalid config path: '$last' not found in '" . join('.', $path) . "'.");
 			}
 		}
 	}

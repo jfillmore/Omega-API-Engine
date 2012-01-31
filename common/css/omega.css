@@ -54,6 +54,7 @@
 .om_box.om_button button {
 	cursor: pointer;
 }
+
 .om_box_moving {
 	cursor: move;
 }

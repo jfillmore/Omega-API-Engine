@@ -11,46 +11,10 @@ var om = {};
 (e.g. om.BoxFactory/om.bf, om.ColorFactory/om.cf).
 It also comtains various useful, generic functions. */
 (function (om) {
-	/* Recursive smart get - starting from the beginning, for each argument
-	that is a function it recursively calls itself with the remaining
-	arguments as parameters. Otherwise if the value is not a function the
-	value is returned. Makes it easy to allow argument values to be more dynamic.
-	e.g.
-	var foo = function (bar) { return bar + 1 };
-	om.get(foo, 3); // = 4
-	om.get(3, 3); // 3 */
-	om.get = function (val, args, obj1, obj2, objN) {
-		// call function if given, and use supplied args.
-		// if args are a function, call them for the args.
-		// passes 'obj' to functions
-		var type, params, i, objs;
-		type = typeof(val);
-		objs = [];
-		if (type === 'function') {
-			if (arguments.length > 2) {
-				for (i = 2; i < arguments.length; i++) {
-					objs.push(arguments[i]);
-				}
-			} else {
-				objs = [];
-			}
-			if (typeof(args) === 'function') {
-				params = [args.apply(this, objs)];
-			} else {
-				params = [args];
-			}
-			for (i = 0; i < objs.length; i++) {
-				params.push(objs[i]);
-			}
-			return val.apply(this, params);
-		} else {
-			return val;
-		}
-	};
-
 	/* Iterate through the object and collect up parameters, using the
 	default value provided in "my_args" if the value is not present in "args".
-	Can optionally also merge extra arguments in "args" into result. */
+	Can optionally also merge extra arguments in "args" into result.
+	See docs below. */
 	om.get_args = function (my_args, args, merge) {
 		var arg;
 		for (arg in args) {
@@ -63,77 +27,261 @@ It also comtains various useful, generic functions. */
 		return my_args;
 	};
 
-	/* Subtract two numbers while properly maintaining the best precision possible.
-	e.g. om.subtract(3.33, 1.10999); // = 2.22001
-	 js> 3.33 - 1.10999 // = 2.2200100000000003 */
-	om.subtract = function (f1, f2) {
-		var sig_digs, d1, d2;
-		// determine how many significant digits we have and maintain that precision
-		d1 = String(f1).match(/\.[0-9]+$/);
-		d2 = String(f2).match(/\.[0-9]+$/);
-		if (d1) {
-			d1 = d1[0].length - 1;
-		} else {
-			d1 = 0;
+	/* Create a documented function. See docs below. */
+	om.doc = function(args) {
+		var func, doc;
+		// TODO: add args for examples/demo?
+		doc = om.get_args({
+			desc: undefined,
+			desc_ext: undefined,
+			func: undefined,
+			params: undefined,
+			prop_name: '_doc'
+		}, args);
+		if (typeof(doc.func) !== 'function') {
+			throw new Error("Argument 'func' is not a function.");
 		}
-		if (d2) {
-			d2 = d2[0].length - 1;
-		} else {
-			d2 = 0;
-		}
-		sig_digs = Math.max(d1, d2);
-		return om.round(f1 - f2, {decimal: sig_digs});
+		func = doc.func;
+		func[doc.prop_name] = doc;
+		return func;
 	};
 
-	/* Upper-case first letter of string. */
-	om.ucfirst = function (str) {
-		return str.substr(0, 1).toUpperCase() + str.substr(1, str.length - 1);
-	};
-
-	/* Lower-case first letter of string */
-	om.lcfirst = function (str) {
-		return str.substr(0, 1).toLowerCase() + str.substr(1, str.length - 1);
-	};
-
-	/* Strip a string of extra spacing and non alpha-numerical characters.
-	Optionally also try to replace 'fooBar' as 'foo bar'. */
-	om.flatten = function (str, add_cap_gap) {
-		// lowercase the first char
-		str = str.substr(0, 1).toLowerCase() + str.substr(1);
-		// add the cap gap if requested
-		if (add_cap_gap === true) {
-			str = str.replace(/([A-Z])/g, '_$1');
-		}
-		// condense spaces/underscores to a single underscore
-		// and strip out anything else but alphanums and underscores
-		return str.toLowerCase().replace(/( |_)+/g, '_').replace(/[^a-z0-9_]+/g, '');
-	};
-
-	/* Returns whether the object is a vailid jQuery object. */
-	om.is_jquery = function (obj) {
-		return typeof(obj) === 'object' && obj.length !== undefined && obj.jquery !== undefined;
-	};
-
-	/* Best way of determining whether or not a string is numerical. */
-	om.is_numeric = function (str) {
-		return (! isNaN(parseFloat(str))) && isFinite(str);
-	};
-
-	/* Same as "om.is_numeric", but negated for the pedantic. */
-	om.isnt_numeric = function (str) {
-		return ! om.is_numeric(str);
-	};
-
-	/* Returns whether or not an object has more than one property. */
-	om.plural = function (obj) {
-		var item;
-		for (item in obj) {
-			if (obj.hasOwnProperty(item)) {
-				return true;
+	/* Document ourself two above functions. */
+	om.doc = om.doc({
+		desc: 'Creates and returns a documented function.',
+		desc_ext: 'For example: var foo = om.doc({desc: "foo bar", func: function () {}); alert(foo._doc.desc); // "foo bar"',
+		func: om.doc,
+		params: {
+			desc: {
+				desc: 'Concise of what the function does and returns.',
+				type: 'string'
+			},
+			desc_ext: {
+				desc: 'Extended description of the function and/or its parameters.',
+				type: 'string'
+			},
+			method: {
+				desc: 'The function object to document.',
+				type: 'function'
+			},
+			params: {
+				desc: 'List of parameters accepted by the function. Keys in the list are the parameter names.',
+				desc_ext: 'The format for the list value is an object with the keys: "default_val", "desc", "desc_ext", and "type". Valid types are "undefined", "null", "string", "number", "array", "object", "function", and "boolean". If the parameters are dynamic the parameter: "_any" should be set.',
+				type: 'object'
+			},
+			prop_name: {
+				default_val: '_doc',
+				desc: "The function's doc object property name.",
+				type: 'string'
 			}
 		}
-		return false;
-	};
+	});
+
+	om.get_args = om.doc({
+		desc: 'Iterate through the object and collect up arguments.',
+		desc_ext: 'The default value provided in "my_args" is used if the value is not present in "args".  Can optionally also merge extra arguments in "args" into result; otherwise arguments not present in "my_args" will be filtered out.',
+		func: om.get_args,
+		params: {
+			my_args: {
+				desc: 'The default arguments (e.g. {foo: "bar"}).',
+				type: 'object'
+			},
+			args: {
+				desc: 'Collection of passed arguments (e.g. {foo: "barn", a: 1}).',
+				type: 'object'
+			},
+			merge: {
+				desc: 'If true then items in "args" not in "my_args" will be merged into the result.',
+				default_val: false,
+				type: 'boolean'
+			}
+		}
+	});
+
+	om.get = om.doc({
+		desc: 'Returns first non-function argument, executing any functions using the remaining arguments as parameters.',
+		params: {
+			_any: {
+				desc: 'Each argument is parsed until a non-function argument is countered, allowing argument values to be the return value of functions for which you also supply the paramters.' 
+			}
+		},
+		func: function (obj, obj1, obj2, objN) {
+			var type, params, i, objs;
+			// call function if given, and use supplied args.
+			// if args are a function, call them for the args.
+			// passes 'obj' to functions
+			type = typeof(obj);
+			objs = [];
+			if (type === 'function') {
+				// if we have extra arguments to the right pass 'em as params
+				if (arguments.length > 2) {
+					for (i = 2; i < arguments.length; i++) {
+						objs.push(arguments[i]);
+					}
+				} else {
+					objs = [];
+				}
+				// if our next argument is also a function then call it too
+				if (typeof(obj1) === 'function') {
+					params = [obj1.apply(this, objs)];
+				} else {
+					params = [obj1];
+				}
+				for (i = 0; i < objs.length; i++) {
+					params.push(objs[i]);
+				}
+				return obj.apply(this, params);
+			} else {
+				return obj;
+			}
+		}
+	});
+
+	om.subtract = om.doc({
+		desc: 'Subtract two numbers while properly maintaining the best precision possible.',
+		desc_ext:
+			'e.g.\njs> om.subtract(3.33, 1.10999); // = 2.22001\n' +
+			'js> 3.33 - 1.10999 // = 2.2200100000000003',
+		params: {
+			f1: {
+				desc: 'Floating point number.',
+				type: 'number'
+			},
+			f1: {
+				desc: 'Amount to subtract from first number.',
+				type: 'number'
+			}
+		},
+		func: function (f1, f2) {
+			var sig_digs, d1, d2;
+			// determine how many significant digits we have and maintain that precision
+			d1 = String(f1).match(/\.[0-9]+$/);
+			d2 = String(f2).match(/\.[0-9]+$/);
+			if (d1) {
+				d1 = d1[0].length - 1;
+			} else {
+				d1 = 0;
+			}
+			if (d2) {
+				d2 = d2[0].length - 1;
+			} else {
+				d2 = 0;
+			}
+			sig_digs = Math.max(d1, d2);
+			return om.round(f1 - f2, {decimal: sig_digs});
+		}
+	});
+
+	om.ucfirst = om.doc({
+		desc: 'Convert the first character of the string to upper case.',
+		params: {
+			str: {
+				desc: 'String to convert first character of.',
+				type: 'string'
+			}
+		},
+		func: function (str) {
+			return str.substr(0, 1).toUpperCase() + str.substr(1, str.length - 1);
+		}
+	});
+
+	om.lcfirst = om.doc({
+		desc: 'Lower-case first letter of string.',
+		params: {
+			str: {
+				desc: 'String to convert first character of.',
+				type: 'string'
+			}
+		},
+		func: function (str) {
+			return str.substr(0, 1).toLowerCase() + str.substr(1, str.length - 1);
+		}
+	});
+
+	om.flatten = om.doc({
+		desc: 'Strip a string of extra spacing and non alpha-numerical characters, and/or add gaps between capital letters.',
+		desc_ext: "e.g. 'foo_fooBar' => 'foo foo bar'.",
+		params: {
+			str: {
+				desc: 'The string to modify.',
+				type: 'string'
+			},
+			add_cap_gap: {
+				desc: 'If true then capital letters will be lower-cased and have a space added before.',
+				desc_ext: 'e.g. "fooBarBarn" => "foo bar barn"',
+				type: 'boolean',
+				default_val: false
+			}
+		},
+		func: function (str, add_cap_gap) {
+			// lowercase the first char
+			str = str.substr(0, 1).toLowerCase() + str.substr(1);
+			// add the cap gap if requested
+			if (add_cap_gap === true) {
+				str = str.replace(/([A-Z])/g, '_$1');
+			}
+			// condense spaces/underscores to a single underscore
+			// and strip out anything else but alphanums and underscores
+			return str.toLowerCase().replace(/( |_)+/g, '_').replace(/[^a-z0-9_]+/g, '');
+		}
+	});
+
+	om.is_jquery = om.doc({
+		desc: 'Returns whether the object is a vailid jQuery object.',
+		params: {
+			obj: {
+				desc: 'Object to examine whether it is a jQuery object or not.',
+				type: 'object'
+			}
+		},
+		func: function (obj) {
+			return typeof(obj) === 'object' && obj.length !== undefined && obj.jquery !== undefined;
+		}
+	});
+
+	om.is_numeric = om.doc({
+		desc: 'Returns whether or not a string is numerical.',
+		parms: {
+			str: {
+				desc: 'String to determine if the value is numerical or not.',
+				type: 'undefined'
+			}
+		},
+		func: function (str) {
+			return (! isNaN(parseFloat(str))) && isFinite(str);
+		}
+	});
+
+	/* Same as "om.is_numeric", but negated for the pedantic. */
+	om.isnt_numeric = om.doc({
+		desc: 'Returns whether or not the string argument is numeric.',
+		params: {
+			str: 'String to determine if the value is numerical or not.',
+			type: 'undefined'
+		},
+		func: function (str) {
+			return ! om.is_numeric(str);
+		}
+	});
+
+	om.plural = om.doc({
+		desc: 'Returns whether or not an object has more than one property.',
+		params: {
+			obj: {
+				desc: 'Object to check for multiple properties of.',
+				type: 'object'
+			}
+		},
+		func: function (obj) {
+			var item;
+			for (item in obj) {
+				if (obj.hasOwnProperty(item)) {
+					return true;
+				}
+			}
+			return false;
+		}
+	});
 
 	/* Cause events from one object to automatically trigger on the other object. */
 	om.link_event = function (event_type, from_obj, to_obj) {
@@ -360,18 +508,14 @@ It also comtains various useful, generic functions. */
 	om.Error = function (message, args) {
 		// failed? throw a polite error to the user
 		var error;
-		if (args === undefined) {
-			args = {};
-		}
-		if (args.modal === undefined) {
-			args.modal = true;
-		}
-		if (args.title === undefined) {
-			args.title = 'Error';
-		}
-		if (args.target === undefined) {
-			args.target = $('body');
-		}
+		args = om.get_args({
+			bt: undefined, // backtrace from an error, if given
+			modal: true,
+			on_close: undefined, // callback for when error is closed
+			retry: undefined, // if defined, a retry button will be given to re-run the given function & args
+			title: 'Error',
+			target: $('body')
+		}, args);
 		error = om.bf.make.confirm(
 			args.target,
 			args.title,

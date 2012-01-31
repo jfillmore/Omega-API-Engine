@@ -292,6 +292,7 @@ function do_install {
 		[[ -L nginx && $(readlink nginx) != "nginx-$NGINX_VERSION" ]] && {
 			[ $use_force -eq 0 ] && fail "Unable to overwrite /usr/local/ symlink to nginx directory without force."
 		}
+		# FIXME: this creates an extra symlink as "/usr/local/nginx/nginx-VERSION" if reran
 		ln -sf "nginx-$NGINX_VERSION" "nginx" || fail "Failed to create $NGINX_BASE_DIR symlink to $NGINX_BASE_DIR-$NGINX_VERSION."
 		# put symlink to nginx in /usr/local/bin
 		: "Creating nginx symlinks $NGINX_BASE_DIR and /usr/local/bin/nginx"

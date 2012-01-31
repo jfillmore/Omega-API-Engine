@@ -1413,21 +1413,25 @@
 					menu.$.toggleClass(args.name, true);
 				}
 				if (args.options_orient) {
-					menu._options_box = menu._add_box('om_menu_options');
-				} else {
 					menu._options_box = menu._extend(
 						args.options_orient,
 						'om_menu_options'
 					);
+				} else {
+					menu._options_box = menu._add_box('om_menu_options');
 				}
 				menu._options = {};
 
 				// add some functions
-				menu._select_first = function () {
+				/* The first menu option will be selected and returned. Only selects visible options by default. */
+				menu._select_first = function (args) {
 					var option_name;
+					args = om.get_args({
+						visible_only: true
+					}, args);
 					for (option_name in menu._options) {
 						if (menu._options.hasOwnProperty(option_name)) {
-							if (menu._options[option_name].$.is(':visible')) {
+							if (! args.visible_only || menu._options[option_name].$.is(':visible')) {
 								menu._options[option_name]._select();
 							}
 							return menu._options[option_name];
@@ -1504,7 +1508,7 @@
 					args = om.get_args({
 						caption: name,
 						'class': undefined,
-						classes: [],
+						classes: undefined,
 						icon: undefined,
 						icon_orient: 'left', // left, top, bottom, right, inline
 						on_select: undefined, // before the select occurs, can cancel selection
@@ -1514,14 +1518,11 @@
 					if (name === undefined) {
 						throw new Error("Unable to add an option without a name.");
 					}
-					args.classes.push('om_menu_option');
-					if (args['class']) {
-						args.classes.push(args['class']);
-					}
 					option = om.bf.make.box(
 						menu._options_box.$,
 						{classes: args.classes}
 					);
+					option.$.toggleClass('om_menu_option', true);
 					// make sure the menu doesn't have an option with this name already
 					if (name in menu._options) {
 						throw new Error("The option '" + name + "' already exists in menu.");
