@@ -28,7 +28,8 @@ class OmegaServer implements OmegaApi {
 			}
 		}
 		if ($fixed_setup) {
-			throw new Exception("The OmegaServer was not setup properly. It has been automatically configured for secure use.");
+			//throw new Exception("The OmegaServer was not setup properly. It has been automatically configured for secure use.");
+			// good for me :)
 		}
 		// load up our configuration
 		$this->config = new OmegaServerConfig();
