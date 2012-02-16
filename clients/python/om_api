@@ -15,7 +15,9 @@ import omega
 import omega.client
 
 def usage():
-	sys.stdout.write('''usage: om_api api [api_params] [arguments]
+	sys.stdout.write('''usage: om_api [METHOD] api [api_params] [arguments]
+
+methods: GET, DELETE, POST, PUT. Defaults to 'GET' if not specified.
 
 arguments:
    RUN MODES
@@ -46,7 +48,11 @@ Environmentals:
 	OMEGA_PASS               The password to authenticate with.
 	OMEGA_TOKEN              The token (e.g. in lieu of the user/pass) to authenticate with.
 
-examples:
+RESTful example:
+	om_api -u example.com/api GET /service/37
+	om_api -u example.com/api POST /service/create service.domain=foobar.com
+
+Old-style examples:
 	om_api systems.server.?
 	om_api -u api.example.com/foo systems.servers.find server=%example%
 	om_api -u foo/v1 systems.server.get -j '{"server": "il-bridge.slc.westdc.net"}'
@@ -129,7 +135,10 @@ def get_opts(defaults, argv):
 				raise Exception("Missing value for URL.")
 			args['url'] = argv[i]
 		else:
-			if args['api'] == None:
+			if args['http_method'] == None and arg.upper() in \
+				('GET', 'POST', 'DELETE', 'PUT'):
+				args['http_method'] = arg.upper()
+			elif args['api'] == None:
 				args['api'] = arg
 			else:
 				# we have a parameter; split it up on the =
@@ -169,6 +178,7 @@ opts = get_opts({
 	'color': sys.stdout.isatty(),
 	'raw_response': False,
 	'api': None,
+	'http_method': None,
 	'use_https': True,
 	'url': 'localhost',
 	'creds': None,
@@ -229,11 +239,11 @@ elif opts['shell_mode']:
 	# if we have an API, run it first
 	if opts['api']:
 		# TODO: handle args better
-		shell.run(opts['api'], opts['params'], opts)
+		shell.run(opts['http_method'], opts['api'], opts['params'], opts)
 	shell.start()
 else:
 	# otherwise just execute the API
-	response = shell.run(opts['api'], opts['params'], opts)
+	response = shell.run(opts['http_method'], opts['api'], opts['params'], opts)
 	if not response['result']:
 		sys.exit(1)
 

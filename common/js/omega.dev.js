@@ -2739,7 +2739,7 @@ Changelog:
 							win._draggable(win._toolbar.$, args.draggable);
 						}
 					}
-					win._center_top(0.2, owner.$);
+					win._center_top(0.2, win.$.parent());
 					if (! args.dont_show) {
 						win.$.show();
 					}
@@ -4705,12 +4705,20 @@ Changelog:
 				});
 				message.$.toggleClass('om_message', true);
 				// add in a skirt if in modal mode
-				if (args.modal === true) {
-					message._blanket = om.bf.make.skirt(message.$, {
-						imbue: 'free',
-						dont_show: true,
-						'class': 'om_blanket'
-					});
+				if (args.modal) {
+					if (args.modal === true) {
+						message._blanket = om.bf.make.skirt(message.$, {
+							imbue: 'free',
+							dont_show: true,
+							'class': 'om_blanket'
+						});
+					} else {
+						message._blanket = om.bf.make.blanket(args.modal, {
+							imbue: 'free',
+							dont_show: true,
+							'class': 'om_blanket'
+						});
+					}
 					// hijack some functions so we can handle the possible skirt
 					message._remove = function () {
 						message._blanket.$.remove();
@@ -4771,7 +4779,7 @@ Changelog:
 						constraint: $(window)
 					});
 				}
-				message._center_top(0.2, owner);
+				message._center_top(0.2, message.$.parent());
 				// and show it unless otherwise requested
 				if (args.dont_show !== true) {
 					message._show();
@@ -4866,7 +4874,7 @@ Changelog:
 					form_fields: {}, // form fields to include
 					form_args: {}, // form arguments
 					ok_caption: 'Ok',
-					on_ok: undefined, // callback for when Ok/submit button clicked
+					on_ok: undefined, // callback for when Ok/submit button clicked. Args: click ev, form input, query obj
 					on_cancel: undefined // callback for cancel/close
 				}, args, true);
 				query = om.bf.make.message(owner, title, html, args);
@@ -5290,34 +5298,30 @@ Changelog:
 			login.$.find('input:first').focus();
 		};
 
+		/** Old-style API execution. */
 		om_client.exec = function (api, params, callback, fail_callback, args) {
-			if (args === undefined) {
-				args = {};
-			}
-			if (args.async === undefined) {
-				args.async = true;
-			}
+			args = om.get_args({
+				async: true
+			}, args, true);
 			om_client.do_ajax(api, params, callback, fail_callback, args);
 		};
 
+		/** Old-style API execution, non-async. */
 		om_client.exec_na = function (api, params, callback, fail_callback, args) {
-			if (args === undefined) {
-				args = {};
-			}
-			if (args.async === undefined) {
-				args.async = false;
-			}
+			args = om.get_args({
+				async: false
+			}, args, true);
 			om_client.do_ajax(api, params, callback, fail_callback, args);
 		};
 
+		/** Generic AJAX wrapper. */
 		om_client.do_ajax = function (api, params, callback, fail_callback, args) {
 			var ajax, ajax_args;
-			if (args === undefined) {
-				args = {};
-			}
-			if (args.post === undefined) {
-				args.post = [];
-			}
+			args = om.get_args({
+				async: true,
+				method: 'POST',
+				post: []
+			}, args);
 			ajax_args = arguments;
 			ajax = {
 				_args: args,
@@ -5393,10 +5397,6 @@ Changelog:
 				}
 			};
 
-			// default to asyncronous mode
-			if (args.async === undefined) {
-				args.async = true;
-			}
 			// automatically assume no params if not present
 			if (params === undefined || params === null) {
 				params = {};
@@ -5415,7 +5415,7 @@ Changelog:
 			// and fire off the API
 			jQuery.ajax({
 				async: args.async,
-				type: 'POST',
+				type: args.method,
 				url: om_client.url + escape(api),
 				data: ajax.data.join('&'),
 				error: ajax.on_ajax_failure,
@@ -5423,7 +5423,154 @@ Changelog:
 			});
 		};
 		
-		/*
+		om_client.get = function (api, params, callback, fail_callback, args) {
+			return om_client.request('GET', api, params, callback, fail_callback, args);
+		};
+
+		om_client.post = function (api, params, callback, fail_callback, args) {
+			return om_client.request('POST', api, params, callback, fail_callback, args);
+		};
+
+		om_client.put = function (api, params, callback, fail_callback, args) {
+			return om_client.request('PUT', api, params, callback, fail_callback, args);
+		};
+
+		om_client['delete'] = function (api, params, callback, fail_callback, args) {
+			return om_client.request('DELETE', api, params, callback, fail_callback, args);
+		};
+
+		om_client.request = function (method, api, params, callback, fail_callback, args) {
+			var ajax, ajax_args;
+			args = om.get_args({
+				async: true
+			}, args);
+			ajax_args = arguments;
+			ajax = {
+				_args: args,
+				data: null
+			};
+
+			ajax.on_ajax_success = function (response, test_status, xml_http_request) {
+				var json_response, spillage, message, error, response_encoding,
+					response_charset, response_parts, cookies;
+				response_parts = xml_http_request.getResponseHeader('Content-Type').split('; ');
+				response_encoding = response_parts[0];
+				if (response_parts.length > 1) {
+					response_charset = response_parts[1];
+				}
+				if (response_encoding === 'application/json') {
+					// if there was any spillage then note
+					if (response.spillage !== undefined) {
+						spillage = om.bf.make.confirm($('body'), 'API Spillage: ' + api, '<div class="om_spillage">' + response.spillage + '</div>');
+						spillage._constrain_to();
+					}
+					// if this succeeded then execute any included callback code
+					if (response.result !== undefined) {
+						if (response.result === true) {
+							if (typeof(callback) === 'function') {
+								return callback(response.data);
+							}
+						} else {
+							if (response.reason === undefined) {
+								response.reason = "Failed to execute '" + api + "'; an unknown error has occurred.";
+							}
+							if (typeof(fail_callback) === 'function') {
+								fail_callback(response.reason, ajax_args);
+							} else {
+								throw new Error(response.reason);
+							}
+						}
+					} else {
+						if (typeof(fail_callback) === 'function') {
+							fail_callback("Failed to execute '" + api + "'; response object contains no result boolean.", ajax_args);
+						} else {
+							throw new Error("Failed to execute '" + api + "'; response object contains no result boolean.");
+						}
+					}
+				} else {
+					try {
+						if (response_encoding === 'application/xml') {
+							throw new Error("Unsupported response encoding: '" + response_encoding + "'." + response);
+						} else if (response_encoding === 'text/html') {
+							throw new Error("Unsupported response encoding: '" + response_encoding + "'." + response);
+						} else {
+							throw new Error("Unrecognized response encoding: '" + response_encoding + "'." + response);
+						}
+					} catch (e) {
+						// report the error to the callback function if available
+						if (typeof om_client.on_fail === 'function') {
+							om_client.on_fail(e.message, ajax_args);
+						} else {
+							throw e;
+						}
+					}
+				}
+			};
+
+			ajax.on_ajax_failure = function (xml_http_request, text_status, error_thrown) {
+				var response_parts, response_encoding, response;
+				response_parts = xml_http_request.getResponseHeader('Content-Type').split('; ');
+				response_encoding = response_parts[0];
+				if (response_parts.length > 1) {
+					response_charset = response_parts[1];
+				}
+				response = xml_http_request.responseText;
+				if (response_encoding === 'application/json') {
+					// if there was any spillage then note
+					response = om.json.decode(response);
+					if (response.spillage !== undefined) {
+						spillage = om.bf.make.confirm(
+							$('body'),
+							'API Spillage: ' + api,
+							'<div class="om_spillage">' + response.spillage + '</div>'
+						);
+						spillage._constrain_to();
+					}
+					// if this succeeded then execute any included callback code
+					if (response.result !== undefined) {
+						if (response.reason === undefined) {
+							response.reason = "Failed to execute '" + api + "'; an unknown error has occurred.";
+						}
+						if (typeof(fail_callback) === 'function') {
+							fail_callback(response.reason, ajax_args);
+						} else {
+							throw new Error(response.reason);
+						}
+					} else {
+						if (typeof(fail_callback) === 'function') {
+							fail_callback("Failed to execute '" + api + "'; response object contains no result boolean.", ajax_args);
+						} else {
+							throw new Error("Failed to execute '" + api + "'; response object contains no result boolean.");
+						}
+					}
+				} else {
+					om.get(om_client.on_fail, response, ajax_args);
+				}
+			};
+
+			// automatically assume no params if not present
+			if (params === undefined || params === null) {
+				params = {};
+			}
+			/* // TODO
+			if (om_client.creds !== undefined) {
+				ajax.data.push('OMEGA_CREDENTIALS=' + escape(om.JSON.encode(om_client.creds)));
+			}
+			*/
+			// and fire off the API
+			jQuery.ajax({
+				async: args.async,
+				type: method,
+				url: om_client.url + '/' + escape(api),
+				dataType: 'json',
+				contentType: 'application/json',
+				data: om.JSON.encode(params),
+				error: ajax.on_ajax_failure,
+				success: ajax.on_ajax_success
+			});
+		};
+
+		/* // testing auto-init code, needs to be moved elsewhere
 		// if we don't have the name of the server then get that info up front
 		if (om_client.service_name === undefined) {
 			shed.fetch_na(

@@ -8,7 +8,7 @@
 
 
 /** Omega configuration object. */
-class OmegaConfig implements OmegaApi {
+class OmegaConfig extends OmegaRESTful implements OmegaApi {
 	public $config;
 	private $config_path;
 	

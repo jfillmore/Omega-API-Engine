@@ -30,12 +30,12 @@ cat \
 	"$JS_LIB_DIR/core.js" \
 	"$JS_LIB_DIR/sprintf.js" \
 	"$JS_LIB_DIR/json.js" \
-	"$JS_LIB_DIR/Test.class.js" \
-	"$JS_LIB_DIR/ColorFactory.class.js" \
-	"$JS_LIB_DIR/Visualizer.class.js" \
-	"$JS_LIB_DIR/DataShed.class.js" > .omlib.dev.js.$$
-	#--js "$JS_LIB_DIR/BoxFactory.class.js" \ # not needed for JSON module
-	#--js "$JS_LIB_DIR/OmegaClient.class.js" \ # not needed for JSON module
+	"$JS_LIB_DIR/Test.js" \
+	"$JS_LIB_DIR/ColorFactory.js" \
+	"$JS_LIB_DIR/Visualizer.js" \
+	"$JS_LIB_DIR/DataShed.js" > .omlib.dev.js.$$
+	#--js "$JS_LIB_DIR/BoxFactory.js" \ # not needed for JSON module
+	#--js "$JS_LIB_DIR/OmegaClient.js" \ # not needed for JSON module
 # write out omlib.js
 {
 	# JS header

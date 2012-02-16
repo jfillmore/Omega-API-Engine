@@ -8,10 +8,11 @@
 
 
 /** Omega exists as a global object ($om or $omega) and provides an API to assist omega services (e.g. provide subservices like ACLs and logging). */
-class Omega implements OmegaApi {
+class Omega extends OmegaRESTful implements OmegaApi {
 	public $session;
 	private $save_service_state; // whether or not to save the state of the service after each request
 	private $session_id; // used when scope = 'session'
+	private $restful; // whether or not the API is RESTful
 
 	// service information
 	public $api; // alias to $this->service
@@ -52,6 +53,36 @@ class Omega implements OmegaApi {
 		}
 	}
 
+	public function _get_routes() {
+		return  array(
+			'api' => 'api',
+			'request' => 'request',
+			'response' => 'response',
+			'subservice' => 'subservice',
+			'config' => 'config'
+		);
+	}
+
+	public function _get_handlers() {
+		return array(
+			'GET' => array(
+			),
+			'POST' => array(
+				'restart_service' => 'restart_service'
+			),
+			'PUT' => array(
+			),
+			'DELETE' => array(
+			)
+		);
+	}
+
+	/** Returns whether or not the service API is restful.
+		returns: boolean */
+	public function is_restful() {
+		return $this->restful;
+	}
+
 	/** Returns the name of the omega user. */
 	public function whoami() {
 		if ($this->subservice->is_enabled('authority')) {
@@ -67,38 +98,17 @@ class Omega implements OmegaApi {
 		$r_class = new ReflectionClass($class_name);
 		$r_method = $r_class->getMethod('__construct');
 		$params = $this->request->_get_method_params($r_method);
-		// ew.... I'm pretty sure PHP doesn't have a way to do this dynamically
-		switch (count($params)) {
-			case 0:
-				$service = new $class_name();
-				break;
-			case 1:
-				$service = new $class_name($params[0]);
-				break;
-			case 2:
-				$service = new $class_name($params[0], $params[1]);
-				break;
-			case 3:
-				$service = new $class_name($params[0], $params[1], $params[2]);
-				break;
-			case 4:
-				$service = new $class_name($params[0], $params[1], $params[2], $params[3]);
-				break;
-			case 5:
-				$service = new $class_name($params[0], $params[1], $params[2], $params[3], $params[4]);
-				break;
-			case 6:
-				$service = new $class_name($params[0], $params[1], $params[2], $params[3], $params[4], $params[5]);
-				break;
-			case 7:
-				throw new Exception("Unable to instantiate new object of '$class_name'. More than 6 constructor parameters required.");
-				break;
-		}
+		$service = $r_class->newInstanceArgs($params);
 		if ($service !== null) {
 			$this->service = $service;
 			$this->api = $this->service;
 		} else {
 			throw new Exception("Failed to initialize $class_name.");
+		}
+		if (@is_subclass_of($this->service, 'OmegaRESTful')) {
+			$this->restful = true;
+		} else {
+			$this->restful = false;
 		}
 	}
 
@@ -108,12 +118,16 @@ class Omega implements OmegaApi {
 		ob_start();
 		// load the subservice manager first so the request and response can do subservice-dependant stuff
 		$this->subservice = new OmegaSubserviceManager();
-		// prepare to generate the request to yield a response
-		$this->request = new OmegaRequest();
 		// get a response ready
 		$this->response = new OmegaResponse();
-		// default our response encoding to be the same as what we used with the request
-		$this->response->set_encoding($this->request->get_encoding());
+		// prepare to generate the request to yield a response
+		$this->request = new OmegaRequest();
+		if ($_ENV['HTTP_ACCEPT'] === 'application/json') {
+			$this->response->set_encoding('json');
+		} else {
+			// default our response encoding to be the same as what we used with the request
+			$this->response->set_encoding($this->request->get_encoding());
+		}
 		$service_nickname = $this->config->get('omega.nickname');
 
 		// if authentication is enabled then check access now
@@ -224,8 +238,16 @@ class Omega implements OmegaApi {
 			$cookie_path = $this->response->get_cookie_path();
 			setcookie('OMEGA_SESSION_ID', $this->session_id, 0, $cookie_path);
 		}
+		// if we failed and still have a 2xx status code then you know the drill
+		if ((! $this->response->get_result()) &&
+			$this->response->is_2xx()) {
+			$this->response->header_num(500);
+		}
+		// set our status code (e.g. 200, 404, etc)
+		header($this->response->get_status());
 		// and return the request with the requested encoding
-		echo $this->response->encode($this->response->get_encoding());
+		$response = $this->response->encode($this->response->get_encoding());
+		echo $response;
 	}
 	
 	public function _load_session() {
@@ -299,6 +321,11 @@ class Omega implements OmegaApi {
 			$this->_init_service();
 		} else {
 			throw new Exception("Invalid service scope '" . $scope . "'.");
+		}
+		if (@is_subclass_of($this->service, 'OmegaRESTful')) {
+			$this->restful = true;
+		} else {
+			$this->restful = false;
 		}
 	}
 
@@ -531,7 +558,7 @@ class Omega implements OmegaApi {
 	public function export_api($branch, $recurse = false, $verbose = false) {
 		//return $this->_export_api($branch, $recurse, $verbose);
 		// get a reference to the API branch so we 
-		$branches = explode('.', $branch);
+		$branches = explode('/', $branch);
 		// just one branch? it's the service or omega itself
 		if (count($branches) == 1) {
 			if ($branches[0] == 'omega') {

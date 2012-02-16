@@ -139,11 +139,12 @@ class OmegaServiceManager implements OmegaApi {
 			description=string
 			key=string
 			class_dirs=array
+			location=string
 			async=boolean
 			scope=string
-			location=string
+			enabled=boolean
 			*/
-	public function create($service_name, $nickname, $description, $key, $class_dirs, $async = true, $scope = 'global', $location) {
+	public function create($service_name, $nickname, $description, $key, $class_dirs, $location, $async = true, $scope = 'global', $enabled = true) {
 		global $om;
 		// validate our input
 		if (! preg_match(OmegaTest::word_re, $service_name)) {
@@ -210,6 +211,9 @@ class OmegaServiceManager implements OmegaApi {
 		// and update our own configuration to add the service, initially disabled
 		$this->config['services'][$service_name] = false;
 		$this->_save_config();
+		if ($enabled) {
+			$this->enable($service_name);
+		}
 	}
 
 	/** Removes an omega service from the server, optionally deleting all of the internal data.

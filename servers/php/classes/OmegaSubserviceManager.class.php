@@ -8,7 +8,7 @@
 
 
 /** Manages (activate, deactivate, enable, disable, etc) sub-services (e.g. ACLs, logging) for an omega service. */
-class OmegaSubserviceManager implements OmegaApi {
+class OmegaSubserviceManager extends OmegaRESTful implements OmegaApi {
 	private $subservices = array('authority', 'logger', 'editor', 'profiler');
 	private $config = null;
 

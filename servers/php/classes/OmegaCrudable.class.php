@@ -1,6 +1,6 @@
 <?php
 
-abstract class OmegaCrudable implements OmegaApi {
+abstract class OmegaCrudable extends OmegaRESTful implements OmegaApi {
 	protected $db;
 	abstract protected function _get_table(); // e.g. example
 	abstract protected function _get_props();
@@ -151,7 +151,7 @@ abstract class OmegaCrudable implements OmegaApi {
 			if (isset($fk['flags'])) {
 				foreach ($fk['flags'] as $flag) {
 					if (preg_match('/^ON (UPDATE|DELETE) (RESTRICT|CASCADE|SET NULL|NO ACTION)$/i', $flag)) {
-						$sql .= strtoupper($flag);
+						$sql .= ' ' . strtoupper($flag);
 					} else {
 						throw new Exception("Unrecognized foreign key flag for $name: $flag.");
 					}
@@ -294,8 +294,9 @@ abstract class OmegaCrudable implements OmegaApi {
 						$values[] = "'" . $value . "'";
 					}
 				}
-			} else if ($this->_is_datetime($prop['type'])) {
-				// dates should always be safe to escape
+			} else if ($this->_is_datetime($prop['type']) || 
+				$this->_is_enum($prop['type'])) {
+				// these should always be safe to escape
 				if (preg_match("/^'.*'$/", $value)) {
 					$values[] = $this->db->escape($value);
 				} else {
@@ -368,7 +369,7 @@ abstract class OmegaCrudable implements OmegaApi {
 						$pairs[] = $name . " = '" . $value . "'";
 					}
 				}
-			} else if ($this->_is_datetime($prop['type'])) {
+			} else if ($this->_is_datetime($prop['type']) || $this->_is_enum($prop['type'])) {
 				// dates should always be safe to force escape
 				if (preg_match("/^'.*'$/", $value)) {
 					$pairs[] = $name . " = " . $this->db->escape($value);
@@ -400,6 +401,7 @@ abstract class OmegaCrudable implements OmegaApi {
 	}
 
 	private function _parse_type($type) {
+		$foo = $type;
 		$parts = preg_split('/[\(\)]/', $type);
 		if (count($parts) === 1) {
 			$type = $type;
@@ -411,8 +413,8 @@ abstract class OmegaCrudable implements OmegaApi {
 		$type = strtoupper($type);
 		if ($type === 'ENUM') {
 			// parse "'foo', 'bar', 'salad'" into array
-			$type_args = trim($type_args, "'");
-			$type_args = preg_split("', '", $type_args);
+			$type_arg = trim($type_arg, "'");
+			$type_arg = preg_split("', *'", $type_arg);
 		}
 		return array(
 			'type' => $type,
@@ -428,6 +430,10 @@ abstract class OmegaCrudable implements OmegaApi {
 	public function _is_integer($type) {
 		$type_info = $this->_parse_type($type);
 		return in_array($type_info['type'], array('TINYINT', 'SMALLINT', 'MEDIUMINT', 'INT', 'BIGINT'));
+	}
+
+	public function _is_number($type) {
+		return $this->_is_integer($type) || $this->_is_float($type);
 	}
 
 	public function _is_float($type) {
@@ -463,14 +469,9 @@ abstract class OmegaCrudable implements OmegaApi {
 		}
 		// check value based on type
 		if (isset($def['type'])) {
-			$parts = preg_split('/[\(\)]/', $def['type']);
-			if (count($parts) === 1) {
-				$type = $def['type'];
-				$type_arg = null;
-			} else {
-				$type = $parts[0];
-				$type_arg = $parts[1];
-			}
+			$type_info = $this->_parse_type($def['type']);
+			$type = $type_info['type'];
+			$type_arg = $type_info['type_arg'];
 			$errors = array();
 			if ($this->_is_integer($type)) {
 				if (! preg_match('/^-?[0-9]+$/', $value)) {
@@ -615,10 +616,8 @@ abstract class OmegaCrudable implements OmegaApi {
 	protected function _parse_where($where) {
 		$sql = '';
 		if (is_array($where)) {
-			if (count($where) == 1) {
-				$where = array('AND' => $where);
-			}
 			foreach ($where as $bool => $items) {
+				// if there is no bool op specified then assume 'AND'
 				// we're either a boolean operation or a single key/value
 				if (! in_array(strtoupper($bool), array('AND', 'OR'))) {
 					$sql .= $bool . ' = ' . $items;
@@ -632,14 +631,14 @@ abstract class OmegaCrudable implements OmegaApi {
 								$key => $item
 							));
 						} else {
-							if (strtoupper($item) === 'NOT') {
+							if (strtoupper($bool) === 'NOT') {
 								$sql .= '! ';
 							} else if (in_array($bool, array('AND', 'OR'))) {
 								if ($first_item) {
-									$sql .= $item;
+									$sql .= "`$key` = $item";
 									$first_item = false;
 								} else {
-									$sql .= " $bool $item";
+									$sql .= " $bool `$key` = $item";
 								}
 							} else {
 								throw new Exception("Unrecognized boolean operation: $bool.");
@@ -649,8 +648,19 @@ abstract class OmegaCrudable implements OmegaApi {
 					$sql .= ')';
 				}
 			}
-		} else {
-			if ($where !== null && strlen($where)) {
+		} else if ($where !== null) {
+			// assume we are the primary key or an SQL statement
+			// TODO: hack, hack hack, make this more dynamic
+			if (preg_match('/^[\'`]?\w+[\'`]?$/', $where)) {
+				$pkey = $this->_get_primary_key();
+				$my_props = $this->_get_props();
+				$sql = '`' . $pkey . '` = ';
+				if ($this->_is_number($my_props[$pkey]['type'])) {
+					$sql .= $this->db->escape($where);
+				} else {
+					$sql .= "'" . $this->db->escape($where) . "'";
+				}
+			} else {
 				$sql = $where;
 			}
 		}

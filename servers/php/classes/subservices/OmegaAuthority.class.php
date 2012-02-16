@@ -26,6 +26,7 @@ class OmegaAuthority extends OmegaSubservice {
 			try {
 				$this->authed_user = $om->shed->get($this->_localize('users', $username));
 			} catch (Exception $e) {
+				$om->response->header_num(403);
 				throw new Exception("The username '$username' does not exist.");
 			}
 		}
@@ -45,10 +46,12 @@ class OmegaAuthority extends OmegaSubservice {
 					$user = $om->shed->get($this->_localize('users'), $credentials['username']); 
 				} catch (Exception $e) {
 					// invalid user
+					$om->response->header_num(403);
 					throw new Exception("Invalid username or password.");
 				}
 				if (! in_array($credentials['password'], $user->get_passwords())) {
 					// invalid password :)
+					$om->response->header_num(403);
 					throw new Exception("Invalid username or password.");
 				}
 				$this->authed_user = $user;
@@ -56,6 +59,7 @@ class OmegaAuthority extends OmegaSubservice {
 			$this->authed_username = $credentials['username'];
 			try {
 				if (! $this->check_access($om->request->get_api(), $this->authed_username)) {
+					$om->response->header_num(403);
 					throw new Exception("Access to '" . $om->request->get_api() . "' denied.");
 				}
 			} catch (Exception $e) {
@@ -78,15 +82,18 @@ class OmegaAuthority extends OmegaSubservice {
 				// retry authentication using the session credentials
 				if ($creds === null) {
 					// TODO: support anon access
+					$om->response->header_num(403);
 					throw new Exception("Missing username or password.");
 				} else {
 					if (isset($creds['username']) && isset($creds['password'])) {
 						return $this->authenticate($creds);
 					} else {
+						$om->response->header_num(403);
 						throw new Exception("Invalid session credentials.");
 					}
 				}
 			}
+			$om->response->header_num(403);
             throw new Exception("Missing username or password.");
         }
     }
@@ -212,7 +219,7 @@ class OmegaAuthority extends OmegaSubservice {
 			}
             // figure out anchoring
             if (strlen($acl) > 2 && substr($acl, 0, 2) == '//') {
-                $regex = '/\.';
+                $regex = '/[\.\/]';
                 $acl = substr($acl, 2);
             } else if (strlen($acl) > 1 && substr($acl, 0, 1) == '/') {
                 $regex = '/^';
@@ -220,11 +227,11 @@ class OmegaAuthority extends OmegaSubservice {
             } else {
                 throw new Exception("Invalid ACL for $username: '$acl'.");
             }
-            // escape any periods and question marks in the ACL
-            $regex .= preg_replace('/\./', '\.', preg_replace('/\?/', '\?', $acl));
+            // escape any slashes and question marks in the ACL
+            $regex .= preg_replace('/\//', '\/', preg_replace('/\?/', '\?', $acl));
             // and if the ACL contains an asterisk, change it to '.*'
             $regex = preg_replace('/\*/', '.*', $regex);
-            // now we've got something like '^foo\.bar\..*' or 'bar.\.*'
+            // now we've got something like '^foo\/bar\/.*' or 'bar\/.*'
             $regex .= '/i'; // and add our trailing slash and specify case insensitivity
             $matches = preg_match($regex, $api);
             if ($matches) {

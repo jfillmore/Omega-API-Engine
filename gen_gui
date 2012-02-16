@@ -175,7 +175,7 @@ cc_test=$(echo "$cc_code" | $jscc)
 			post_line=$((line+5))
 			echo "$errmsg"
 			echo "$pre_line v------------------------------------------v"
-			sed "$pre_line,$post_line"'!d' "$file" | sed 's/\t/  /'
+			sed "$pre_line,$post_line"'!d' "$file" | sed 's/\t/  /' | cat -n
 			echo "$post_line ^------------------------------------------^"
 			echo
 		done

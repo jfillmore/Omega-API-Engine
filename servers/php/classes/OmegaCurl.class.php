@@ -9,9 +9,10 @@ class OmegaCurl {
 	private $http_auth_info = null;
 	private $agent = null;
 	private $port = null; // null = 80/443 by default
+	private $base_url = null; // e.g. example.com/foo
 
-	public function __construct($hostname, $port = null, $agent = 'cURL wrapper 0.1') {
-		$this->set_hostname($hostname);
+	public function __construct($base_url = '', $port = null, $agent = 'cURL wrapper 0.2') {
+		$this->set_base_url($base_url);
 		$this->cookie_file = '/tmp/.cookies.' . uniqid();
 		$this->set_port($port);
 		$this->set_agent($agent);
@@ -67,16 +68,13 @@ class OmegaCurl {
 		$this->init();
 	}
 
-	private function get_hostname() {
-		return $this->hostname;
+	private function get_base_url() {
+		return $this->base_url;
 	}
 
-	private function set_hostname($value) {
-		if ($value != '') {
-			$this->hostname = $value;
-		} else {
-			throw new Exception('Invalid hostname.');
-		}
+	private function set_base_url($value) {
+		$this->base_url = $value;
+		return $this->base_url;
 	}
 
 	public function set_http_auth($username, $password) {
@@ -130,7 +128,7 @@ class OmegaCurl {
 			throw new Exception("cURL not initialized; this should not happen.");
 		}
 		$method = strtoupper($method);
-		$url = $this->get_protocol() . $this->get_hostname() . "/$url";
+		$url = $this->get_protocol() . $this->get_base_url() . "/$url";
 		$content_length = strlen($params);
 		if ($method === 'GET') {	
 			if (is_array($params)) {
@@ -174,18 +172,19 @@ class OmegaCurl {
 		if ($headers) {
 			curl_setopt($this->curl_handle, CURLOPT_HTTPHEADER, $headers);
 		}
-		$response = curl_exec($this->curl_handle);
+		$result = curl_exec($this->curl_handle);
 		$meta = curl_getinfo($this->curl_handle);
 		if ($extended) {
 			return array(
-				'response' => $response,
+				'response' => $result,
 				'meta' => $meta
 			);
 		} else {
-			if (! in_array($meta['http_code'], array(200, 201))) {
+			if ($meta['http_code'] < 200 || 
+				$meta['http_code'] >= 300) {
 				throw new Exception("Failed to access '$url' with the HTTP error code " . $meta['http_code'] . '. cURL error message was "' . curl_error($this->curl_handle) . '".');
 			}
-			return $response;
+			return $result;
 		}
 	}
 
@@ -195,10 +194,6 @@ class OmegaCurl {
 	
 	public function post($url, $params = '', $extended = false, $headers = null) {
 		return $this->request($url, $params, 'POST', $extended, $headers);
-	}
-
-	public function update($url, $params = '', $extended = false, $headers = null) {
-		return $this->request($url, $params, 'UPDATE', $extended, $headers);
 	}
 
 	public function put($url, $params = '', $extended = false, $headers = null) {

@@ -1378,7 +1378,7 @@
 							win._draggable(win._toolbar.$, args.draggable);
 						}
 					}
-					win._center_top(0.2, owner.$);
+					win._center_top(0.2, win.$.parent());
 					if (! args.dont_show) {
 						win.$.show();
 					}
@@ -3344,12 +3344,20 @@
 				});
 				message.$.toggleClass('om_message', true);
 				// add in a skirt if in modal mode
-				if (args.modal === true) {
-					message._blanket = om.bf.make.skirt(message.$, {
-						imbue: 'free',
-						dont_show: true,
-						'class': 'om_blanket'
-					});
+				if (args.modal) {
+					if (args.modal === true) {
+						message._blanket = om.bf.make.skirt(message.$, {
+							imbue: 'free',
+							dont_show: true,
+							'class': 'om_blanket'
+						});
+					} else {
+						message._blanket = om.bf.make.blanket(args.modal, {
+							imbue: 'free',
+							dont_show: true,
+							'class': 'om_blanket'
+						});
+					}
 					// hijack some functions so we can handle the possible skirt
 					message._remove = function () {
 						message._blanket.$.remove();
@@ -3410,7 +3418,7 @@
 						constraint: $(window)
 					});
 				}
-				message._center_top(0.2, owner);
+				message._center_top(0.2, message.$.parent());
 				// and show it unless otherwise requested
 				if (args.dont_show !== true) {
 					message._show();
@@ -3505,7 +3513,7 @@
 					form_fields: {}, // form fields to include
 					form_args: {}, // form arguments
 					ok_caption: 'Ok',
-					on_ok: undefined, // callback for when Ok/submit button clicked
+					on_ok: undefined, // callback for when Ok/submit button clicked. Args: click ev, form input, query obj
 					on_cancel: undefined // callback for cancel/close
 				}, args, true);
 				query = om.bf.make.message(owner, title, html, args);

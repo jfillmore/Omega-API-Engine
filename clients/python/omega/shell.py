@@ -52,6 +52,7 @@ class Shell:
 			'color': sys.stdout.isatty(),
 			'full_response': False,
 			'raw_response': False,
+			'headers': {},
 			'verbose': False
 			#'edit_mode': 'vi'
 		}, args)
@@ -326,6 +327,7 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
 		# collect up the command parts
 		parts = self._split_cmd(cmd)
 		# our API info
+		method = None
 		api = None
 		params = {}
 		args = {
@@ -408,7 +410,9 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
 			elif part == '-r' or part == '--raw':
 				args['raw_response'] = True
 			else:
-				if api == None:
+				if method == None and method.upper() in ('GET', 'POST', 'PUT', 'DELETE'):
+					method = part
+				elif api == None:
 					api = part
 				else:
 					# we have a parameter; split it up on the =
@@ -474,6 +478,7 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
 			try: 
 				response = self.client.run(
 					api,
+					method,
 					params,
 					args['raw_response'],
 					args['full_response'],
@@ -526,20 +531,27 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
 				else:
 					dbg.pretty_print(args['data'], color = False)
 
-	def run(self, api, params = {}, args = {}):
+	def run(self, method, api, params = {}, args = {}):
 		args = util.get_args(self.args, args, True)
 		if args['verbose']:
 			sys.stdout.write('+ API=%s, PARAMS=%s, OPTIONS=%s\n' % (api, self.client.encode(params), self.client.encode(args)))
 		retval = {}
 		try: 
-			response = self.client.run(
+			get = None
+			if 'GET' in args:
+				if isinstance(args['GET'], basestring):
+					get = args['GET']
+				else:
+					get = '&'.join(args['GET'])
+			response = self.client.request(
+				method,
 				api,
 				params,
 				args['raw_response'],
 				args['full_response'],
-				'&'.join(args['GET']),
-				'&'.join(args['POST']),
-				args['FILES']
+				get,
+				args['headers'],
+				args['verbose']
 			)
 			result = True
 			error = None
@@ -565,7 +577,7 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
 				val = params[param]
 				if not (param in self.args):
 					raise Error('Unrecognized parameter: "%s". Enter "%shelp" or "%sh" for help.' % (param, self._cmd_char, self._cmd_char))
-				if param in ['color', 'full_response', 'raw_response', 'verbose']:
+				if param in ['color', 'full_response', 'raw_response', 'verbose', 'headers']:
 					if val in ['1', 'true', 'True']:
 						val = True
 					elif val in ['0', 'false', 'False']:

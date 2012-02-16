@@ -12,19 +12,28 @@
 
 import pycurl
 import urllib
-import json
+import httplib
+try:
+	import json
+except:
+	import simplejson
+	json = simplejson
+
 import re
+import sys
 import dbg
 import StringIO
 import os
 import tempfile
+
 from error import Error
+import util
 
 class OmegaClient:
 	"""Client for talking to an Omega Server."""
 	_version = '0.2'
 	_request_type = 'POST'
-	_curl = None
+	_http = None
 	_hostname = None
 	_folder = '/'
 	_url = None
@@ -34,11 +43,10 @@ class OmegaClient:
 
 	def __init__(self, url = 'localhost', credentials = None, port = 5800, use_https = True):
 		self._cookie_file = os.path.expanduser('~/.omega_cookie') # tempfile.NamedTemporaryFile()
-		self._curl = pycurl.Curl()
-		self.set_url(url)
+		self.set_https(use_https)
 		self.set_credentials(credentials)
 		self.set_port(port)
-		self.set_https(use_https)
+		self.set_url(url)
 		# TODO: python 2.7 supports an order tuple object we can use to preserve order :)
 		self.encode = json.JSONEncoder().encode
 		self.decode = json.JSONDecoder().decode
@@ -74,6 +82,11 @@ class OmegaClient:
 					self._folder = ''.join((self._folder, '/'))
 		else:
 			raise Exception('Invalid API service URL: %s.' % url)
+		# having set everything, init httplib
+		if self._use_https:
+			self._http = httplib.HTTPSConnection(self._hostname, self._port)
+		else:
+			self._http = httplib.HTTPConnection(self._hostname, self._port)
 		
 	def get_url(self):
 		return self._url
@@ -119,6 +132,7 @@ class OmegaClient:
 		else:
 			raise Exception('Invalid API service port: %i.' % port)
 	
+	# old style API invoker
 	def run(self, api, args = (), raw_response = False, full_response = False, get = None, post = None, files = None):
 		# check and prep the data
 		if api == '':
@@ -167,11 +181,12 @@ class OmegaClient:
 		curl.perform()
 		response = response.getvalue()
 		http_code = curl.getinfo(curl.HTTP_CODE)
-		if http_code != 200:
-			raise Exception("Failed to execute API %s: server returned HTTP code %s" % (api, str(http_code)))
+		if http_code < 200 or http_code >= 300:
+			raise Exception("Server returned HTTP code %s. %s" %
+				(str(http_code), str(response)))
 		curl.close()
 		if raw_response:
-			return response
+			return response.read()
 		else:
 			# decode the response and check whether or not it was successful
 			# TODO: check response encoding in header
@@ -183,7 +198,8 @@ class OmegaClient:
 			if 'result' in response and response['result'] == False:
 				if 'reason' in response:
 					if full_response:
-						raise Error('API "%s" failed.\n%s' % (urllib.unquote(api), dbg.obj2str(response)))
+						raise Error('API "%s" failed.\n%s' %
+							(urllib.unquote(api), dbg.obj2str(response)))
 					else:
 						raise Error(response['reason'])
 				else:
@@ -194,6 +210,81 @@ class OmegaClient:
 				else:
 					if 'data' in response:
 						return response['data']
+					else:
+						return None
+
+
+	def get(self, api, params, opts):
+		return self.request('GET', api, params, opts);
+
+	def post(self, api, params, opts):
+		return self.request('POST', api, params, opts);
+
+	def put(self, api, params, opts):
+		return self.request('PUT', api, params, opts);
+
+	def delete(self, api, params, opts):
+		return self.request('DELETE', api, params, opts);
+
+	def request(self, method, api, params = (), raw_response = False, full_response = False, get = None, headers = {}, verbose = False):
+		'''New REST-friendly API invoker'''
+		# check and prep the data
+		if method is None or method == '':
+			method = 'GET'
+		method = method.upper()
+		if api == '':
+			raise Exception("Invalid service API: '%s'." %api)
+		api = urllib.quote(api)
+		# TODO: credentials
+		#if self._credentials:
+		# data.append(('OMEGA_CREDENTIALS', (curl.FORM_CONTENTS, self.encode(self._credentials))))
+		http = self._http
+		# figure our our URL and get args
+		url = self._url
+		headers['Content-type'] = 'application/json'
+		headers['Accept'] = 'application/json'
+		url = '/'.join(('', self._folder, api))
+		if get:
+			url = '?'.join((url, get))
+		data = self.encode(params)
+		# fire away
+		if verbose:
+			if self._use_https:
+				proto = 'https'
+			else:
+				proto = 'http'
+			sys.stdout.write(
+				'+ %s %s://%s:%d/%s, params: "%s", headers: "%s"\n' %
+				((method, proto, self._hostname, self._port, url, data, str(headers))))
+		http.request(method, url, data, headers)
+		response = http.getresponse()
+		if raw_response:
+			return response.read()
+		else:
+			# decode the response and check whether or not it was successful
+			# TODO: check response encoding in header
+			try:
+				result = self.decode(response.read())
+			except:
+				raise Error('Failed to decode API result:\n', response.read())
+			# check to see if our API call was successful
+			# the http status code and result should always be in sync, but if either are off call it a failure
+			if ('result' in result and result['result'] == False) or \
+				(response.status < 200 or response.status >= 300):
+				if 'reason' in result:
+					if full_response:
+						raise Error('"%s" failed (%d %s):\n%s' %
+							(urllib.unquote(api), response.status, response.reason, dbg.obj2str(result)))
+					else:
+						raise Error(result['reason'])
+				else:
+					raise Error('API "%s" failed, but did not provide an explanation. Response: %s' % (api, result))
+			else: 		
+				if full_response:
+					return result
+				else:
+					if 'data' in result:
+						return result['data']
 					else:
 						return None
 

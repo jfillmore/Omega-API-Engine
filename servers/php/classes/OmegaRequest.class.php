@@ -8,8 +8,8 @@
 
 
 /** Information about the API request being issued to the omega server. */
-class OmegaRequest implements OmegaApi {
-	public $api_re = '/^(\?|\w+([\.\/]\w+)*(\.\?)?)$/';
+class OmegaRequest extends OmegaRESTful implements OmegaApi {
+	public $api_re = '/^(\?|\w+([\.\/]\w+\/?)*([\/\.]\?)?)$/';
 	public $encodings = array('json', 'php', 'raw');
 	private $encoding; // the encoding used for the data
 	private $credentials; // the credentials, if available, that the user has supplied
@@ -21,6 +21,7 @@ class OmegaRequest implements OmegaApi {
 	private $api_branch_name = null; // the name of the branch we're executing (e.g. 'fsm.charon')
 	private $api_params = array(); // the parameters being passed to the API
 	private $query_arg = false; // whether or not the parameters contain a ? too
+	private $restful = false; // whether this request is restful or not
 
 	public function __construct() {
 		global $om;
@@ -29,6 +30,7 @@ class OmegaRequest implements OmegaApi {
 			// translate the request URI to an object and method
 			$this->set_api(rawurldecode($_GET['OMEGA_API']));
 		} else {
+			// TODO not set? infer it from our request URL if we can 
 			$this->set_api($om->config->get('omega.nickname') . '.main');
 		}
 
@@ -56,7 +58,7 @@ class OmegaRequest implements OmegaApi {
 		}
 
 		// determine the request type
-		if ($this->get_method_name() === '?') {
+		if (substr($this->get_api(), -1) == '?') {
 			$this->set_type('query');
 		}
 
@@ -78,6 +80,27 @@ class OmegaRequest implements OmegaApi {
 		}
 	}
 
+	public function _get_routes() {
+		return array();
+	}
+
+	public function _get_handlers() {
+		return array(
+			'GET' => array(
+				'test' => 'test'
+			),
+			'POST' => array(
+				'test' => 'test'
+			),
+			'PUT' => array(
+				'test' => 'test'
+			),
+			'DELETE' => array(
+				'test' => 'test'
+			)
+		);
+	}
+
 	private function set_api($api) {
 		// rewrite the API as needed to expand it
 		$api = $this->translate_api($api);
@@ -85,21 +108,31 @@ class OmegaRequest implements OmegaApi {
 		if (! preg_match($this->api_re, $api)) {
 			throw new Exception("Invalid API format: '$api'. ");
 		}
-		// the last branch is actually the method, so snag it
-		$branches = explode('.', $api);
+		$branches = explode('/', $api);
 		// just a bit of sanity checking
 		if (count($branches) == 0) {
 			throw new Exception("API '$api' somehow has no parts!");
 		}
-		$method = array_pop($branches);
 		// save the names of everything
 		$this->api = $api;
-		$this->api_method_name = $method;
-		$this->api_branch_name = implode('.', $branches);
 	}
 
 	private function get_omega_param($param) {
+		global $om;
 		$param = 'OMEGA_' . strtoupper($param);
+		// HTTP headers are preferred, and take priority
+		if ($param === 'OMEGA_ENCODING') {
+			if ($_ENV['CONTENT_TYPE'] === 'application/json') {
+				// woot, if content-encoding is set right we're in business
+				$this->restful = true;
+				return 'json';
+			}
+		} else if ($param === 'OMEGA_API_PARAMS') {
+			if ($this->get_encoding() === 'json' && $this->is_restful()) {
+				return file_get_contents('php://input');
+			}
+		}
+		// otherwise, fall back to ghetto get/post vars
 		if (isset($_POST[$param])) {
 			return stripslashes($_POST[$param]);
 		} else if (isset($_GET[$param])) {
@@ -144,11 +177,7 @@ class OmegaRequest implements OmegaApi {
 
 		// collect the parameters using the proper encoding
 		if ($encoding == 'json') {
-			try {
-				$param_dna = $this->get_omega_param('API_PARAMS');	
-			} catch (Exception $e) {
-				$param_dna = '{}';
-			}
+			$param_dna = $this->get_omega_param('API_PARAMS');	
 			// look at the param_dna and if it isn't an object or array then make into an array of one element
 			$first_char = substr($param_dna, 0, 1);
 			if ($param_dna == '"?"') {
@@ -281,6 +310,30 @@ class OmegaRequest implements OmegaApi {
 		}
 	}
 
+	/** Returns whether the request being made is RESTful. */
+	public function is_restful() {
+		return $this->restful;
+	}
+
+	/** Return information about the request. Assists with debugging.
+		expects: foo=undefined
+		returns: object */
+	public function test($foo = null) {
+		global $om;
+		return array(
+			'get' => $_GET,
+			'post' => $_POST,
+			'stdin' => file_get_contents('php://input'),
+			'http_method' => $_SERVER['REQUEST_METHOD'],
+			'http_request' => $_SERVER['REQUEST_URI'],
+			'api' => $this->get_api(),
+			'api_params' => $this->get_api_params(),
+			'foo' => $foo,
+			'restful_server' => $om->is_restful(),
+			'restful_client' => $this->is_restful()
+		);
+	}
+
 	/** Translates an API into its standard, internal representation (e.g. 'omega/service/' > 'some_service.main').
 		expects: api=string
 		returns: string */
@@ -290,18 +343,16 @@ class OmegaRequest implements OmegaApi {
 		if (! preg_match($this->api_re, $api)) {
 			throw new Exception("Invalid API: '$api'.");
 		}
-		// convert all slashes to periods for ease of use
-		$api = str_replace('/', '.', $api);
-		// make sure we don't start with a period either
-		if (substr($api, 0, 1) == '.') {
+		// convert all periods to slashes for ease of use & backwarsd compat
+		// TODO: deprecate this
+		$api = str_replace('.', '/', $api);
+		// make sure we don't start with a slash either
+		if (substr($api, 0, 1) == '/') {
 			$api = substr($api, 1);
 		}
-		// if we end in a '.' then tack on 'main' at the end for the default method and to simplify the regex below
-		if (substr($api, -1) == '.') {
-			$api .= 'main';
-		}
 		// if we're asking about 'omega.service' then replace it with the service nickname for ease of ACL expression
-		if (substr($api, 0, 13) == 'omega.service') {
+		if (substr($api, 0, 13) == 'omega/service' ||
+			substr($api, 0, 9) == 'omega/api') {
 			$api = $om->config->get('omega.nickname') . substr($api, 13);
 		}
 		return $api;
@@ -335,6 +386,7 @@ class OmegaRequest implements OmegaApi {
 		foreach ($branches as $branch) {
 			if (! isset($obj_pointer->$branch)) {
 				if ($this->is_query() || ! $r_class->hasMethod( '___404')) {
+					$om->response->header_num(404);
 					throw new Exception("Invalid API branch: '$branch'.");
 				} else {
 					$break_early = true;
@@ -345,6 +397,7 @@ class OmegaRequest implements OmegaApi {
 				// and isn't hidden (/^_/) and that it implements OmegaApi
 				$branch_r_class = new ReflectionClass($obj_pointer->$branch);
 				if ($r_prop->isPrivate() || substr($branch, 0, 1) == '_' || ! $branch_r_class->implementsInterface('OmegaApi')) {
+					$om->response->header_num(404);
 					throw new Exception("Invalid API branch: '$branch'.");
 				}
 				// get a reflection class of the current object so we can delve into it the next time around
@@ -378,14 +431,6 @@ class OmegaRequest implements OmegaApi {
 		return $this->type === 'query';
 	}
 
-	public function get_method_name() {
-		return $this->api_method_name;
-	}
-
-	public function get_branch_name() {
-		return $this->api_branch_name;
-	}
-
 	public function get_api() {
 		return $this->api;
 	}
@@ -414,7 +459,7 @@ class OmegaRequest implements OmegaApi {
 		global $om;
 		// figure out whether 're talking to the service or to omega
 		$api = $this->get_api();
-		if (substr($api, 0, 6) == 'omega.') {
+		if (substr($api, 0, 6) == 'omega/') {
 			$service = $om;
 			$nickname = 'omega';
 		} else {
@@ -443,25 +488,43 @@ class OmegaRequest implements OmegaApi {
 		}
 
 		// get a reference to the API branch
-		$api_parts = explode('.', $api);
+		$api_parts = explode('/', $api);
 		if (count($api_parts) == 1) {
-			// just one branch? the user must be initializing the service
+			// just one branch? the user must be initializing the service, as some are required to do
 			if ($api_parts[0] !== $nickname) {
+				$om->response->header_num(404);
 				throw new Exception("Unknown service name: '" . $api_parts[0] . "'.");
 			}
 			// initialize the service and call it good
 			$om->_init_service();
 			return;
-		} else {
-			// otherwise the last part is the method
-			$method = array_pop($api_parts);
-			$branches = $api_parts;
 		}
 		// uninitialized service? QQ
 		if ($nickname != 'omega' && $om->service == null) {
+			$om->response->header_num(404);
 			throw new Exception("The service " . $om->service_name . " has not yet been initialized.");
 		}
-		$api_branch = $this->_get_branch_ref($branches);
+		// initialize params-- RESTful routes might contain some too
+		if ($om->is_restful() && $this->is_restful()) {
+			// good ol' RESTful
+			// use the routes to figure out what class file and method to call
+			// the first part is $om or $om->service, which we already figured out
+			array_shift($api_parts);
+			$route = $service->_route($api_parts);
+			$api_branch = $route['api_branch'];
+			$method = trim($route['method'], '/');
+			// update our API params, as we got some new ones
+			$this->api_params['named'] = array_merge(
+				$route['params'],
+				$this->api_params['named']
+			);
+		} else {
+			// if we're NOT a restful API then the last part is the method, or using an old request style...
+			$method = array_pop($api_parts);
+			$branches = $api_parts;
+			// traverse the API tree to get the API branch and class info
+			$api_branch = $this->_get_branch_ref($branches);
+		}
 		$r_class = new ReflectionObject($api_branch);
 
 		// if the client is asking about a branch then return that info
@@ -482,6 +545,7 @@ class OmegaRequest implements OmegaApi {
 					array($branches, $method, $this->get_api_params())
 				);
 			} else {
+				$om->response->header_num(404);
 				throw new Exception("API method '$method' does not exist.");
 			}
 		}
@@ -495,6 +559,7 @@ class OmegaRequest implements OmegaApi {
 					array($branches, $method, $this->get_api_params())
 				);
 			} else {
+				$om->response->header_num(404);
 				throw new Exception("API method '$method' does not exist.");
 			}
 		}
@@ -507,12 +572,16 @@ class OmegaRequest implements OmegaApi {
 
 		// make sure we have all the parameters we need to execute the API call
 		$params = $this->_get_method_params($r_method);
-	 	return call_user_func_array(array($api_branch, $this->get_method_name()), $params);
+	 	return call_user_func_array(
+			array($api_branch, $method),
+			$params
+		);
 	}
 
 
 	/** Ensures that we have the parameters necessary to execute the specified method. */
 	public function _get_method_params($r_method) {
+		global $om;
 		$api_params = $this->get_api_params();
 		$missing_params = array();
 		$params = array();
@@ -525,6 +594,7 @@ class OmegaRequest implements OmegaApi {
 			if (isset($api_params['positional'][$param_count])) {
 				// if we've switched to named crap out, as positionals can't be used anymore
 				if ($switched_to_named) {
+					$om->response->header_num(400);
 					throw new Exception("Positional argument " . ($param_count + 1) . " not allowed after named parameters have been used.");
 				}
 				$params[$param_count] = $api_params['positional'][$param_count];
@@ -547,6 +617,7 @@ class OmegaRequest implements OmegaApi {
 			$param_count++;
 		}
 		if (count($missing_params) > 0) {
+			$om->response->header_num(400);
 			throw new Exception("API '" . $this->get_api() . "' is missing the following parameters: " . implode(', ', $missing_params) . '.');
 		}
 		return $params;
@@ -666,70 +737,98 @@ class OmegaRequest implements OmegaApi {
 			);
 		}
 		$data['description'] = $doc_string;
-		// include branch information unless requested otherwise
+		// include branch/route information unless requested otherwise
 		if (! $this->query_options['hide_flags']['branches']) {
-			$data['branches'] = array();
-			foreach ($r_class->getProperties() as $r_prop) {
-				$prop_name = $r_prop->getName();
-				// make sure this is a public object
-				if (! $r_prop->isPublic() || substr($prop_name, 0, 1) == '_') {
-					continue;
-				}
-				// and that it implements OmegaApi
-				if (is_string($branch)) {
+			if ($this->is_restful() && $om->is_restful()) {
+				$data['routes'] = array();
+				// new, RESTful style listing
+				foreach ($branch->_sorted_routes() as $route => $target) {
+					// can we use it?
+					if (is_string($target)) {
+						$target = $branch->$target;
+					}
+					try {
+						$prop_branch = new ReflectionClass($target);
+					} catch (Exception $e) {
+						continue;
+					}
+					if (! $prop_branch) {
+						continue;
+					}
+					$doc_string = $prop_branch->getDocComment();
+					if ($doc_string === false) {
+						$doc_string = '';
+					} else {
+						// trim the '/** */' and any extra white space
+						$doc_string = trim(
+							substr($doc_string, 3, strlen($doc_string) - 5)
+						);
+					}
 					if ($recurse) {
-						throw new Exception("Unable to recurse through service until it has been initialized.");
+						$data['routes'][$route] = $this->_get_branch_info(
+							$target,
+							$recurse,
+							$verbose
+						);
+					} else {
+						$data['routes'][$route] = $doc_string;
 					}
-					continue;
 				}
+			} else {
+				$data['branches'] = array();
+				// old, deprecated non-restful style to list
+				foreach ($r_class->getProperties() as $r_prop) {
+					$prop_name = $r_prop->getName();
+					// make sure this is a public object
+					if (! $r_prop->isPublic() || substr($prop_name, 0, 1) == '_') {
+						continue;
+					}
+					// and that it implements OmegaApi
+					if (is_string($branch)) {
+						if ($recurse) {
+							throw new Exception("Unable to recurse through service until it has been initialized.");
+						}
+						continue;
+					}
+					// can we use it?
 					try {
-						$branch_r_class = new ReflectionClass(@get_class($branch->$prop_name));
+						$prop_branch = new ReflectionClass(@get_class($branch->$prop_name));
 					} catch (Exception $e) {
 						continue;
 					}
-				if ($branch_r_class === false || $branch_r_class->implementsInterface('OmegaApi') === false) {
-					continue;
-				}
-				// if we're searching and the name doesn't match then skip this branch
-				$skip_branch = false;
-				if ($this->query_options['search'] !== null) {
-					if (! preg_match('/^' . $regex . "$/$flags", $prop_name)) {
-						$skip_branch = true;
+					if (! $prop_branch) {
 						continue;
 					}
-				}
-				// otherwise add this to our list of branches, assuming we can make a reflection class out of the prop
-				if ((! $skip_branch)) {
-					try {
-						$r_branch = new ReflectionClass($branch->$prop_name);
-					} catch (Exception $e) {
-						$r_branch = null;
-						// this appears to be an exception now, whereas before it would return null
-						/*
-						throw new OmegaException('WTF? ' . $e->getMessage(), array(
-							'prop_name' => $prop_name,
-							'branch' => $branch,
-							'doc_string' => $doc_string
-						));
-						*/
-					}
-					if ($r_branch === null) {
+					if ($prop_branch->implementsInterface('OmegaApi') === false) {
 						continue;
 					}
+					// if we're searching and the name doesn't match then skip this branch
+					if ($this->query_options['search'] !== null) {
+						if (! preg_match('/^' . $regex . "$/$flags", $prop_name)) {
+							continue;
+						}
+					}
+					// otherwise add this to our list of branches, assuming we can make a reflection class out of the prop
 					// only return accessible branches
 					if ($om->subservice->is_enabled('authority')) {
 						// if we're peeking at 'omega.service' then call it by the service name instead
-						if ($this->api_branch_name == 'omega' && $prop_name == 'service') {
-							$accessible = $om->subservice->authority->check_access($om->config->get('omega.nickname') . '.?', $om->whoami());
+						if (substr($this->api, 0, 6) == 'omega.' && $prop_name == 'service') {
+							$accessible = $om->subservice->authority->check_access(
+								$om->config->get('omega.nickname') . '/?',
+								$om->whoami()
+							);
 						} else {
-							$accessible = $om->subservice->authority->check_access($this->api_branch_name . ".$prop_name.?", $om->whoami());
+							$accessible = $om->subservice->authority->check_access(
+								$this->api_branch_name . "/$prop_name/?",
+								$om->whoami()
+							);
 						}
 					} else {
 						$accessible = true;
 					}
 					if ($accessible) {
 						// and check to see if we can get a docstring
-						$doc_string = $r_branch->getDocComment();
+						$doc_string = $prop_branch->getDocComment();
 						if ($doc_string === false) {
 							$doc_string = '';
 						} else {
@@ -739,7 +838,11 @@ class OmegaRequest implements OmegaApi {
 							);
 						}
 						if ($recurse) {
-							$data['branches'][$prop_name] = $this->_get_branch_info($branch->$prop_name, $recurse, $verbose);
+							$data['branches'][$prop_name] = $this->_get_branch_info(
+								$branch->$prop_name,
+								$recurse,
+								$verbose
+							);
 						} else {
 							$data['branches'][$prop_name] = $doc_string;
 						}
@@ -750,29 +853,50 @@ class OmegaRequest implements OmegaApi {
 		// include method information unless requested otherwise
 		if (! $this->query_options['hide_flags']['methods']) {
 			$data['methods'] = array();
-			foreach ($r_class->getMethods() as $r_method) {
-				$method_name = $r_method->getName();
-				// make sure it is a public method and accessible
-				if (substr($method_name, 0, 1) != '_' && $r_method->isPublic()) {
-					$method_info = $this->_get_method_info($r_method, $verbose);
-					if ($method_info['accessible']) {
+			if ($this->is_restful() && $om->is_restful()) {
+				// get a list of the handlers
+				foreach ($branch->_sorted_handlers() as $method => $handlers) {
+					$method = strtoupper($method);
+					$data['methods'][$method] = array();
+					foreach ($handlers as $route => $target) {
+						try {
+							$r_method = $r_class->getMethod($target);
+						} catch (Exception $e) {
+							throw new Exception("Unable to locate method '$target' on class '" . $r_class->getName() . "': " . $e->getMessage());
+						}
+						$method_info = $this->_get_method_info($r_method, $verbose);
 						if ($verbose) {
-							$data['methods'][$method_name] = $method_info;
+							$data['methods'][$method][$route] = $method_info;
 						} else {
-							$data['methods'][$method_name] = $method_info['doc']['description'];
+							$data['methods'][$method][$route] = $method_info['doc']['description'];
 						}
 					}
 				}
-			}
-			// if we have a 404 method, show it as '*'
-			$method_name = '___404';
-			if ($r_class->hasMethod($method_name)) {
-				$r_method = $r_class->getMethod($method_name);
-				$method_info = $this->_get_method_info($r_method, $verbose);
-				if ($verbose) {
-					$data['methods']['*'] = $method_info;
-				} else {
-					$data['methods']['*'] = $method_info['doc']['description'];
+			} else {
+				foreach ($r_class->getMethods() as $r_method) {
+					$method_name = $r_method->getName();
+					// make sure it is a public method and accessible
+					if (substr($method_name, 0, 1) != '_' && $r_method->isPublic()) {
+						$method_info = $this->_get_method_info($r_method, $verbose);
+						if ($method_info['accessible']) {
+							if ($verbose) {
+								$data['methods'][$method_name] = $method_info;
+							} else {
+								$data['methods'][$method_name] = $method_info['doc']['description'];
+							}
+						}
+					}
+				}
+				// if we have a 404 method, show it as '*'
+				$method_name = '___404';
+				if ($r_class->hasMethod($method_name)) {
+					$r_method = $r_class->getMethod($method_name);
+					$method_info = $this->_get_method_info($r_method, $verbose);
+					if ($verbose) {
+						$data['methods']['*'] = $method_info;
+					} else {
+						$data['methods']['*'] = $method_info['doc']['description'];
+					}
 				}
 			}
 		}
@@ -795,9 +919,9 @@ class OmegaRequest implements OmegaApi {
 			if ($name === '__construct') {
 				$stats['accessible'] = $om->subservice->authority->check_access($r_method->getDeclaringClass()->getName(), $om->whoami());
 			} else {
-				$branches = explode('.', $api);
+				$branches = explode('/', $api);
 				array_pop($branches); // pop off the method to get our location
-				$stats['accessible'] = $om->subservice->authority->check_access(implode('.', $branches) . '.' . $name, $om->whoami());
+				$stats['accessible'] = $om->subservice->authority->check_access(implode('/', $branches) . '/' . $name, $om->whoami());
 			}
 		} else {
 			$stats['accessible'] = true;

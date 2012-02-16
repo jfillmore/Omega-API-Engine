@@ -9,24 +9,20 @@
 
 /** Client for talking to an Omega Server. */
 class OmegaClient {
-	const version = '0.1';
+	const version = '0.2';
 
-	private $service_url;
+	private $base_url;
 	private $credentials;
-	private $use_ssl = true;
-	private $port;
+	private $curl;
 	private $verbose;
 	private $cookie_file = 'c_is_for_cookie-thats_good_enough_for_me';
 
-	public function __construct($service_url, $credentials = null, $port = 5800, $verbose = false) {
-		$this->set_service_url($service_url);
-		$this->set_credentials($credentials);
-		$this->set_port($port);
+	public function __construct($base_url, $credentials = null, $port = 5800, $verbose = false) {
+		$this->curl = new OmegaCurl(
+			$base_url,
+			$port
+		);
 		$this->set_verbose($verbose);
-	}
-
-	public function __destruct() {
-		// TODO if we have a token then discard it before terminating
 	}
 
 	private function get_protocol() {
@@ -65,18 +61,6 @@ class OmegaClient {
 		} else {
 			throw new Exception('Invalid API service URL: "' . $value . '".');
 		}
-	}
-
-	private function set_port($value) {
-		if ($value >= 0 && $value <= 65535) {
-			$this->port = $value;
-		} else {
-			throw new Exception('Invalid API service port: "' . $value . '".');
-		}
-	}
-
-	private function get_port() {
-		return $this->port;
 	}
 
 	public function __wakeup() {
@@ -132,18 +116,18 @@ class OmegaClient {
 		return $meta;
 	}
 
-	public function exec($api, $params = null, $args = null) {
+	public function get($url, $params = '', $extended = false, $headers = null) {
+		return $this->curl->get($url, $params, $extended, $headers);
+	}
+
+	public function exec($api, $params = null, $args = array()) {
+		global $om;
+		// deprecated, non RESTful API
 		$curl_handle = $this->init_curl();
-		// TODO: polish up to match python version :)
-		if ($args === null) {
-			$args = array(
-				'full_response' => false,
-				'raw_response' => false,
-				'GET' => null,
-				'POST' => null,
-				'verbose' => $this->verbose
-			);
-		}
+		$args = $om->_get_args(array(
+			'full_response' => false,
+			'verbose' => $this->verbose
+		}, $args);
 		// check and prep the data
 		if ($api == '') {
 			throw new Exception("Invalid service API: '$api'.");
@@ -159,16 +143,11 @@ class OmegaClient {
 			'OMEGA_API_PARAMS=' . urlencode(addslashes($params)), 
 			'OMEGA_CREDENTIALS=' . urlencode(addslashes(json_encode($this->get_credentials())))
 		);
-		// initialize cURL
-		curl_setopt($curl_handle, CURLOPT_URL, $this->get_protocol() . '://' . $this->get_service_url() . "/$api");
-		curl_setopt($curl_handle, CURLOPT_POSTFIELDS, implode('&', $data));
-		curl_setopt($curl_handle, CURLOPT_PORT, $this->get_port());
-		// and fire away!
-		$result = curl_exec($curl_handle);
-		$result_info = curl_getinfo($curl_handle);
-		if ($result_info['http_code'] != 200) {
-			throw new Exception('Failed to access "' . $this->get_service_url() . '" with the HTTP error code ' . $result_info['http_code'] . '. The cURL error message was "' . curl_error($curl_handle) . '".');
-		}
+		$result = $this->curl->get($api, implode('&', $data), true);
+		return $this->parse_result($result, $args);
+	}
+
+	private function parse_result($result, $args) {
 		// make sure we got back a meaningful result
 		$content_type = substr($result_info['content_type'], 0, 16);
 		if ($content_type == 'application/json') {
@@ -208,7 +187,6 @@ class OmegaClient {
 		} else {
 			return $result;
 		}
-	}
 }
 
 ?>

@@ -14,13 +14,70 @@
 */
 
 /** Information about the API response that will be returned. */
-class OmegaResponse implements OmegaApi {
+class OmegaResponse extends OmegaRESTful implements OmegaApi {
 	private $response; // the array to contain the reponse we convert to JSON
 	private $encoding;
 	private $cookie_path;
 	public $headers;
 	public $default_headers;
-	
+	private $response_status = 200;
+	private $status_codes = array(
+		// 1xx Informational
+		'100' => 'Continue',
+		'101' => 'Switching Protocols',
+		'102' => 'Processing',
+		// 2xx Success
+		'200' => 'OK',
+		'201' => 'Created',
+		'202' => 'Accepted',
+		'203' => 'Non-Authoritative Information',
+		'204' => 'No Content',
+		'205' => 'Reset Content',
+		'206' => 'Partial Content',
+		'207' => 'Multi-Status',
+		'226' => 'IM Used',
+		// 3xx Redirection
+		'300' => 'Multiple Choices',
+		'301' => 'Moved Permanently',
+		'302' => 'Found',
+		'303' => 'See Other',
+		'304' => 'Not Modified',
+		'305' => 'Use Proxy',
+		'307' => 'Temporary Redirect',
+		// 4xx Client Error
+		'400' => 'Bad Request',
+		'401' => 'Unauthorized',
+		'402' => 'Payment Required',
+		'403' => 'Forbidden',
+		'404' => 'Not Found',
+		'405' => 'Method Not Allowed',
+		'406' => 'Not Acceptable',
+		'407' => 'Proxy Authentication Required',
+		'408' => 'Request Timeout',
+		'409' => 'Conflict',
+		'410' => 'Gone',
+		'411' => 'Length Required',
+		'412' => 'Precondition Failed',
+		'413' => 'Request Entity Too Large',
+		'414' => 'Request-URI Too Long',
+		'415' => 'Unsupported Media Type',
+		'416' => 'Requested Range Not Satisfiable',
+		'417' => 'Expectation Failed',
+		'422' => 'Unprocessable Entity',
+		'423' => 'Locked',
+		'424' => 'Failed Dependency',
+		'426' => 'Upgrade Required',
+		// 5xx Server Error
+		'500' => 'Internal Server Error',
+		'501' => 'Not Implemented',
+		'502' => 'Bad Gateway',
+		'503' => 'Service Unavailable',
+		'504' => 'Gateway Timeout',
+		'505' => 'HTTP Version Not Supported',
+		'507' => 'Insufficient Storage',
+		'510' => 'Not Extended'
+	);
+
 	public function __construct() {
 		global $om;
 		$this->default_headers = array(
@@ -96,6 +153,66 @@ class OmegaResponse implements OmegaApi {
 				throw new Exception("Unable to add non-default header '$header_name' without force.");
 			}
 		}
+	}
+
+	/** Set a header by HTTP response number (e.g. 404, 200). Returns the current headers.
+		expects: num=number
+		returns: array */
+	public function header_num($num) {
+		if (! in_array($num, array_keys($this->status_codes))) {
+			throw new Exception("Invalid HTTP return status code: $num.");
+		}
+		$this->response_status = $num;
+		return $num;
+	}
+
+	/** Returns the HTTP response status code (e.g. 200, 404) for the request.
+		returns: number */
+	public function get_status_code() {
+		return $this->response_status;
+	}
+
+	/** Returns whether the HTTP status code is in the 1xx range.
+		returns: boolean */
+	public function is_1xx() {
+		return ($this->response_status >= 100 &&
+			$this->response_status < 200);
+	}
+
+	/** Returns whether the HTTP status code is in the 2xx range.
+		returns: boolean */
+	public function is_2xx() {
+		return ($this->response_status >= 200 &&
+			$this->response_status < 300);
+	}
+
+	/** Returns whether the HTTP status code is in the 3xx range.
+		returns: boolean */
+	public function is_3xx() {
+		return ($this->response_status >= 300 &&
+			$this->response_status < 400);
+	}
+
+	/** Returns whether the HTTP status code is in the 4xx range.
+		returns: boolean */
+	public function is_4xx() {
+		return ($this->response_status >= 400 &&
+			$this->response_status < 500);
+	}
+
+	/** Returns whether the HTTP status code is in the 5xx range.
+		returns: boolean */
+	public function is_5xx() {
+		return ($this->response_status >= 500 &&
+			$this->response_status < 600);
+	}
+
+	/** Returns the HTTP response status (e.g. '404 Not Fount') for the request.
+		returns: string */
+	public function get_status() {
+		$num = $this->response_status;
+		$code = $this->status_codes[$num];
+		return $_SERVER['SERVER_PROTOCOL'] . " $num $code";
 	}
 
 	/** Sets whether or not the request was successful.
@@ -183,6 +300,10 @@ class OmegaResponse implements OmegaApi {
 				case 'raw':
 					if (isset($this->response['result']) && $this->response['result']) {
 						if (isset($this->response['data'])) {
+							// encode data anyway, so we don't just say 'Array'
+							if (is_array($this->response['data'])) {
+								$this->response['data'] = json_encode($this->response['data']);
+							}
 							$response = (string)$this->response['data'];
 						} else {
 							$response = null;

@@ -84,6 +84,12 @@ try {
 try {
 	$om->_do_the_right_thing();
 } catch (Exception $e) {
+	// make sure we throw a proper error
+	if ($om->response->is_2xx()) {
+		header($_SERVER['SERVER_PROTOCOL'] . ' 500 Internal Server Error');
+	} else {
+		header($om->response->get_status());
+	}
 	if ($om->request) {
 		$encoding = $om->request->get_encoding();
 	} else {
@@ -92,7 +98,6 @@ try {
 	if ($encoding === 'json') {
 		_fail($e);
 	} else {
-		// TODO: support XML
 		echo $e->getMessage();
 		exit(1);
 	}
