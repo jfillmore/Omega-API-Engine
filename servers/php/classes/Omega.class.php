@@ -122,7 +122,7 @@ class Omega extends OmegaRESTful implements OmegaApi {
 		$this->response = new OmegaResponse();
 		// prepare to generate the request to yield a response
 		$this->request = new OmegaRequest();
-		if ($_ENV['HTTP_ACCEPT'] === 'application/json') {
+		if ($_SERVER['HTTP_CONTENT_TYPE'] === 'application/json') {
 			$this->response->set_encoding('json');
 		} else {
 			// default our response encoding to be the same as what we used with the request

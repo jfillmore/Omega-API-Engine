@@ -137,16 +137,18 @@ abstract class OmegaCrudable extends OmegaRESTful implements OmegaApi {
 			if ($prop['default'] === null) {
 				$sql .= " DEFAULT null";
 			} else {
-				if ($this->_is_datetime($prop) || $this->_is_string($prop)) {
+				if ($this->_is_datetime($prop['type']) || $this->_is_string($prop['type'])) {
 					$sql .= " DEFAULT '" . $prop['default'] . "'";
 				} else {
 					$sql .= " DEFAULT " . $prop['default'];
 				}
 			}
 		}
-		if (isset($prop['foreign_key'])) {
+		if (isset($prop['primary_key']) && $prop['primary_key']) {
+			$sql .= ' PRIMARY KEY';
+		} else if (isset($prop['foreign_key'])) {
 			$fk = $prop['foreign_key'];
-			$sql .= " FOREIGN KEY (`$name`) REFERENCES `" . $fk['table'] . "` (`" . $fk['prop'] . "`)";
+			$sql .= ",\n    FOREIGN KEY (`$name`) REFERENCES `" . $fk['table'] . "` (`" . $fk['prop'] . "`)";
 			// tack on our flags if we have any
 			if (isset($fk['flags'])) {
 				foreach ($fk['flags'] as $flag) {
@@ -157,11 +159,9 @@ abstract class OmegaCrudable extends OmegaRESTful implements OmegaApi {
 					}
 				}
 			}
-		} else if (isset($prop['primary_key']) && $prop['primary_key']) {
-			$sql .= ' PRIMARY KEY';
 		}
 		if (isset($prop['unique'])) {
-			$sql .= ",\n     UNIQUE (`$name`)";
+			$sql .= ",\n    UNIQUE (`$name`)";
 		}
 		if (isset($prop['index'])) {
 			$sql .= ",\n    INDEX (`$name`)";
