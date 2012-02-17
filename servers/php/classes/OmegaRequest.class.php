@@ -341,12 +341,15 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 		returns: string */
 	public function translate_api($api) {
 		global $om;
+		if (substr($api, 0, 1) === '/') {
+			$api = substr($api, 1);
+		}
 		// validate the API
 		if (! preg_match($this->api_re, $api)) {
 			throw new Exception("Invalid API: '$api'.");
 		}
 		// convert all periods to slashes for ease of use & backwarsd compat
-		// TODO: deprecate this
+		// TODO: deprecate this now that / is the default
 		$api = str_replace('.', '/', $api);
 		// make sure we don't start with a slash either
 		if (substr($api, 0, 1) == '/') {
