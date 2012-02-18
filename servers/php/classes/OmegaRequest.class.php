@@ -25,14 +25,29 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 
 	public function __construct() {
 		global $om;
-		// figure out the API in question for the request and validate it immediately
-		if (isset($_GET['OMEGA_API'])) {
-			// translate the request URI to an object and method
-			$this->set_api(rawurldecode($_GET['OMEGA_API']));
-		} else {
-			// TODO not set? infer it from our request URL if we can 
-			$this->set_api($om->config->get('omega.nickname') . '.main');
+		// determine our API based on the URI
+		// e.g. base_uri = '/foo/bar'
+		$base_uri = $om->_pretty_path($om->config->get('omega.location'), true);
+		// e.g. request_uri = '/foo/bar/a/b/cde'
+		$request_uri = $om->_pretty_path($_SERVER['REQUEST_URI'], true);
+		// split up the path and route and compare 'em
+		$base_parts = explode('/', substr($base_uri, 1));
+		$request_parts = explode('/', substr($request_uri, 1));
+		// the first part of the API should match the base URI, the rest are the API
+		$api_parts = array();
+		for ($i = 0; $i < count($request_parts); $i++) {
+			$req_part = $request_parts[$i];
+			// prune routes that are too short, unless partial allowed
+			if ($i < count($base_parts)) {
+				// we should match the base URL
+				if ($req_part != $base_parts[$i]) {
+					$om->response->header_num(404);
+				}
+			} else {
+				$api_parts[] = $req_part;
+			}
 		}
+		$this->set_api(join('/', $api_parts));
 
 		// get the request encoding
 		try {
@@ -58,6 +73,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 		}
 
 		// determine the request type
+		// TODO: have a better way of handling introspection
 		if (substr($this->get_api(), -1) == '?') {
 			$this->set_type('query');
 		}

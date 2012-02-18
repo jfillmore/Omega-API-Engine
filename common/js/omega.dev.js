@@ -1378,7 +1378,7 @@ Changelog:
 		box: function (jquery_obj, args) {
 			var box, type, part_type, i, arg;
 			args = om.get_args({
-				html: '',
+				html: undefined,
 				imbue: undefined // object from om.bf
 				// on_* will be auto
 			}, args, true);
@@ -1388,9 +1388,6 @@ Changelog:
 			}
 			if (! om.is_jquery(jquery_obj)) {
 				throw new Error("Invalid jquery object: '" + jquery_obj + "'; jQuery object expected.");
-			}
-			if (om.is_jquery(jquery_obj)) {
-				jquery_obj
 			}
 			if (jquery_obj.length === 0) {
 				throw new Error("Target '" + jquery_obj.selector + "' has no length; unable to box.");
@@ -5328,7 +5325,7 @@ Changelog:
 				data: null
 			};
 
-			ajax.on_ajax_success = function (response, test_status, xml_http_request) {
+			ajax.on_ajax_success = function (response, text_status, xml_http_request) {
 				var json_response, spillage, message, error, response_encoding,
 					response_charset, response_parts, cookies;
 				response_parts = xml_http_request.getResponseHeader('Content-Type').split('; ');
@@ -5450,7 +5447,7 @@ Changelog:
 				data: null
 			};
 
-			ajax.on_ajax_success = function (response, test_status, xml_http_request) {
+			ajax.on_ajax_success = function (response, text_status, xml_http_request) {
 				var json_response, spillage, message, error, response_encoding,
 					response_charset, response_parts, cookies;
 				response_parts = xml_http_request.getResponseHeader('Content-Type').split('; ');
@@ -5549,8 +5546,10 @@ Changelog:
 			};
 
 			// automatically assume no params if not present
-			if (params === undefined || params === null) {
-				params = {};
+			if (params === undefined || params === null || ! om.plural(params)) {
+				params = undefined
+			} else {
+				params = om.json.encode(params);
 			}
 			/* // TODO
 			if (om_client.creds !== undefined) {
@@ -5564,7 +5563,7 @@ Changelog:
 				url: om_client.url + '/' + escape(api),
 				dataType: 'json',
 				contentType: 'application/json',
-				data: om.JSON.encode(params),
+				data: params,
 				error: ajax.on_ajax_failure,
 				success: ajax.on_ajax_success
 			});

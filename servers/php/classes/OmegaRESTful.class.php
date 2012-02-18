@@ -47,32 +47,16 @@ abstract class OmegaRESTful {
 		return array();
 	}
 
-	/** Pretty up a path so it's easier to look at and compare with other paths.
-		expects: string
-		returns: string */
-	private function _pretty_path($path) {
-		// pad with preceeding '/' if missing
-		if (substr($path, 0, 1) != '/') {
-			$path = '/' . $path;
-		}
-		// trim ending '/' if set
-		if (substr($path, -1) == '/' && strlen($path) > 1) {
-			$path = substr($path, 0, strlen($path) - 1);
-		}
-		// collapse any repeated '/'
-		$path = preg_replace('/\/+/', '/', $path);
-		return $path;
-	}
-
 	/** Sorts routes so those containing variables (e.g. '/:var/') are processed last. */
 	public function _sorted_routes($routes = null) {
+		global $om;
 		$literals = array();
 		$vars = array();
 		if ($routes === null) {
 			$routes = $this->_get_routes();
 		}
 		foreach ($routes as $route => $target) {
-			$start = substr($this->_pretty_path($route), 0, 2);
+			$start = substr($om->_pretty_path($route, true), 0, 2);
 			if ($start == '/:') {
 				$vars[$route] = $target;
 			} else {
@@ -102,14 +86,14 @@ abstract class OmegaRESTful {
 		if (is_array($path)) {
 			$path = implode('/', $path);
 		}
-		$path = $this->_pretty_path($path);
+		$path = $om->_pretty_path($path, true);
 		//DEBUG echo "Routing path '$path' on " . get_class($this) . ".\n";
 		// gotta have a path do to any routing
 		if (strlen($path)) {
 			// try to resolve path as needed within the routes
 			foreach ($this->_sorted_routes() as $route => $target) {
 				// normalize our route name
-				$route = $this->_pretty_path($route);
+				$route = $om->_pretty_path($route, true);
 				// convert strings to the actual branch object
 				if (is_string($target)) {
 					$target = $this->$target;
@@ -183,9 +167,9 @@ abstract class OmegaRESTful {
 			/account/:account/domain/:domain
 		*/
 		// split up the path and route and compare 'em
-		$path_str = $this->_pretty_path($path);
+		$path_str = $om->_pretty_path($path, true);
 		$path = explode('/', substr($path_str, 1));
-		$route_str = $this->_pretty_path($route);
+		$route_str = $om->_pretty_path($route, true);
 		$route = explode('/', substr($route_str, 1));
 		//DEBUG echo "\nParse path on " . get_class($this) . ": $path_str ... $route_str\n";
 		// gather params as we go
