@@ -6,24 +6,24 @@ abstract class OmegaORM extends OmegaCrudable implements OmegaApi {
 		return array();
 	}
 
+	/** Some safe default handlers. */
 	public function _get_handlers() {
 		return array(
 			'get' => array(
-				'/:key' => 'get',
-				'/' => 'request',
+				//'/:key' => 'get',
+				//'/' => 'request',
 				'/describe' => 'describe'
 			),
 			'post' => array(
-				'/' => 'create',
+				//'/' => 'create',
 				'/validate_props' => 'validate_props',
-				'/validate' => 'validate',
-				'/search' => 'request'
+				'/validate' => 'validate'
 			),
 			'put' => array(
-				'/:key' => 'update'
+				//'/:key' => 'update'
 			),
 			'delete' => array(
-				'/:key' => 'remove'
+				//'/:key' => 'remove'
 			)
 		);
 	}

@@ -190,7 +190,7 @@ abstract class OmegaRESTful {
 			// are we a parameter?
 			// TODO: support *arg to match up the rest
 			// TODO: support multiple /:words/:like-:this/
-			if (substr($route_part, 0, 1) == ':' && $path_part != '') {
+			if (substr($route_part, 0, 1) == ':' && $path_part != '' && $path_part != '?') {
 				$param_name = substr($route_part, 1);
 				$params[$param_name] = $path_part;
 				//DEBUG echo "+ Collected param '$param_name' as '$path_part'.\n";

@@ -35,7 +35,7 @@ class OmegaAuthority extends OmegaSubservice {
 
 	/** Authenticates as the specified user and verifies the user's API access.
 		expects: credentials=object */
-    public function authenticate($credentials) {
+	public function authenticate($credentials) {
 		global $om;
 		if (isset($credentials['username']) && isset($credentials['password'])) {
 			if ($credentials['username'] == $om->config->get('omega.nickname') && $credentials['password'] == $om->config->get('omega.key')) {
@@ -94,9 +94,9 @@ class OmegaAuthority extends OmegaSubservice {
 				}
 			}
 			$om->response->header_num(403);
-            throw new Exception("Missing username or password.");
-        }
-    }
+			throw new Exception("Missing username or password.");
+		}
+	}
 
 
 	/** Returns a list of users.
@@ -106,9 +106,9 @@ class OmegaAuthority extends OmegaSubservice {
 		return $om->shed->list_keys($this->_localize('users'));
 	}
 
-    /** Creates a new user with the specified password and initial ACLs.
+	/** Creates a new user with the specified password and initial ACLs.
 		expects: username=string, password=string, acls=array */
-    public function add_user($username, $password, $acls = null) {
+	public function add_user($username, $password, $acls = null) {
 		global $om;
 		// see if that username is already in use, verifying the username format at the same time
 		$users = $om->shed->list_keys($this->_localize('users'));
@@ -116,11 +116,11 @@ class OmegaAuthority extends OmegaSubservice {
 			throw new Exception("The username '$username' is already in use.");
 		}
 		$user = new OmegaUser($username, $password, $acls);
-    }
+	}
 
-    /** Retreives information about a user.
+	/** Retreives information about a user.
 		expects: username=string */
-    public function _get_user($username) {
+	public function _get_user($username) {
 		global $om;
 		try {
 			return $om->shed->get($this->_localize('users'), $username);
@@ -187,25 +187,25 @@ class OmegaAuthority extends OmegaSubservice {
 	/** Verifies access to an API for a user. Returns true if the user has been granted access.
 		expects: api=string, username=string
 		returns: boolean */
-    public function check_access($api, $username) {
+	public function check_access($api, $username) {
 		global $om;
-        if (! preg_match($om->request->api_re, $api)) {
-            throw new Exception("Invalid API: '$api'.");
-        }
+		if (! preg_match($om->request->api_re, $api)) {
+			throw new Exception("Invalid API: '$api'.");
+		}
 		// if we're logged in as the service itself then we get access to everything
 		if ($username == $om->config->get('omega.nickname')) {
 			return true;
 		}
-        $grant_access = false; // assume false unless we can prove otherwise without hitting a deny rule
-        foreach ($this->get_acls($username) as $acl_id => $acl) {
-            // translate the ACL into a regular expression we can compare against $api
-            // check to see if this is a deny rule
-            if (substr($acl, 0, 1) == '!') {
-                $deny_acl = true;
-                $acl = substr($acl, 1);
-            } else {
-                $deny_acl = false;
-            }
+		$grant_access = false; // assume false unless we can prove otherwise without hitting a deny rule
+		foreach ($this->get_acls($username) as $acl_id => $acl) {
+			// translate the ACL into a regular expression we can compare against $api
+			// check to see if this is a deny rule
+			if (substr($acl, 0, 1) == '!') {
+				$deny_acl = true;
+				$acl = substr($acl, 1);
+			} else {
+				$deny_acl = false;
+			}
 			// check to see if we're referring to omega in this ACL
 			if (substr($acl, 0, 1) == '#') {
 				$omega_acl = true;
@@ -217,34 +217,34 @@ class OmegaAuthority extends OmegaSubservice {
 			if (substr($api, 0, 6) == 'omega.' && ! $omega_acl) {
 				continue;
 			}
-            // figure out anchoring
-            if (strlen($acl) > 2 && substr($acl, 0, 2) == '//') {
-                $regex = '/[\.\/]';
-                $acl = substr($acl, 2);
-            } else if (strlen($acl) > 1 && substr($acl, 0, 1) == '/') {
-                $regex = '/^';
-                $acl = substr($acl, 1);
-            } else {
-                throw new Exception("Invalid ACL for $username: '$acl'.");
-            }
-            // escape any slashes and question marks in the ACL
-            $regex .= preg_replace('/\//', '\/', preg_replace('/\?/', '\?', $acl));
-            // and if the ACL contains an asterisk, change it to '.*'
-            $regex = preg_replace('/\*/', '.*', $regex);
-            // now we've got something like '^foo\/bar\/.*' or 'bar\/.*'
-            $regex .= '/i'; // and add our trailing slash and specify case insensitivity
-            $matches = preg_match($regex, $api);
-            if ($matches) {
-                // if this is a deny ACL then too bad... denied!
-                if ($deny_acl) {
-                    return false;
-                } else {
-                    $grant_access = true;
-                }
-            }
-        }
-        return $grant_access;
-    }
+			// figure out anchoring
+			if (strlen($acl) > 2 && substr($acl, 0, 2) == '//') {
+				$regex = '/[\.\/]';
+				$acl = substr($acl, 2);
+			} else if (strlen($acl) > 1 && substr($acl, 0, 1) == '/') {
+				$regex = '/^';
+				$acl = substr($acl, 1);
+			} else {
+				throw new Exception("Invalid ACL for $username: '$acl'.");
+			}
+			// escape any slashes and question marks in the ACL
+			$regex .= preg_replace('/\//', '\/', preg_replace('/\?/', '\?', $acl));
+			// and if the ACL contains an asterisk, change it to '.*'
+			$regex = preg_replace('/\*/', '.*', $regex);
+			// now we've got something like '^foo\/bar\/.*' or 'bar\/.*'
+			$regex .= '/i'; // and add our trailing slash and specify case insensitivity
+			$matches = preg_match($regex, $api);
+			if ($matches) {
+				// if this is a deny ACL then too bad... denied!
+				if ($deny_acl) {
+					return false;
+				} else {
+					$grant_access = true;
+				}
+			}
+		}
+		return $grant_access;
+	}
 }
 
 /* // TODO

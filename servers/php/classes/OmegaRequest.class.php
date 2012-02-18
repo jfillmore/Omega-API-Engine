@@ -9,7 +9,7 @@
 
 /** Information about the API request being issued to the omega server. */
 class OmegaRequest extends OmegaRESTful implements OmegaApi {
-	public $api_re = '/^(\?|\w+([\.\/]\w+\/?)*([\/\.]\?)?)$/';
+	public $api_re = '/^\/?(\?|\w+([\.\/]\w+\/?)*([\/\.]\?)?)$/';
 	public $encodings = array('json', 'php', 'raw');
 	private $encoding; // the encoding used for the data
 	private $credentials; // the credentials, if available, that the user has supplied
@@ -29,7 +29,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 		// e.g. base_uri = '/foo/bar'
 		$base_uri = $om->_pretty_path($om->config->get('omega.location'), true);
 		// e.g. request_uri = '/foo/bar/a/b/cde'
-		$request_uri = $om->_pretty_path($_SERVER['REQUEST_URI'], true);
+		$request_uri = $om->_pretty_path(urldecode($_SERVER['REQUEST_URI']), true);
 		// split up the path and route and compare 'em
 		$base_parts = explode('/', substr($base_uri, 1));
 		$request_parts = explode('/', substr($request_uri, 1));
@@ -444,7 +444,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 	/** Returns information about how to query omega.
 		returns: string */
 	public function get_query_help() {
-		$t = '    ';
+		$t = '	';
 		return "OMEGA API Query parameters:\n${t}name=*someWord*%FLAGS\t(Only show objects/modules matching 'someWord')\n${t}${t}e.g.:\n${t}${t}${t}name=getS*%compare-case\n${t}${t}${t}n=getService*%rc\n${t}${t}${t}n=*addon*\n${t}${t}flags: c|case-sensitive\n{$t}hide=FLAGS\t(Trim results by hiding information)\n${t}${t}e.g.:\n${t}${t}${t}hide=details,m\n${t}${t}${t}h=bd\n${t}${t}flags: m|methods, b|branches\n";
 	}
 
@@ -593,7 +593,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 
 		// make sure we have all the parameters we need to execute the API call
 		$params = $this->_get_method_params($r_method);
-	 	return call_user_func_array(
+		 return call_user_func_array(
 			array($api_branch, $method),
 			$params
 		);
