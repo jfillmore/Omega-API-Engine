@@ -25,6 +25,8 @@ import dbg
 import StringIO
 import os
 import tempfile
+import base64
+import hashlib
 
 from error import Error
 import util
@@ -225,9 +227,14 @@ class OmegaClient:
 		if api == '':
 			raise Exception("Invalid service API: '%s'." %api)
 		api = urllib.quote(api)
-		# TODO: credentials
-		#if self._credentials:
-		# data.append(('OMEGA_CREDENTIALS', (curl.FORM_CONTENTS, self.encode(self._credentials))))
+		if self._credentials:
+			creds = self._credentials
+			md5 = hashlib.md5();
+			md5.update(':'.join(
+				[creds['username'], creds['password']]
+			))
+			headers['Authentication'] = 'Basic ' + base64.b64encode(
+				md5.hexdigest())
 		http = self._http
 		# figure our our URL and get args
 		url = self._url

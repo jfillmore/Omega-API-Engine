@@ -26,7 +26,7 @@ class OmegaAuthority extends OmegaSubservice {
 			try {
 				$this->authed_user = $om->shed->get($this->_localize('users', $username));
 			} catch (Exception $e) {
-				$om->response->header_num(403);
+				$om->response->header_num(404);
 				throw new Exception("The username '$username' does not exist.");
 			}
 		}
@@ -37,63 +37,88 @@ class OmegaAuthority extends OmegaSubservice {
 		expects: credentials=object */
 	public function authenticate($credentials) {
 		global $om;
-		if (isset($credentials['username']) && isset($credentials['password'])) {
-			if ($credentials['username'] == $om->config->get('omega.nickname') && $credentials['password'] == $om->config->get('omega.key')) {
-				// success, nothing more to do
-			} else {
-				// get the user and see if the password matches
-				try {
-					$user = $om->shed->get($this->_localize('users'), $credentials['username']); 
-				} catch (Exception $e) {
-					// invalid user
-					$om->response->header_num(403);
-					throw new Exception("Invalid username or password.");
-				}
-				if (! in_array($credentials['password'], $user->get_passwords())) {
-					// invalid password :)
-					$om->response->header_num(403);
-					throw new Exception("Invalid username or password.");
-				}
-				$this->authed_user = $user;
-			}
-			$this->authed_username = $credentials['username'];
-			try {
-				if (! $this->check_access($om->request->get_api(), $this->authed_username)) {
-					$om->response->header_num(403);
-					throw new Exception("Access to '" . $om->request->get_api() . "' denied.");
-				}
-			} catch (Exception $e) {
-				// not allowed to access this part of the API? Sorry!
-				$om->response->set_result(false);
-				$om->response->set_reason($e->getMessage());
-				// print out the request headers
-				foreach ($om->response->headers as $header_name => $header_value) {
-					header($header_name . ': ' . $header_value);
-				}
-				// and return the request using the same encoding as was used
-				echo $om->response->encode($om->request->get_encoding());
+		// first see if there is a session ID we can use to get the user info
+		try {
+			$cookie_name = $om->config->get('omega.cookie_name');
+		} catch (Exception $e) {
+			$cookie_name = 'OMEGA_SESSION_ID';
+		}
+		if (isset($_COOKIE[$cookie_name])) {
+			$session = $om->shed->get(
+				$om->service_name . '/instances/sessions',
+				$_COOKIE[$cookie_name]
+			);
+			$credentials = $session['creds'];
+		}
+		if (is_string($credentials)) {
+			// new style are base64(md5(user:pass))
+			// first see if it's the service user/pass
+			$service_name = $om->config->get('omega.nickname');
+			$service_creds = base64_encode(md5( $service_name . ':' .
+				$om->config->get('omega.key')));
+			if ($credentials == $service_creds) {
+				$this->authed_username = $service_name;
 				return;
-			}	
-		} else {
-			// see if there is a session ID we can use to get the user info
-			if (isset($_COOKIE['OMEGA_SESSION_ID'])) {
-				$session = $om->shed->get($om->service_name . '/instances/sessions', $_COOKIE['OMEGA_SESSION_ID']);
-				$creds = $session['creds'];
-				// retry authentication using the session credentials
-				if ($creds === null) {
-					// TODO: support anon access
-					$om->response->header_num(403);
-					throw new Exception("Missing username or password.");
-				} else {
-					if (isset($creds['username']) && isset($creds['password'])) {
-						return $this->authenticate($creds);
-					} else {
-						$om->response->header_num(403);
-						throw new Exception("Invalid session credentials.");
+			}
+			// otherwise maybe it's an API user
+			$user_bin = $this->_localize('users');
+			$users = $om->shed->get_bin($user_bin);
+			foreach ($users as $user) {
+				$username = $user->get_username();
+				foreach ($user->get_passwords() as $password) {
+					if (base64_encode(md5("$username:$password")) === $credentials) {
+						// woot, we have a match!
+						$this->authed_user = $user;
+						$this->authed_username = $username;
+						return;
 					}
 				}
 			}
-			$om->response->header_num(403);
+			$om->response->header_num(401);
+			throw new Exception("Invalid username or password. $service_creds $credentials");
+		} else if (is_array($credentials)) {
+			// old style credentials are a get/post json encoded object
+			if (isset($credentials['username']) && isset($credentials['password'])) {
+				if ($credentials['username'] == $om->config->get('omega.nickname') && $credentials['password'] == $om->config->get('omega.key')) {
+					// success, nothing more to do
+				} else {
+					// get the user and see if the password matches
+					try {
+						$user = $om->shed->get($this->_localize('users'), $credentials['username']); 
+					} catch (Exception $e) {
+						// invalid user
+						$om->response->header_num(401);
+						throw new Exception("Invalid username or password.");
+					}
+					if (! in_array($credentials['password'], $user->get_passwords())) {
+						// invalid password :)
+						$om->response->header_num(401);
+						throw new Exception("Invalid username or password.");
+					}
+					$this->authed_user = $user;
+				}
+				$this->authed_username = $credentials['username'];
+				try {
+					if (! $this->check_access($om->request->get_api(), $this->authed_username)) {
+						$om->response->header_num(401);
+						throw new Exception("Access to '" . $om->request->get_api() . "' denied.");
+					}
+				} catch (Exception $e) {
+					// not allowed to access this part of the API? Sorry!
+					$om->response->header_num(401);
+					$om->response->set_result(false);
+					$om->response->set_reason($e->getMessage());
+					// print out the request headers
+					foreach ($om->response->headers as $header_name => $header_value) {
+						header($header_name . ': ' . $header_value);
+					}
+					// and return the request using the same encoding as was used
+					echo $om->response->encode($om->request->get_encoding());
+					return;
+				}	
+			}
+		} else {
+			$om->response->header_num(401);
 			throw new Exception("Missing username or password.");
 		}
 	}

@@ -195,6 +195,7 @@ class OmegaConfig extends OmegaRESTful implements OmegaApi {
 			'class_dirs' => $class_dirs,
 			'async' => $async,
 			'scope' => $scope,
+			'cookie_name' => 'OMEGA_SESSION_ID',
 			'location' => $location
 		));
 	}

@@ -25,30 +25,6 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 
 	public function __construct() {
 		global $om;
-		// determine our API based on the URI
-		// e.g. base_uri = '/foo/bar'
-		$base_uri = $om->_pretty_path($om->config->get('omega.location'), true);
-		// e.g. request_uri = '/foo/bar/a/b/cde'
-		$request_uri = $om->_pretty_path(urldecode($_SERVER['REQUEST_URI']), true);
-		// split up the path and route and compare 'em
-		$base_parts = explode('/', substr($base_uri, 1));
-		$request_parts = explode('/', substr($request_uri, 1));
-		// the first part of the API should match the base URI, the rest are the API
-		$api_parts = array();
-		for ($i = 0; $i < count($request_parts); $i++) {
-			$req_part = $request_parts[$i];
-			// prune routes that are too short, unless partial allowed
-			if ($i < count($base_parts)) {
-				// we should match the base URL
-				if ($req_part != $base_parts[$i]) {
-					$om->response->header_num(404);
-				}
-			} else {
-				$api_parts[] = $req_part;
-			}
-		}
-		$this->set_api(join('/', $api_parts));
-
 		// get the request encoding
 		try {
 			$this->set_encoding($this->get_omega_param('ENCODING'));
@@ -66,7 +42,6 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 			$this->credentials = $this->decode($this->get_omega_param('CREDENTIALS'), $this->get_encoding());
 		} catch (Exception $e) {
 			// no credentials? no worries, unless there is an authority around here
-			global $om;
 			if ($om->subservice->is_enabled('authority')) {
 				$this->credentials = null;
 			}
@@ -94,6 +69,29 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 			);
 			$this->collect_options();
 		}
+		// determine our API based on the URI
+		// e.g. base_uri = '/foo/bar'
+		$base_uri = $om->_pretty_path($om->config->get('omega.location'), true);
+		// e.g. request_uri = '/foo/bar/a/b/cde'
+		$request_uri = $om->_pretty_path(urldecode($_SERVER['REQUEST_URI']), true);
+		// split up the path and route and compare 'em
+		$base_parts = explode('/', substr($base_uri, 1));
+		$request_parts = explode('/', substr($request_uri, 1));
+		// the first part of the API should match the base URI, the rest are the API
+		$api_parts = array();
+		for ($i = 0; $i < count($request_parts); $i++) {
+			$req_part = $request_parts[$i];
+			// prune routes that are too short, unless partial allowed
+			if ($i < count($base_parts)) {
+				// we should match the base URL
+				if ($req_part != $base_parts[$i]) {
+					$om->response->header_num(404);
+				}
+			} else {
+				$api_parts[] = $req_part;
+			}
+		}
+		$this->set_api(join('/', $api_parts));
 	}
 
 	public function _get_routes() {
@@ -146,6 +144,17 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 		} else if ($param === 'OMEGA_API_PARAMS') {
 			if ($this->get_encoding() === 'json' && $this->is_restful()) {
 				return file_get_contents('php://input');
+			}
+		} else if ($param === 'OMEGA_CREDENTIALS') {
+			// hack, hack, hack
+			if (isset($_SERVER['HTTP_AUTHENTICATION'])) {
+				$auth_header = $_SERVER['HTTP_AUTHENTICATION'];
+				$auth_parts = explode(' ', $auth_header);
+				if ($auth_parts[0] === 'Basic') {
+					// different format than the old version, but much easier to implement
+					// also, gotta encode the credentials cause the old version does too
+					return json_encode($auth_parts[1]);
+				}
 			}
 		}
 		// otherwise, fall back to ghetto get/post vars
@@ -364,9 +373,11 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 		if (! preg_match($this->api_re, $api)) {
 			throw new Exception("Invalid API: '$api'.");
 		}
-		// convert all periods to slashes for ease of use & backwarsd compat
 		// TODO: deprecate this now that / is the default
-		$api = str_replace('.', '/', $api);
+		if (! $this->is_restful()) {
+			// convert all periods to slashes for ease of use & backwards compatability
+			$api = str_replace('.', '/', $api);
+		}
 		// make sure we don't start with a slash either
 		if (substr($api, 0, 1) == '/') {
 			$api = substr($api, 1);

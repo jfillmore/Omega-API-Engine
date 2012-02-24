@@ -160,11 +160,15 @@ abstract class OmegaRESTful {
 			/service,
 			/service/37,
 			/account/157/domain/foobar.com
+			/2/bar
+			/3
 		*/
-		/* e.g. routes:
+		/* e.g. routes/handlers:
 			/service,
 			/service/:service,
 			/account/:account/domain/:domain
+			/:foo/bar
+			/:foobar
 		*/
 		// split up the path and route and compare 'em
 		$path_str = $om->_pretty_path($path, true);
@@ -175,11 +179,16 @@ abstract class OmegaRESTful {
 		// gather params as we go
 		$params = array();
 		$sub_path = $path;
+		if (count($route) > count($path)) {
+			// route too long? ain't ever gonna match
+			return false;
+		}
 		for ($i = 0; $i < count($path); $i++) {
 			$path_part = $path[$i];
 			// prune routes that are too short, unless partial allowed
 			if ($i >= count($route)) {
 				if ($partial_route) {
+					//DEBUG echo "- Using partial route $route_str.\n";
 					break;
 				}
 				//DEBUG echo "- Aborting: route $route_str too short.\n";
