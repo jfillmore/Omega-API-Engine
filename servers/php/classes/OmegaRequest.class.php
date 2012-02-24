@@ -21,7 +21,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 	private $api_branch_name = null; // the name of the branch we're executing (e.g. 'fsm.charon')
 	private $api_params = array(); // the parameters being passed to the API
 	private $query_arg = false; // whether or not the parameters contain a ? too
-	private $restful = false; // whether this request is restful or not
+	private $restful = true; // whether this request is restful or not; assume and prove otherwise
 
 	public function __construct() {
 		global $om;
@@ -137,8 +137,6 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 		// HTTP headers are preferred, and take priority
 		if ($param === 'OMEGA_ENCODING') {
 			if ($_SERVER['CONTENT_TYPE'] === 'application/json') {
-				// woot, if content-encoding is set right we're in business
-				$this->restful = true;
 				return 'json';
 			}
 		} else if ($param === 'OMEGA_API_PARAMS') {
@@ -157,10 +155,12 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 				}
 			}
 		}
-		// otherwise, fall back to ghetto get/post vars
+		// otherwise, fall back to ghetto get/post vars, which means we're probably not restful
 		if (isset($_POST[$param])) {
+			$this->restful = false;
 			return stripslashes($_POST[$param]);
 		} else if (isset($_GET[$param])) {
+			$this->restful = false;
 			return stripslashes($_GET[$param]);
 		} else {
 			throw new Exception("The value '$param' is not present in the GET or POST data.");
