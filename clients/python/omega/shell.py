@@ -410,8 +410,9 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
 			elif part == '-r' or part == '--raw':
 				args['raw_response'] = True
 			else:
-				if method == None and method.upper() in ('GET', 'POST', 'PUT', 'DELETE'):
-					method = part
+				# exec = force old-style API
+				if method == None and part.upper() in ('GET', 'POST', 'PUT', 'DELETE', 'EXEC'):
+					method = part.upper()
 				elif api == None:
 					api = part
 				else:
@@ -476,16 +477,27 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
 			if args['verbose']:
 				sys.stdout.write('+ API=%s, PARAMS=%s, OPTIONS=%s\n' % (api, self.client.encode(params), self.client.encode(args)))
 			try: 
-				response = self.client.run(
-					api,
-					method,
-					params,
-					args['raw_response'],
-					args['full_response'],
-					'&'.join(args['GET']),
-					'&'.join(args['POST']),
-					args['FILES']
-				)
+				if method == 'EXEC':
+					response = self.client.run(
+						api,
+						params,
+						args['raw_response'],
+						args['full_response'],
+						'&'.join(args['GET']),
+						'&'.join(args['POST']),
+						args['FILES']
+					)
+				else:
+					response = self.client.request(
+						method,
+						api,
+						params,
+						args['raw_response'],
+						args['full_response'],
+						get,
+						args['headers'],
+						args['verbose']
+					)
 				result = True
 			except Error, e:
 				result = False
@@ -538,21 +550,34 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
 		retval = {}
 		try: 
 			get = None
+			if method is None:
+				method = 'POST'
 			if 'GET' in args:
 				if isinstance(args['GET'], basestring):
 					get = args['GET']
 				else:
 					get = '&'.join(args['GET'])
-			response = self.client.request(
-				method,
-				api,
-				params,
-				args['raw_response'],
-				args['full_response'],
-				get,
-				args['headers'],
-				args['verbose']
-			)
+			if method.upper() == 'EXEC':
+				response = self.client.run(
+					api,
+					params,
+					args['raw_response'],
+					args['full_response'],
+					get,
+					'&'.join(args['POST']),
+					args['FILES']
+				)
+			else:
+				response = self.client.request(
+					method,
+					api,
+					params,
+					args['raw_response'],
+					args['full_response'],
+					get,
+					args['headers'],
+					args['verbose']
+				)
 			result = True
 			error = None
 		except Error, e:

@@ -414,7 +414,7 @@ abstract class OmegaCrudable extends OmegaRESTful implements OmegaApi {
 		if ($type === 'ENUM') {
 			// parse "'foo', 'bar', 'salad'" into array
 			$type_arg = trim($type_arg, "'");
-			$type_arg = preg_split("', *'", $type_arg);
+			$type_arg = preg_split("/', *'/", $type_arg);
 		}
 		return array(
 			'type' => $type,

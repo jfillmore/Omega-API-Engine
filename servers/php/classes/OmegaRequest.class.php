@@ -593,7 +593,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 
 		// make sure we have all the parameters we need to execute the API call
 		$params = $this->_get_method_params($r_method);
-		 return call_user_func_array(
+		return call_user_func_array(
 			array($api_branch, $method),
 			$params
 		);

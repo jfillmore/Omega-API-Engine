@@ -5,10 +5,6 @@
    Licensed under the MIT license. See LICENSE file.
    http://www.opensource.org/licenses/mit-license.php */
 
-/* notes: 
-	grep -E '^\s+[a-zA-Z_]+:( {| function \()' BoxFactory.class.js
-
-*/
 (function (om) {
 	// basic layout of the BoxFactory...
 	om.BoxFactory = om.doc({

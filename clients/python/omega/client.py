@@ -32,7 +32,6 @@ import util
 class OmegaClient:
 	"""Client for talking to an Omega Server."""
 	_version = '0.2'
-	_request_type = 'POST'
 	_http = None
 	_hostname = None
 	_folder = '/'
@@ -97,15 +96,6 @@ class OmegaClient:
 	def get_folder(self):
 		return self._folder
 	
-	def get_request_type(self):
-		return self._request_type;
-	
-	def set_request_type(self, type):
-		if type.upper() in ('POST', 'GET'):
-			self._request_type = type
-		else:
-			raise Exception('The request must be either "GET" or "POST".')
-
 	def set_credentials(self, creds):
 		if type(creds).__name__ == 'dict':
 			# make sure we have a user/pass

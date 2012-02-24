@@ -2,16 +2,20 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 	<head>
 		<title>Documentation</title>
-		<link rel="stylesheet" href="/omega/css/omega.dev.css" type="text/css" />
-		<link rel="stylesheet" href="/omega/css/Doc.css" type="text/css" />
+		<link rel="stylesheet" href="/omega/css/omega.css" type="text/css" />
+		<link rel="stylesheet" href="/omega/css/DocBrowser.css" type="text/css" />
 		<script type="text/javascript" language="JavaScript" src="/omega/js/jquery.js"></script>
-		<script type="text/javascript" language="JavaScript" src="/omega/js/omega.dev.js"></script>
+		<script type="text/javascript" language="JavaScript" src="/omega/js/underscore.js"></script>
+		<script type="text/javascript" language="JavaScript" src="/omega/js/backbone.js"></script>
+		<script type="text/javascript" language="JavaScript" src="/omega/js/omega.js"></script>
+		<script type="text/javascript" language="JavaScript" src="/omega/js/DocBrowser.js"></script>
 	</head>
 	<body>
 		<noscript>Please enable JavaScript.</noscript>
 		<script language="JavaScript">
-		//<![CDATA[
+		//<![cdata[
 			$(document).ready(function() {
+				var doc_browser = om.DocBrowser($('body'), om);
 			});
 		//]]>
 		</script>

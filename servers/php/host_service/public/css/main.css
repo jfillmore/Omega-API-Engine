@@ -105,7 +105,7 @@ body {
 	width: 149px;
 	height: 100%;
 	border-right: 1px solid #333;
-	text-align: center;
+	text-align: left;
 }
 
 .gui .services > .om_menu_options .om_menu_option {

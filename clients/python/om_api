@@ -136,7 +136,7 @@ def get_opts(defaults, argv):
 			args['url'] = argv[i]
 		else:
 			if args['http_method'] == None and arg.upper() in \
-				('GET', 'POST', 'DELETE', 'PUT'):
+				('GET', 'POST', 'DELETE', 'PUT', 'EXEC'):
 				args['http_method'] = arg.upper()
 			elif args['api'] == None:
 				args['api'] = arg

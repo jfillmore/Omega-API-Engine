@@ -37,7 +37,7 @@ class OmegaEditor extends OmegaSubservice {
 		// translate the API
 		$api_method = $om->request->translate_api($api_method);
 		// resolve it
-		$parts = explode('.', $api_method);
+		$parts = explode('/', $api_method);
 		// we should have at least two parts, since we're asking about a method
 		if (count($parts) < 2) {
 			throw new Exception("API '$api_method' is a branch, not a method.");
@@ -73,7 +73,7 @@ class OmegaEditor extends OmegaSubservice {
 		// translate the API
 		$api_branch = $om->request->translate_api($api_branch);
 		// resolve it
-		$branches = explode('.', $api_branch);
+		$branches = explode('/', $api_branch);
 		// get a reference to the last branch
 		$branch = $om->request->_get_branch_ref($branches);
 		$r_class = new ReflectionClass(get_class($branch));
