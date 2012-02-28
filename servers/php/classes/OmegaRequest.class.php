@@ -9,8 +9,8 @@
 
 /** Information about the API request being issued to the omega server. */
 class OmegaRequest extends OmegaRESTful implements OmegaApi {
-	public $api_re = '/^\/?(\?|\w+([\.\/]\w+\/?)*([\/\.]\?)?)$/';
-	public $encodings = array('json', 'php', 'raw');
+	public $api_re = '/^\/?(\?|\w*([\.\/]\w*\/?)*([\/\.]\?)?)$/';
+	public $encodings = array('json', 'php', 'raw', 'html');
 	private $encoding; // the encoding used for the data
 	private $credentials; // the credentials, if available, that the user has supplied
 
@@ -25,6 +25,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 
 	public function __construct() {
 		global $om;
+		$service_nickname = $om->config->get('omega.nickname');
 		// get the request encoding
 		try {
 			$this->set_encoding($this->get_omega_param('ENCODING'));
@@ -44,6 +45,41 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 			// no credentials? no worries, unless there is an authority around here
 			if ($om->subservice->is_enabled('authority')) {
 				$this->credentials = null;
+			}
+		}
+
+		// determine our API based on the URI
+		// e.g. base_uri = '/foo/bar'
+		$base_uri = $om->_pretty_path($om->config->get('omega.location'), true);
+		// e.g. request_uri = '/foo/bar/a/b/cde'
+		$request_uri = $om->_pretty_path(urldecode($_SERVER['REQUEST_URI']), true);
+		// compare where we're configured at against what was requested to determine the API
+		$base_parts = explode('/', substr($base_uri, 1));
+		$request_parts = explode('/', substr($request_uri, 1));
+		// the first part of the API should match the base URI, the rest are the API
+		$api_parts = array();
+		for ($i = 0; $i < count($request_parts); $i++) {
+			$req_part = $request_parts[$i];
+			// prune routes that are too short, unless partial allowed
+			if ($i < count($base_parts)) {
+				// we should match the base URL
+				if ($req_part != $base_parts[$i]) {
+					$om->response->header_num(404);
+				}
+			} else {
+				$api_parts[] = $req_part;
+			}
+		}
+		$this->set_api(join('/', $api_parts));
+		// with a properly formatted API we can see if we should infer the service name or not
+		$api_parts = explode('/', $this->get_api());
+		if (count($api_parts)) {
+			$first = $api_parts[0];
+			// the first part is generally expected to be the service nickname or 'omega'
+			if (! (in_array($first, array('omega', $service_nickname)) || substr($first, -1) == '?')) {
+				// just assume they gave us the service name to make API calls cleaner
+				array_unshift($api_parts, $service_nickname);
+				$this->set_api(join('/', $api_parts));
 			}
 		}
 
@@ -69,29 +105,6 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 			);
 			$this->collect_options();
 		}
-		// determine our API based on the URI
-		// e.g. base_uri = '/foo/bar'
-		$base_uri = $om->_pretty_path($om->config->get('omega.location'), true);
-		// e.g. request_uri = '/foo/bar/a/b/cde'
-		$request_uri = $om->_pretty_path(urldecode($_SERVER['REQUEST_URI']), true);
-		// split up the path and route and compare 'em
-		$base_parts = explode('/', substr($base_uri, 1));
-		$request_parts = explode('/', substr($request_uri, 1));
-		// the first part of the API should match the base URI, the rest are the API
-		$api_parts = array();
-		for ($i = 0; $i < count($request_parts); $i++) {
-			$req_part = $request_parts[$i];
-			// prune routes that are too short, unless partial allowed
-			if ($i < count($base_parts)) {
-				// we should match the base URL
-				if ($req_part != $base_parts[$i]) {
-					$om->response->header_num(404);
-				}
-			} else {
-				$api_parts[] = $req_part;
-			}
-		}
-		$this->set_api(join('/', $api_parts));
 	}
 
 	public function _get_routes() {
@@ -382,10 +395,11 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 		if (substr($api, 0, 1) == '/') {
 			$api = substr($api, 1);
 		}
-		// if we're asking about 'omega.service' then replace it with the service nickname for ease of ACL expression
-		if (substr($api, 0, 13) == 'omega/service' ||
-			substr($api, 0, 9) == 'omega/api') {
-			$api = $om->config->get('omega.nickname') . substr($api, 13);
+		// if we're asking about 'omega/service' then replace it with the service nickname for ease of ACL expression
+		$matches = null;
+		if (preg_match('/^(omega\/service)\/?/', $api, $matches) ||
+			preg_match('/^(omega\/api)\/?/', $api, $matches)) {
+			$api = $om->config->get('omega.nickname') . substr($api, strlen($matches[1]));
 		}
 		return $api;
 	}
@@ -398,6 +412,9 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 		// validate the input
 		if (! is_array($branches)) {
 			throw new Exception("Invalid parameter: \$branches. Array expected but " . gettype($branches) . " supplied.");
+		}
+		if (! count($branches)) {
+			return $om->service;
 		}
 		// figure out who we are talking to
 		if ($branches[0] == 'omega') {
@@ -520,42 +537,48 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 		}
 
 		// get a reference to the API branch
-		$api_parts = explode('/', $api);
-		if (count($api_parts) == 1) {
-			// just one branch? the user must be initializing the service, as some are required to do
-			if ($api_parts[0] !== $nickname) {
-				$om->response->header_num(404);
-				throw new Exception("Unknown service name: '" . $api_parts[0] . "'.");
-			}
-			// initialize the service and call it good
-			$om->_init_service();
-			return;
-		}
-		// uninitialized service? QQ
-		if ($nickname != 'omega' && $om->service == null) {
-			$om->response->header_num(404);
-			throw new Exception("The service " . $om->service_name . " has not yet been initialized.");
-		}
-		// initialize params-- RESTful routes might contain some too
-		if ($om->is_restful() && $this->is_restful()) {
-			// good ol' RESTful
-			// use the routes to figure out what class file and method to call
-			// the first part is $om or $om->service, which we already figured out
-			array_shift($api_parts);
-			$route = $service->_route($api_parts);
-			$api_branch = $route['api_branch'];
-			$method = trim($route['method'], '/');
-			// update our API params, as we got some new ones
-			$this->api_params['named'] = array_merge(
-				$route['params'],
-				$this->api_params['named']
-			);
+		if ($api === '') {
+			$method = '';
+			$branches = array();
+			$api_branch = $om->service;
 		} else {
-			// if we're NOT a restful API then the last part is the method, or using an old request style...
-			$method = array_pop($api_parts);
-			$branches = $api_parts;
-			// traverse the API tree to get the API branch and class info
-			$api_branch = $this->_get_branch_ref($branches);
+			$api_parts = explode('/', $api);
+			if (count($api_parts) == 1) {
+				// just one branch? the user must be initializing the service, as some are required to do
+				if ($api_parts[0] !== $nickname) {
+					$om->response->header_num(404);
+					throw new Exception("Unknown service name: '" . $api_parts[0] . "'.");
+				}
+				// initialize the service and call it good
+				$om->_init_service();
+				return;
+			}
+			// uninitialized service? QQ
+			if ($nickname != 'omega' && $om->service == null) {
+				$om->response->header_num(404);
+				throw new Exception("The service " . $om->service_name . " has not yet been initialized.");
+			}
+			// initialize params-- RESTful routes might contain some too
+			if ($om->is_restful() && $this->is_restful()) {
+				// good ol' RESTful
+				// use the routes to figure out what class file and method to call
+				// the first part is $om or $om->service, which we already figured out
+				array_shift($api_parts);
+				$route = $service->_route($api_parts);
+				$api_branch = $route['api_branch'];
+				$method = trim($route['method'], '/');
+				// update our API params, as we got some new ones
+				$this->api_params['named'] = array_merge(
+					$route['params'],
+					$this->api_params['named']
+				);
+			} else {
+				// if we're NOT a restful API then the last part is the method, or using an old request style...
+				$method = array_pop($api_parts);
+				$branches = $api_parts;
+				// traverse the API tree to get the API branch and class info
+				$api_branch = $this->_get_branch_ref($branches);
+			}
 		}
 		$r_class = new ReflectionObject($api_branch);
 
@@ -578,7 +601,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 				);
 			} else {
 				$om->response->header_num(404);
-				throw new Exception("API method '$method' does not exist.");
+				throw new Exception("Not found: " . $_SERVER['REQUEST_METHOD'] . " $api");
 			}
 		}
 		$r_method = $r_class->getMethod($method);
@@ -592,7 +615,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 				);
 			} else {
 				$om->response->header_num(404);
-				throw new Exception("API method '$method' does not exist.");
+				throw new Exception("Not found: " . $_SERVER['REQUEST_METHOD'] . " $api");
 			}
 		}
 		// asking about this method? return that info

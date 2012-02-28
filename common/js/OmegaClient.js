@@ -569,7 +569,7 @@
 				};
 
 				// automatically assume no params if not present
-				if (params === undefined || params === null || ! om.plural(params)) {
+				if (params === undefined || params === null || om.empty(params)) {
 					params = undefined
 				} else {
 					params = om.json.encode(params);

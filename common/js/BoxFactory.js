@@ -8,7 +8,7 @@
 (function (om) {
 	// basic layout of the BoxFactory...
 	om.BoxFactory = om.doc({
-		desc: 'Take (or generates) DOM objects into a closure of {$: jQueryRef} with some simple methods.',
+		desc: 'Take (or generates) DOM objects into a closure of {$: jQueryRef} with some simple methods. Also aliased as "om.bf". Serves as a a building block for more complex objects.',
 		obj: {
 			// objects added below as well
 			make: om.doc({
@@ -61,157 +61,9 @@
 			box = {$: jquery_obj};
 			box.$.toggleClass('om_box', true);
 
-			/* Remove ourself via jQuery. */
-			box._remove = function (args) {
-				if ('$' in box) {
-					box.$.remove();
-					delete(box.$);
-				}
-			};
-
-			/* Add another box inside. */
-			box._add_box = function (name, args) {
-				var i, classes, new_box;
-				new_box = om.bf.make.box(box.$, args);
-				if (name !== undefined && name !== null && name !== '') {
-					classes = name.split(/ /);
-					for (i = 0; i < classes.length; i += 1) {
-						new_box.$.toggleClass(classes[i], true);
-					}
-				}
-				return new_box;
-			};
-
-			/* Add an input object inside. */
-			box._add_input = function (type, name, args) {
-				if (type in om.bf.make.input) {
-					return om.bf.make.input[type](box.$, name, args);
-				} else {
-					throw new Error("Invalid input type: '" + type + "'.");
-				}
-			};
-
-			/* Change box opacity */
-			box._opacity = function (fade_ratio) {
-				if (fade_ratio === undefined) {
-					return box.$.css('opacity');
-				} else {
-					if (fade_ratio >= 0 && fade_ratio <= 1) {
-						box.$.css('filter', om.sprintf(
-							'alpha(opacity=%d)', parseInt(fade_ratio * 100, 10)
-						));
-						box.$.css('opacity', fade_ratio);
-					} else {
-						throw new Error("Opacity fade ratio must be between 1.0 and 0.0, not '" + String(fade_ratio) + "'.");
-					}
-					return box;
-				}	
-			};
-
-			/* Create another box inside, in a specific layout position.
-			Positions: top, left, right, bottom */
-			box._extend = function (direction, name, args) {
-				var box_part, children;
-				args = om.get_args({
-					wrap: undefined,
-					dont_show: false
-				}, args, true);
-				// if we've already extended in the direction then just return that direction
-				if ('_box_' + direction in box) {
-					return box['_box_' + direction];
-				}
-				// otherwise, create it
-				box_part = box._add_box(name, args);
-				box_part._owner = box;
-				box_part._direction = direction;
-				box_part.$.toggleClass('om_box_' + direction, true);
-
-				// redefine _remove to remove ourself from our parent object
-				box_part._remove = function () {
-					box_part.$.remove();
-					delete box['_' + box_part._direction];
-				};
-
-				// and figure out where to orient it based on the position we extended towards
-				box_part.$.detach();
-				if (args.wrap) {
-					box.$.children(args.wrap).detach().appendTo(box_part.$);
-				}
-				if (direction === 'top') {
-					// if we extended to the top then prepend, as top always comes first
-					box.$.prepend(box_part.$);
-				} else if (direction === 'left') {
-					// if we're extending to the left then see if the top exists-- if so, insert after the top
-					if (box._box_top !== undefined) {
-						box._box_top.$.after(box_part.$);
-					} else {
-						// otherwise, insert at the very beginning
-						box.$.prepend(box_part.$);
-					}
-				} else if (direction === 'right') {
-					// extending to the right means after top and left
-					if (box._box_left !== undefined) {
-						box._box_left.$.after(box_part.$);
-					} else if (box._box_top !== undefined) {
-						box._box_top.$.after(box_part.$);
-					} else {
-						box.$.prepend(box_part.$);
-					}
-				} else if (direction === 'middle') {
-					// the middle goes before any bottoms
-					if (box._box_bottom !== undefined) {
-						box._box_bottom.$.before(box_part.$);
-					} else {
-						box.$.append(box_part.$);
-					}
-				} else if (direction === 'bottom') {
-					// bottom positioning is always at the end of the box
-					box.$.append(box_part.$);
-				} else {
-					box_part.$.remove();
-					throw new Error('Invalid box direction: "' + direction + '".');
-				}
-				// create a property based on the direction
-				box['_box_' + direction] = box_part;
-				// auto show unless asked not to
-				if (args.dont_show !== true) {
-					box_part.$.show();
-				}
-				return box_part;
-			};
-
-			/* Test, TODO: remove at some point */
-			/*
-			box._shift = function (from, to, clobber) {
-				var from_obj, to_obj;
-				if (clobber === undefined) {
-					clobber = false;
-				}
-				if ('_box_' + from in box) {
-					from_obj = box['_box_' + from];
-				} else {
-					throw new Error("Invalid 'from' direction: '" + from + "'.");
-				}
-				// make sure we have a valid location
-				if (! (to in ['top', 'left', 'bottom', 'right'])) {
-					throw new Error("Invalid 'from' direction: '" + from + "'.");
-				}
-				// clobber the new location if needed
-				if ('_box_' + to in box && clobber) {
-					to_obj = box['_box_' + from];
-					to_obj._remove();
-				}
-				// move the box to its new position
-				box['_box_' + to] = box['_box_' + from];
-				box['_box_' + to].$.
-					toggleClass('om_box_' + from, false).
-					toggleClass('om_box_' + to, true);
-				delete box['_box_' + from];
-				return box;
-			};
-			*/
-
-			// see if there is any post-processing to do
+			// auto-imbue as a box for starters
+			box = om.bf.imbue.box(box);
+			// imbue in any other functionality
 			if (args.imbue !== undefined && args.imbue !== null) {
 				type = typeof args.imbue;
 				if (type === 'function') {
@@ -263,6 +115,130 @@
 	om.BoxFactory.imbue = om.doc({
 		desc: 'Imbuements change the behavior of boxes in large ways (e.g. pop-ups).',
 		obj: {
+			box: om.doc({
+				desc: 'Basic methods that every box gets.',
+				obj: function (box) {
+					/* Remove ourself via jQuery. */
+					box._remove = function (args) {
+						if ('$' in box) {
+							box.$.remove();
+							delete(box.$);
+						}
+					};
+
+					/* Add another box inside. */
+					box._add_box = function (name, args) {
+						var i, classes, new_box;
+						new_box = om.bf.make.box(box.$, args);
+						if (name !== undefined && name !== null && name !== '') {
+							classes = name.split(/ /);
+							for (i = 0; i < classes.length; i += 1) {
+								new_box.$.toggleClass(classes[i], true);
+							}
+						}
+						return new_box;
+					};
+
+					/* Add an input object inside. */
+					box._add_input = function (type, name, args) {
+						if (type in om.bf.make.input) {
+							return om.bf.make.input[type](box.$, name, args);
+						} else {
+							throw new Error("Invalid input type: '" + type + "'.");
+						}
+					};
+
+					/* Change box opacity */
+					box._opacity = function (fade_ratio) {
+						if (fade_ratio === undefined) {
+							return box.$.css('opacity');
+						} else {
+							if (fade_ratio >= 0 && fade_ratio <= 1) {
+								box.$.css('filter', om.sprintf(
+									'alpha(opacity=%d)', parseInt(fade_ratio * 100, 10)
+								));
+								box.$.css('opacity', fade_ratio);
+							} else {
+								throw new Error("Opacity fade ratio must be between 1.0 and 0.0, not '" + String(fade_ratio) + "'.");
+							}
+							return box;
+						}	
+					};
+
+					/* Create another box inside, in a specific layout position.
+					Positions: top, left, right, bottom */
+					box._extend = function (direction, name, args) {
+						var box_part, children;
+						args = om.get_args({
+							wrap: undefined,
+							dont_show: false
+						}, args, true);
+						// if we've already extended in the direction then just return that direction
+						if ('_box_' + direction in box) {
+							return box['_box_' + direction];
+						}
+						// otherwise, create it
+						box_part = box._add_box(name, args);
+						box_part._owner = box;
+						box_part._direction = direction;
+						box_part.$.toggleClass('om_box_' + direction, true);
+
+						// redefine _remove to remove ourself from our parent object
+						box_part._remove = function () {
+							box_part.$.remove();
+							delete box['_' + box_part._direction];
+						};
+
+						// and figure out where to orient it based on the position we extended towards
+						box_part.$.detach();
+						if (args.wrap) {
+							box.$.children(args.wrap).detach().appendTo(box_part.$);
+						}
+						if (direction === 'top') {
+							// if we extended to the top then prepend, as top always comes first
+							box.$.prepend(box_part.$);
+						} else if (direction === 'left') {
+							// if we're extending to the left then see if the top exists-- if so, insert after the top
+							if (box._box_top !== undefined) {
+								box._box_top.$.after(box_part.$);
+							} else {
+								// otherwise, insert at the very beginning
+								box.$.prepend(box_part.$);
+							}
+						} else if (direction === 'right') {
+							// extending to the right means after top and left
+							if (box._box_left !== undefined) {
+								box._box_left.$.after(box_part.$);
+							} else if (box._box_top !== undefined) {
+								box._box_top.$.after(box_part.$);
+							} else {
+								box.$.prepend(box_part.$);
+							}
+						} else if (direction === 'middle') {
+							// the middle goes before any bottoms
+							if (box._box_bottom !== undefined) {
+								box._box_bottom.$.before(box_part.$);
+							} else {
+								box.$.append(box_part.$);
+							}
+						} else if (direction === 'bottom') {
+							// bottom positioning is always at the end of the box
+							box.$.append(box_part.$);
+						} else {
+							box_part.$.remove();
+							throw new Error('Invalid box direction: "' + direction + '".');
+						}
+						// create a property based on the direction
+						box['_box_' + direction] = box_part;
+						// auto show unless asked not to
+						if (args.dont_show !== true) {
+							box_part.$.show();
+						}
+						return box_part;
+					};
+					return box;
+				}
+			}),
 			free: om.doc({
 				desc: 'A "free" box has extra methods for movement, resizing, constraints, etc.',
 				obj: function (box) {
@@ -828,28 +804,27 @@
 						// and perform them differently on the 'window' object, since it doesn't have CSS style
 						if (constraint[0].ownerDocument !== undefined) {
 							// gotta go by offset at the window level
-							con = constraint.offset();
-							con.width = constraint.innerWidth();
-							con.height = constraint.innerHeight();
+							con = constraint.position();
+							con.width = constraint.outerWidth();
+							con.height = constraint.outerHeight();
 						} else {
 							con = {left: 0, top: 0};
 							con.width = constraint.width();
 							con.height = constraint.height();
 						}
 						box_pos = box.$.position();
-						box_off = box.$.offset();
 						// add what it'll take to get it inside the top left corners
 						delta = {
-							left: Math.max(con.left - box_off.left, 0),
-							top: Math.max(con.top - box_off.top, 0)
+							left: box_pos.left,
+							top: box_pos.top
 						};
 						// too far top or left? scoot over
-						if (delta.top > 0) {
-							box_pos.top += delta.top;
+						if (delta.top < 0) {
+							box_pos.top -= delta.top;
 							box.$.css('top', box_pos.top + 'px');
 						}
-						if (delta.left > 0) {
-							box_pos.left += delta.left;
+						if (delta.left < 0) {
+							box_pos.left -= delta.left;
 							box.$.css('left', box_pos.left + 'px');
 						}
 						// now check our right edge to be sure its not hanging over
@@ -857,18 +832,22 @@
 						// are we fatter than the constraint width? if so, shrink the difference
 						if (box_width > con.width) {
 							if (args.target_only !== true) {
-								box.$.width(con.width - (box_width - box.$.width()));
+								box.$.width(
+									con.width - (box_width - box.$.width())
+								);
 							}
 							// shrink the target too, if needed
 							if (args.target !== undefined) {
-								args.target.width(args.target.width() - (box_width - con.width));
+								args.target.width(
+									args.target.width() - (box_width - con.width)
+								);
 							}
 							resized = true;
 							// recalculate our width after moving
 							box_width = box.$.outerWidth(true);
 						}
 						// and see if we're hanging over the right edge
-						delta.right = Math.max(box_off.left + box_width - (con.left + con.width), 0);
+						delta.right = (box_pos.left + box_width) - con.width;
 						if (delta.right > 0) {
 							box_pos.left -= delta.right;
 							box.$.css('left', box_pos.left + 'px');
@@ -907,7 +886,7 @@
 						}
 						*/
 						// and finally see if we're hanging over the bottom edge
-						delta.bottom = Math.max(box_off.top + box_height - (con.top + con.height), 0);
+						delta.bottom = (box_pos.top + box_height) - con.height;
 						if (delta.bottom > 0) {
 							box_pos.top -= delta.bottom;
 							box.$.css('top', box_pos.top + 'px');
@@ -1162,6 +1141,7 @@
 					
 					// TODO: and maybe move all modal logic in here?
 					box.$.toggleClass('om_box_free', true);
+					return box;
 				}
 			})
 		}
@@ -1720,9 +1700,8 @@
 		}
 	});
 
-			/* Form container and methods to set/fetch data, as well as do basic layout. */
 	om.BoxFactory.make.form = om.doc({
-		desc: '',
+		desc: 'Form container and methods to set/fetch data, as well as do basic layout. ',
 		obj: function (owner, fields, args) {
 			var form, classes, name, field;
 			args = om.get_args({
@@ -2721,9 +2700,8 @@
 		}
 	});
 
-			/* Generic button object. Can be set to be single-clickable to prevent double clicks.*/
 	om.BoxFactory.make.input.button = om.doc({
-		desc: '',
+		desc: 'Generic button object. Can be set to be single-clickable to prevent double clicks.',
 		obj: function (owner, name, args) {
 			var button;
 			args = om.get_args({
@@ -2796,9 +2774,8 @@
 		}
 	});
 
-			/* HTTP link object. */
 	om.BoxFactory.make.input.link = om.doc({
-		desc: '',
+		desc: 'HTTP link object.',
 		obj: function (owner, name, args) {
 			var link;
 			args = om.get_args({
@@ -2838,9 +2815,8 @@
 		}
 	});
 
-			/* Read-only (e.g. label) input. */
 	om.BoxFactory.make.input.readonly = om.doc({
-		desc: '',
+		desc: 'Read-only (e.g. label) input.',
 		obj: function (owner, name, args) {
 			var readonly;
 			args = om.get_args({
@@ -2868,9 +2844,8 @@
 		}
 	});
 
-			/* Text input form field. */
 	om.BoxFactory.make.input.text = om.doc({
-		desc: '',
+		desc: 'Text input form field.',
 		obj: function (owner, name, args) {
 			var text;
 			args = om.get_args({
@@ -2913,9 +2888,8 @@
 		}
 	});
 
-			/* Password input form field. */
 	om.BoxFactory.make.input.password = om.doc({
-		desc: '',
+		desc: 'Password input form field.',
 		obj: function (owner, name, args) {
 			var password;
 			args = om.get_args({
@@ -2949,13 +2923,13 @@
 		}
 	});
 
-			/* Checkbox input form field. */
 	om.BoxFactory.make.input.checkbox = om.doc({
-		desc: '',
+		desc: 'Checkbox input form field.',
 		obj: function (owner, name, args) {
 			var cb;
 			args = om.get_args({
 				default_val: false,
+				name: name,
 				enabled: true
 			}, args, true);
 			if (name === undefined) {
@@ -2963,7 +2937,7 @@
 			}
 			cb = om.bf.make.input.obj(owner, args);
 			cb.$.append(om.assemble('input', {
-				name: name,
+				name: args.name,
 				type: 'checkbox',
 				'class': 'om_input_value'
 			}));
@@ -2987,9 +2961,8 @@
 		}
 	});
 
-			/* Radio button form field. */
 	om.BoxFactory.make.input.radio_button = om.doc({
-		desc: '',
+		desc: 'Radio button form field.',
 		obj: function (owner, name, args) {
 			var rb;
 			if (name === undefined) {
@@ -3026,9 +2999,8 @@
 		}
 	});
 
-			/* Text area form field. */
 	om.BoxFactory.make.input.textarea = om.doc({
-		desc: '',
+		desc: 'Text area form field.',
 		obj: function (owner, name, args) {
 			var textarea;
 			args = om.get_args({
@@ -3065,9 +3037,8 @@
 		}
 	});
 
-			/* Select form field. */
 	om.BoxFactory.make.input.select = om.doc({
-		desc: '',
+		desc: 'Select form field.',
 		obj: function (owner, name, args) {
 			var select;
 			args = om.get_args({
@@ -3142,9 +3113,8 @@
 		}
 	});
 
-			/* File upload dialog object. */
 	om.BoxFactory.make.input.file = om.doc({
-		desc: '',
+		desc: 'File upload dialog object.',
 		obj: function (owner, name, args) {
 			var file;
 			args = om.get_args({
@@ -3176,10 +3146,9 @@
 		}
 	});
 
-			/* JSON-aware text form field.
-			Has a pop-up HUD to show an formatted copy of input. */
 	om.BoxFactory.make.input.json = om.doc({
-		desc: '',
+		desc: 'JSON-aware text form field.',
+		desc_ext: 'Has a pop-up HUD to show an formatted copy of input.',
 		obj: function (owner, name, args) {
 			var json;
 			args = om.get_args({
@@ -3390,6 +3359,7 @@
 			var message, func;
 			args = om.get_args({
 				classes: [],
+				constraint: $(window),
 				dont_show: false,
 				modal: false // automatically cover owning object with a skirt obj
 			}, args);
@@ -3471,12 +3441,12 @@
 				message._box_top.$.html(title);
 				// default to dragging by the title
 				message._draggable(message._box_top.$, {
-					constraint: $(window)
+					constraint: args.constraint
 				});
 			} else {
 				// no title? make the entire message draggable
 				message._draggable(message.$, {
-					constraint: $(window)
+					constraint: args.constraint
 				});
 			}
 			message._center_top(0.2, message.$.parent());

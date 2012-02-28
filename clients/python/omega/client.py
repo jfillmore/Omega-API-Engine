@@ -261,9 +261,10 @@ class OmegaClient:
 			# decode the response and check whether or not it was successful
 			# TODO: check response encoding in header
 			try:
-				result = self.decode(response.read())
+				response_data = response.read();
+				result = self.decode(response_data)
 			except:
-				raise Error('Failed to decode API result:\n', response.read())
+				raise Error('Failed to decode API result:\n' + response_data)
 			# check to see if our API call was successful
 			# the http status code and result should always be in sync, but if either are off call it a failure
 			if ('result' in result and result['result'] == False) or \

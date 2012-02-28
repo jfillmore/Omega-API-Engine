@@ -362,6 +362,9 @@ class Omega extends OmegaRESTful implements OmegaApi {
 			if (! $files_locked) {
 				$this->shed->unlock($this->service_name . '/instances/sessions', $this->session_id);
 			}
+		} else if ($this->config->get('omega.scope') === 'none') {
+			// do nothing, as we don't care to save the state... technically this shouldn't be called
+			// but just in case...
 		} else {
 			throw new Exception("Invalid service scope '" . $this->config->get('omega.scope') . "'.");
 		}

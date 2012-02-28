@@ -125,7 +125,7 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
 			$this->header('Content-Type', 'application/json; charset=utf-8');
 		} else if ($encoding == 'xml') {
 			$this->header('Content-Type', 'application/xml; charset=utf-8');
-		} else if ($encoding == 'raw') {
+		} else if ($encoding == 'raw' || $encoding == 'html') {
 			// default to responding with HTML
 			$this->header('Content-Type', 'text/html; charset=utf-8');
 		} else {
@@ -298,6 +298,7 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
 					}
 					break;
 				case 'raw':
+				case 'html':
 					if (isset($this->response['result']) && $this->response['result']) {
 						if (isset($this->response['data'])) {
 							// encode data anyway, so we don't just say 'Array'

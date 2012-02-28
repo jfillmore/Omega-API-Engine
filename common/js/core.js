@@ -43,33 +43,45 @@ It also comtains various useful, generic functions. */
 		return doc.obj;
 	};
 
-	/* Document ourself two above functions. */
+	/* Document what we've already created of ourself. */
+	om = om.doc({
+		desc: 'Omega JavaScript library object.',
+		desc_ext: 'Root object for holding common JavaScript methods, as well as additional special-purpose libraries',
+		obj: om
+	});
+
 	om.doc = om.doc({
-		desc: 'Creates and returns a documented function.',
+		desc: 'Creates and returns a documented function or object.',
 		desc_ext: 'For example: var foo = om.doc({desc: "foo bar", obj: function () {}); alert(foo._doc.desc); // "foo bar"',
 		obj: om.doc,
 		params: {
-			desc: {
-				desc: 'Concise of what the function does and returns.',
-				type: 'string'
-			},
-			desc_ext: {
-				desc: 'Extended description of the function and/or its parameters.',
-				type: 'string'
-			},
-			method: {
-				desc: 'The function object to document.',
-				type: 'function'
-			},
-			params: {
-				desc: 'List of parameters accepted by the function. Keys in the list are the parameter names.',
-				desc_ext: 'The format for the list value is an object with the keys: "default_val", "desc", "desc_ext", and "type". Valid types are "undefined", "null", "string", "number", "array", "object", "function", and "boolean". If the parameters are dynamic the parameter: "_any" should be set.',
-				type: 'object'
-			},
-			prop_name: {
-				default_val: '_doc',
-				desc: "The function's doc object property name.",
-				type: 'string'
+			args: {
+				desc: 'List of arguments to populate documentation.',
+				type: 'object',
+				params: {
+					desc: {
+						desc: 'Concise description of what the function does and returns.',
+						type: 'string'
+					},
+					desc_ext: {
+						desc: 'Extended description of the function and/or its parameters.',
+						type: 'string'
+					},
+					method: {
+						desc: 'The function object to document.',
+						type: 'function'
+					},
+					params: {
+						desc: 'List of parameters accepted by the function. Keys in the list are the parameter names.',
+						desc_ext: 'The format for the list value is an object with the keys: "default_val", "desc", "desc_ext", "type", and "params" (for when "type" == "object"). Valid types are "undefined", "null", "string", "number", "array", "object", "function", and "boolean". If the parameters are dynamic the parameter: "*" should be set. If the parameter contains "params" then they object keys may be documented using the same format as "params".',
+						type: 'object'
+					},
+					prop_name: {
+						default_val: '_doc',
+						desc: "The function's doc object property name.",
+						type: 'string'
+					}
+				}
 			}
 		}
 	});
@@ -96,9 +108,9 @@ It also comtains various useful, generic functions. */
 	});
 
 	om.get = om.doc({
-		desc: 'Returns first non-function argument, executing any functions using the remaining arguments as parameters.',
+		desc: 'Returns first non-function argument, executing any functions using the remaining arguments as parameters. Makes it easy to provide a call-back function for argument values.',
 		params: {
-			_any: {
+			'*': {
 				desc: 'Each argument is parsed until a non-function argument is countered, allowing argument values to be the return value of functions for which you also supply the paramters.' 
 			}
 		},
@@ -144,7 +156,7 @@ It also comtains various useful, generic functions. */
 				desc: 'Floating point number.',
 				type: 'number'
 			},
-			f1: {
+			f2: {
 				desc: 'Amount to subtract from first number.',
 				type: 'number'
 			}
@@ -208,9 +220,14 @@ It also comtains various useful, generic functions. */
 				desc_ext: 'e.g. "fooBarBarn" => "foo bar barn"',
 				type: 'boolean',
 				default_val: false
+			},
+			spaces: {
+				desc: "If true then underscores will be replaced with spaces.",
+				type: 'boolean',
+				default_val: false
 			}
 		},
-		obj: function (str, add_cap_gap) {
+		obj: function (str, add_cap_gap, spaces) {
 			// lowercase the first char
 			str = str.substr(0, 1).toLowerCase() + str.substr(1);
 			// add the cap gap if requested
@@ -219,7 +236,12 @@ It also comtains various useful, generic functions. */
 			}
 			// condense spaces/underscores to a single underscore
 			// and strip out anything else but alphanums and underscores
-			return str.toLowerCase().replace(/( |_)+/g, '_').replace(/[^a-z0-9_]+/g, '');
+			str = str.toLowerCase().replace(/( |_)+/g, '_');
+			str = str.replace(/[^a-z0-9_]+/g, '');
+			if (spaces) {
+				str = str.replace(/_/g, ' ');
+			}
+			return str;
 		}
 	});
 
@@ -261,11 +283,11 @@ It also comtains various useful, generic functions. */
 		}
 	});
 
-	om.plural = om.doc({
-		desc: 'Returns whether or not an object has more than one property.',
+	om.empty = om.doc({
+		desc: 'Returns whether or not an object or array is empty.',
 		params: {
 			obj: {
-				desc: 'Object to check for multiple properties of.',
+				desc: 'Object to examine.',
 				type: 'object'
 			}
 		},
@@ -273,7 +295,29 @@ It also comtains various useful, generic functions. */
 			var item;
 			for (item in obj) {
 				if (obj.hasOwnProperty(item)) {
-					return true;
+					return false;
+				}
+			}
+			return true;
+		}
+	});
+
+	om.plural = om.doc({
+		desc: 'Returns whether or not an object or array has at least two items.',
+		params: {
+			obj: {
+				desc: 'Object to check for multiple properties of.',
+				type: 'object'
+			}
+		},
+		obj: function (obj) {
+			var item, count = 0;
+			for (item in obj) {
+				if (obj.hasOwnProperty(item)) {
+					count += 1;
+					if (count > 1) {
+						return true;
+					}
 				}
 			}
 			return false;
@@ -288,20 +332,8 @@ It also comtains various useful, generic functions. */
 			from_obj.bind(event_type, function (e) {
 				to_obj.trigger(event_type);
 				// let the link be processed up the DOM from here too
-			});
-		}
-	});
-
-	om.reflect_event = om.doc({
-		desc: 'Cause events from one object to instead trigger on another.',
-		params: {
-		},
-		obj: function (event_type, from_obj, to_obj) {
-			from_obj.bind(event_type, function (e) {
-				to_obj.trigger(event_type, e);
-				// don't let the event bubble back up in the DOM here
-				event_type.preventDefault();
-				event_type.stopPropagation();
+				e.preventDefault();
+				e.stopPropagation();
 			});
 		}
 	});
@@ -355,6 +387,17 @@ It also comtains various useful, generic functions. */
 	om.set_cookie = om.doc({
 		desc: 'Set a cookie with the specified value (which will be JSON encoded) & TTL.',
 		params: {
+			name: {
+				desc: "Cookie name.",
+				type: 'string'
+			},
+			value: {
+				desc: 'Cookie value.'
+			},
+			ttl: {
+				desc: "Time-to-live. Optional.",
+				type: 'number'
+			}
 		},
 		obj: function (name, value, ttl) {
 			if (value === undefined || value === null) {
@@ -409,6 +452,15 @@ It also comtains various useful, generic functions. */
 	om.get_cookie = om.doc({
 		desc: 'Returns a cookie by name, optionally decoding it as JSON.',
 		params: {
+			name: {
+				desc: 'The name of the cookie.',
+				type: 'string'
+			},
+			decode: {
+				desc: 'Whether or not to decode the value as JSON.',
+				type: 'boolean',
+				default_val: false
+			}
 		},
 		obj: function (name, decode) {
 			var cookies = om.get_cookies();
@@ -432,6 +484,15 @@ It also comtains various useful, generic functions. */
 	om.find_cookies = om.doc({
 		desc: 'Returns an array of cookies matching with the given RE obj.',
 		params: {
+			re: {
+				desc: 'Regular expression object to perform matching with.',
+				type: 'object'
+			},
+			decode: {
+				desc: 'Whether or not to decode the values as JSON.',
+				type: 'boolean',
+				default_val: 'false'
+			}
 		},
 		obj: function (re, decode) {
 			var matches = [],

@@ -7,7 +7,7 @@
    
 (function (om) {
 	om.ColorFactory = om.doc({
-		desc: 'Color manipulation routines.',
+		desc: 'Color manipulation routines. Also aliased as "om.cf".',
 		desc_ext: 'Hue, value, satuation adjustment, color blending, gradients, ' +
 			'and format conversion. Formats: hex, rgb, rgba, rbg_obj, hsv_obj.',
 		obj: {

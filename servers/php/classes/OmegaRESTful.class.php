@@ -147,8 +147,17 @@ abstract class OmegaRESTful {
 			}
 		}
 		// if not routed/handled, return a 404
+		/*
 		$om->response->header_num(404);
 		throw new Exception("Not found: $method $path.");
+		*/
+		// this will trigger a 404 
+		return array(
+			'api_branch' => $this,
+			'method' => null,
+			'route' => null,
+			'params' => array()
+		);
 	}
 	
 	/** Returns false if path is not within route. Otherwise returns information about the path, including extracting any arguments.

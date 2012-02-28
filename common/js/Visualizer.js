@@ -7,7 +7,7 @@
 
 (function (om) {
 	om.Visualizer = om.doc({
-		desc: "Data dumping and visualization.",
+		desc: 'Data dumping and visualization. Also aliased as "om.vis".',
 		obj: {
 			obj2html: om.doc({
 				desc: 'Recursively iterate over an object and pretty-print it with HTML',
