@@ -103,6 +103,7 @@ abstract class OmegaRESTful {
 					throw new Exception("Route target '" . get_class($target) . "' for '$route' in '" . get_class($this) . "' is not a RESTful object.");
 				}
 				// if our route matches this path...
+				//DEBUG echo "\nParse path on " . get_class($this) . ": $path => route $route\n";
 				$parsed = $this->_parse_path($path, $route, true);
 				if ($parsed) {
 					//DEBUG echo "Routing to " . get_class($target) . "\n";
@@ -114,7 +115,7 @@ abstract class OmegaRESTful {
 				}
 			}
 		}
-		//DEBUG echo "Path not found; checking handlers\n";
+		//DEBUG echo "Path not found; checking handlers for $path\n";
 		// resolve path against our own handlers if we're still here
 		$method = $_SERVER['REQUEST_METHOD'];
 		$handlers = $this->_sorted_handlers();
@@ -133,6 +134,7 @@ abstract class OmegaRESTful {
 						'params' => $params
 					);
 				} else {
+					//DEBUG echo "\nParse path on " . get_class($this) . ": $path => handler $handler\n";
 					$parsed = $this->_parse_path($path, $handler);
 					if ($parsed) {
 						return array(
@@ -183,18 +185,22 @@ abstract class OmegaRESTful {
 		$path = explode('/', substr($path_str, 1));
 		$route_str = $om->_pretty_path($route, true);
 		$route = explode('/', substr($route_str, 1));
-		//DEBUG echo "\nParse path on " . get_class($this) . ": $path_str ... $route_str\n";
 		// gather params as we go
 		$params = array();
 		$sub_path = $path;
+		$has_wildcard = (substr($route[count($route) - 1], 0, 1) === '*'); // because wildcards can match empty strings we have to be a bit extra careful
+		//DEBUG echo "Route $route_str has wildcard: $has_wildcard.\n";
 		if (count($route) > count($path)) {
-			// route too long? ain't ever gonna match
-			return false;
+			// route too long? ain't ever gonna match unless it contains a *wildcard at the end
+			if (! $has_wildcard) {
+				//DEBUG echo ": Aborted short route: $path_str vs $route_str\n";
+				return false;
+			}
 		}
 		for ($i = 0; $i < count($path); $i++) {
 			$path_part = $path[$i];
-			// prune routes that are too short, unless partial allowed
-			if ($i >= count($route)) {
+			// prune routes that are too short, unless partial allowed or we're going to be matching a wildcard
+			if ($i >= count($route) && ! $has_wildcard) {
 				if ($partial_route) {
 					//DEBUG echo "- Using partial route $route_str.\n";
 					break;
@@ -205,12 +211,22 @@ abstract class OmegaRESTful {
 			$route_part = $route[$i];
 			//DEBUG echo ": Matching $route_part against $path_part.\n";
 			// are we a parameter?
-			// TODO: support *arg to match up the rest
 			// TODO: support multiple /:words/:like-:this/
-			if (substr($route_part, 0, 1) == ':' && $path_part != '' && $path_part != '?') {
+			$first_char = substr($route_part, 0, 1);
+			if ($path_part != '' && $first_char === ':' && $path_part != '?') {
 				$param_name = substr($route_part, 1);
 				$params[$param_name] = $path_part;
 				//DEBUG echo "+ Collected param '$param_name' as '$path_part'.\n";
+			} else if ($first_char === '*' && $path_part != '?') {
+				$param_name = substr($route_part, 1);
+				// since we're * we eat up all remaining parts of the path
+				$params[$param_name] = join('/', array_slice($path, $i));
+				$has_wildcard = false; // note that we used our wildcard up
+				//DEBUG echo "+ Collected param '$param_name' as '" . $params[$param_name] . "'.\n";
+				$i = count($path);
+				while (count($sub_path) > 1) {
+					array_shift($sub_path);
+				}
 			} else if ($route_part != $path_part) {
 				// mismatched section of the route/path
 				//DEBUG echo "- Route part '$route_part' mismatches path part '$path_part'.\n";
@@ -219,11 +235,19 @@ abstract class OmegaRESTful {
 			//DEBUG echo "+ Route part '$route_part' matches path part: '$path_part'.\n";
 			// matched this part, so clip it out
 			array_shift($sub_path);
+			// if we have a wildcard and we're at the end of the line then use it now
+			if ($has_wildcard && $i + 1 >= count($path)) {
+				$param_name = substr($route[count($route) - 1], 1);
+				$params[$param_name] = '';
+				//DEBUG echo "+ Collected empty parameter to populate wildcard '$param_name' in route.\n";
+			}
+			//DEBUG echo ": i = $i\n, count(path) = " . count($path) . ".";
 		}
 		$return = array('params' => $params);
 		if ($partial_route) {
 			$return['sub_path'] = $sub_path;
 		}
+		//DEBUG echo "returning $path_str with " . var_export($return, true);
 		return $return;
 	}
 }
