@@ -5583,7 +5583,7 @@ Changelog:
 			om_client.del = function (api, params, callback, fail_callback, args) {
 				return om_client.request('DELETE', api, params, callback, fail_callback, args);
 			};
-			om_client['delete'] = om.client.del;
+			om_client['delete'] = om_client.del;
 
 			om_client.request = function (method, api, params, callback, fail_callback, args) {
 				var ajax, ajax_args;
