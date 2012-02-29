@@ -100,7 +100,6 @@ abstract class OmegaRESTful {
 				}
 				// check target class as OmegaRESTful
 				if (! is_subclass_of($target, get_class())) {
-					$om->_die(class_parents($target));
 					throw new Exception("Route target '" . get_class($target) . "' for '$route' in '" . get_class($this) . "' is not a RESTful object.");
 				}
 				// if our route matches this path...
