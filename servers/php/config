@@ -36,11 +36,11 @@ function usage() {
 	usage: $SCRIPT_NAME [args]
 
 	arguments:
-		-a, --auto      Auto config/
-		-f, --force     Allow data to be overwritten.
+		-a, --auto	  Auto config/
+		-f, --force	 Allow data to be overwritten.
 		-h, --help, -H  This information.
 		-i, --install   Guided installer option.
-		-c, --config    Configure mode.
+		-c, --config	Configure mode.
 		-v, --verbose   Print verbose debugging information to standard error.
 	EOI
 }
@@ -118,7 +118,7 @@ function do_config {
 		exists any data inside it will be preserved.
 
 		e.g.: > data/
-			  > /var/omega/data
+		      > /var/omega/data
 
 		EOI
 		data_dir=$(get_input) || exit 1
@@ -138,7 +138,7 @@ function do_config {
 			EOI
 			create=''
 			while [[ ! ("$create" == 'y' || "$create" == 'n') ]]; do
-				create=$(get_input '    (y/n) > ') || exit 1
+				create=$(get_input '	(y/n) > ') || exit 1
 			done
 			[ "$create" == 'n' ] && {
 				echo "Unable to continue without a valid data director.";
@@ -212,8 +212,8 @@ function do_config {
 
 	/** I hate constants. */
 	abstract class OmegaConstant {
-		// location to store our internal data
-		const data_dir = '$data_dir';
+	    // location to store our internal data
+	    const data_dir = '$data_dir';
 	}
 
 	?>
@@ -226,17 +226,17 @@ function do_config {
 	cat <<-EOI | "$php" -q > "$data_dir/OmegaServer/config" || fail "Failed to write host service configuration file to '$data_dir/OmegaServer/config'."
 	<?php
 	echo serialize(
-		array(
-			'omega' => array(
-				'nickname' => 'os',
-				'class_dirs' => array('$include_dir'),
-				'async' => false,
-				'key' => '$key',
-				'scope' => 'global',
-				'location' => '/os_admin/',
-				'admin_email' => '$admin_email'
-			)
-		)
+	    array(
+	        'omega' => array(
+	            'nickname' => 'os',
+	            'class_dirs' => array('$include_dir'),
+	            'async' => false,
+	            'key' => '$key',
+	            'scope' => 'global',
+	            'location' => '/os_admin/',
+	            'admin_email' => '$admin_email'
+	        )
+	    )
 	);
 	?>
 	EOI
@@ -248,11 +248,11 @@ function do_config {
 	cat <<-EOI | "$php" -q > "$data_dir/OmegaServer/services/config" || fail "Failed to write Omega service list '$data_dir/OmegaServer/services/config'."
 	<?php
 	echo serialize(
-		array(
-			'services' => array(
-				'OmegaServer' => true
-			)
-		)
+	    array(
+	        'services' => array(
+	            'OmegaServer' => true
+	        )
+	    )
 	);
 	?>
 	EOI
@@ -526,13 +526,13 @@ done
 	cat <<-EOI
 	<?php
 	class Foo {
-		public function bar(\$a = 0) { return \$a + 1; }
+	    public function bar(\$a = 0) { return \$a + 1; }
 	}
 	\$ref = new ReflectionClass('Foo');
 	\$ref_m = \$ref->getMethod('bar');
 	\$ref_ps = \$ref_m->getParameters();
 	if (\$ref_ps[0]->getPosition() !== 0) {
-		throw new Exception('fail');
+	    throw new Exception('fail');
 	}
 	?>
 	EOI
@@ -548,10 +548,10 @@ Welcome to the interactive Omega configuration script.
 
 Please enter a command:
 
-    quit           - Exit
-    config [auto]  - Build a new configuration files for Omega and the host 
+	quit           - Exit
+	config [auto]  - Build a new configuration files for Omega and the host 
 	                 service, OmegaServer.
-    install auto   - Fetch, compile, and configure nginx; add init.d files,
+	install auto   - Fetch, compile, and configure nginx; add init.d files,
 	                 and configure OmegaServer.
 
 EOI

@@ -1,6 +1,6 @@
 {
-	"name": "omega",
-	"main": "omega.node.js"
+    "name": "omega",
+    "main": "omega.node.js"
     "version": "0.1.0-rc.0",
     "title": "jQuery.Om()",
     "author": {

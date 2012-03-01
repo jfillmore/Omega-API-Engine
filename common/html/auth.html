@@ -1,41 +1,41 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
-	<head>
-		<title>Authenticate</title>
-		<link rel="stylesheet" href="/omega/css/omega.css" type="text/css" />
-		<script type="text/javascript" language="JavaScript" src="/omega/js/jquery.js"></script>
-		<script type="text/javascript" language="JavaScript" src="/omega/js/omega.js"></script>
-	</head>
-	<body>
-		<style type="text/css">
-		/*<![CDATA[*/
-		.login_box {
-			width: 170px;
-		}
-		.login_box .om_form input {
-			width: 100%;
-		}
-		/*]]>*/
-		</style>
-		<script language="JavaScript">
-		//<![CDATA[
-			$(document).ready(function() {
-				var client;
+    <head>
+        <title>Authenticate</title>
+        <link rel="stylesheet" href="/omega/css/omega.css" type="text/css" />
+        <script type="text/javascript" language="JavaScript" src="/omega/js/jquery.js"></script>
+        <script type="text/javascript" language="JavaScript" src="/omega/js/omega.js"></script>
+    </head>
+    <body>
+        <style type="text/css">
+        /*<![CDATA[*/
+        .login_box {
+            width: 170px;
+        }
+        .login_box .om_form input {
+            width: 100%;
+        }
+        /*]]>*/
+        </style>
+        <script language="JavaScript">
+        //<![CDATA[
+            $(document).ready(function() {
+                var client;
 
-				client = om.OmegaClient();
-				client.login_user({
-					on_login: function () {
-						// initialize the service, if needed
-						client.init_service({
-							on_init: function (service_info) {
-								// redirect to the service root
-								window.location = service_info.location;
-							}
-						});
-					}
-				});
-			});
-		//]]>
-		</script>
-	</body>
+                client = om.OmegaClient();
+                client.login_user({
+                    on_login: function () {
+                        // initialize the service, if needed
+                        client.init_service({
+                            on_init: function (service_info) {
+                                // redirect to the service root
+                                window.location = service_info.location;
+                            }
+                        });
+                    }
+                });
+            });
+        //]]>
+        </script>
+    </body>
 </html>
