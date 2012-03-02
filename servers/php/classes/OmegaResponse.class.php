@@ -83,8 +83,9 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
         $this->default_headers = array(
             'Content-Type' => 'text/html; charset=utf-8',
             'Cache-Control' => 'no-cache'
-            );
+        );
         $this->headers = $this->default_headers;
+        // allow the cookie path to be set explicitly
         if (isset($_GET['OMEGA_COOKIE_PATH'])) {
             $cookie_path = $_GET['OMEGA_COOKIE_PATH'];
         } else if (isset($_POST['OMEGA_COOKIE_PATH'])) {
@@ -111,7 +112,7 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
         return $this->cookie_path;
     }
 
-    /** Set the type of encoding that will be used to serialize the response. Default 'json', set to 'raw' to disable response encoding (e.g. to serve a file).
+    /** Set the type of encoding that will be used to serialize the response. Default 'json', set to 'raw' or 'html' to disable response encoding (e.g. to serve a file).
         expects: encoding=string 
         returns: string */
     public function set_encoding($encoding) {
@@ -126,8 +127,9 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
         } else if ($encoding == 'xml') {
             $this->header('Content-Type', 'application/xml; charset=utf-8');
         } else if ($encoding == 'raw' || $encoding == 'html') {
-            // default to responding with HTML
-            $this->header('Content-Type', 'text/html; charset=utf-8');
+            if ($encode == 'html') {
+                $this->header('Content-Type', 'text/html; charset=utf-8');
+            }
         } else {
             throw new Exception("Invalid response encoding: '$encoding'.");
         }
@@ -301,11 +303,17 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
                 case 'html':
                     if (isset($this->response['result']) && $this->response['result']) {
                         if (isset($this->response['data'])) {
-                            // encode data anyway, so we don't just say 'Array'
-                            if (is_array($this->response['data'])) {
-                                $this->response['data'] = json_encode($this->response['data']);
+                            if (is_resource($this->response['data'])) {
+                                // assume this is a file descriptor and just pass it through
+                                $response = '';
+                                fpassthru($this->response['data']);
+                            } else {
+                                // encode data anyway, so we don't just say 'Array'
+                                if (is_array($this->response['data'])) {
+                                    $this->response['data'] = json_encode($this->response['data']);
+                                }
+                                $response = (string)$this->response['data'];
                             }
-                            $response = (string)$this->response['data'];
                         } else {
                             $response = null;
                         }
