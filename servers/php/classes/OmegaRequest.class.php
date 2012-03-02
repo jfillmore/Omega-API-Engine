@@ -9,7 +9,6 @@
 
 /** Information about the API request being issued to the omega server. */
 class OmegaRequest extends OmegaRESTful implements OmegaApi {
-    public $api_re = '/^\/?(\?|\w*([\.\/]\w*\/?)*([\/\.]\?)?)$/';
     public $encodings = array('json', 'php', 'raw', 'html');
     private $encoding; // the encoding used for the data
     private $credentials; // the credentials, if available, that the user has supplied
@@ -131,10 +130,6 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
     private function set_api($api) {
         // rewrite the API as needed to expand it
         $api = $this->translate_api($api);
-        // make sure it looks like what we're expecting and break the path into parts
-        if (! preg_match($this->api_re, $api)) {
-            throw new Exception("Invalid API format: '$api'. ");
-        }
         $branches = explode('/', $api);
         // just a bit of sanity checking
         if (count($branches) == 0) {
@@ -381,10 +376,6 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         global $om;
         if (substr($api, 0, 1) === '/') {
             $api = substr($api, 1);
-        }
-        // validate the API
-        if (! preg_match($this->api_re, $api)) {
-            throw new Exception("Invalid API: '$api'.");
         }
         // TODO: deprecate this now that / is the default
         if (! $this->is_restful()) {

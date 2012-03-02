@@ -30,10 +30,6 @@ class OmegaEditor extends OmegaSubservice {
         returns: array */
     public function view_method_source($api_method) {
         global $om;
-        // validate the API
-        if (! preg_match($om->request->api_re, $api_method)) {
-            throw new Exception("Invalid API method: '$api_method'.");
-        }
         // translate the API
         $api_method = $om->request->translate_api($api_method);
         // resolve it
@@ -66,10 +62,6 @@ class OmegaEditor extends OmegaSubservice {
         returns: string */
     public function view_branch_source($api_branch) {
         global $om;
-        // validate the API
-        if (! preg_match($om->request->api_re, $api_branch)) {
-            throw new Exception("Invalid API method: '$api_branch'.");
-        }
         // translate the API
         $api_branch = $om->request->translate_api($api_branch);
         // resolve it

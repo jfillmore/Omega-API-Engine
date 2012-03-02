@@ -214,9 +214,6 @@ class OmegaAuthority extends OmegaSubservice {
         returns: boolean */
     public function check_access($api, $username) {
         global $om;
-        if (! preg_match($om->request->api_re, $api)) {
-            throw new Exception("Invalid API: '$api'.");
-        }
         // if we're logged in as the service itself then we get access to everything
         if ($username == $om->config->get('omega.nickname')) {
             return true;
