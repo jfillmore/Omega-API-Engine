@@ -278,6 +278,13 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
         if (! in_array($encoding, $om->request->encodings)) {
             throw new Exception("Invalid data encoding: $encoding.");
         }
+        // first peek at our header to see if it's anything but json... if so, change to 'raw'
+        $content_type = $this->headers['Content-Type'];
+        if ($encoding === 'json') {
+            if (strpos($content_type, 'application/json') === false) {
+                $encoding = 'raw';
+            }
+        }
         // we won't return anything unless the result is at least set
         if (isset($this->response['result'])) {
             // if the result is false then require a reason
