@@ -609,7 +609,7 @@ class Omega extends OmegaRESTful implements OmegaApi {
     /** Returns a cleaned up version of a path (e.g. condense multiple slashes into one, trims trailing slashes). May optionally also force to be absolute.
         expects: path=string, absolute=boolean
         returns: string */
-    public function _pretty_path($path, $absolute) {
+    public function _pretty_path($path, $absolute = false) {
         $path = rtrim($path, '/');
         if ($absolute) {
             $path = '/' . $path;
