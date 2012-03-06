@@ -124,7 +124,7 @@ abstract class OmegaCrudable extends OmegaRESTful implements OmegaApi {
     }
 
     private function prop_sql($name, $prop) {
-        $sql = "`$name` " .  strtoupper($prop['type']);
+        $sql = "`$name` " . $prop['type'];
         if (isset($prop['flags'])) {
             if (in_array('NOT NULL', $prop['flags'])) {
                 $sql .= ' NOT NULL';
@@ -528,7 +528,8 @@ abstract class OmegaCrudable extends OmegaRESTful implements OmegaApi {
             'auto_split' => true, // auto split JOIN data to subarray, e.g. {foo: {bar:{name:'bob'}, foodbar:3}}
             'keyed' => null, // key data on specified key, defaulting to primary key if true (e.g. return {"3": {"id": 3, "name": "foo"}};)
             'order_by' => null, // column to sort on
-            'reverse' => false // sort in descending order
+            'reverse' => false, // sort in descending order
+            'debug' => false
         ), $args);
         /*
         e.g
@@ -602,6 +603,9 @@ abstract class OmegaCrudable extends OmegaRESTful implements OmegaApi {
             if ($offset !== null && $offset > 0) {
                 $sql .= ' OFFSET ' . (int)$offset;
             }
+        }
+        if ($args['debug']) {
+            return $sql;
         }
         if ($args['keyed'] === true) {
             $objs = $this->db->query($sql, 'array', $this->_get_primary_key(), $args['auto_split']);

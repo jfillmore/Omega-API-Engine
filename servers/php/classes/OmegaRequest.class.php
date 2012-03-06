@@ -51,7 +51,18 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         // e.g. base_uri = '/foo/bar'
         $base_uri = $om->_pretty_path($om->config->get('omega.location'), true);
         // e.g. request_uri = '/foo/bar/a/b/cde'
-        $request_uri = $om->_pretty_path(urldecode($_SERVER['REQUEST_URI']), true);
+        $request_uri = $om->_pretty_path($_SERVER['REQUEST_URI'], true);
+        // chop off '?...'\
+        $q_pos = strpos($request_uri, '?');
+        if ($q_pos !== false) {
+            $request_uri = substr($request_uri, 0, $q_pos);
+        }
+        $request_uri = urldecode($request_uri);
+        // determine the request type
+        // TODO: have a better way of handling introspection than this hack
+        if (substr($request_uri, -1) == '?') { // aka '?'
+            $this->set_type('query');
+        }
         // compare where we're configured at against what was requested to determine the API
         $base_parts = explode('/', substr($base_uri, 1));
         $request_parts = explode('/', substr($request_uri, 1));
@@ -80,12 +91,6 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                 array_unshift($api_parts, $service_nickname);
                 $this->set_api(join('/', $api_parts));
             }
-        }
-
-        // determine the request type
-        // TODO: have a better way of handling introspection
-        if (substr($this->get_api(), -1) == '?') {
-            $this->set_type('query');
         }
 
         // set our option defaults, and collect any that were sent by the user
