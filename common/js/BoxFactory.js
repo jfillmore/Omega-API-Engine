@@ -3359,6 +3359,7 @@
             var message, func;
             args = om.get_args({
                 classes: [],
+                'class': undefined,
                 constraint: $(window),
                 dont_show: false,
                 modal: false // automatically cover owning object with a skirt obj
@@ -3373,6 +3374,9 @@
                 classes: args.classes,
                 insert: args.insert
             });
+            if (args['class']) {
+                message.$.toggleClass(args['class'], true);
+            }
             message.$.toggleClass('om_message', true);
             // add in a skirt if in modal mode
             if (args.modal) {
