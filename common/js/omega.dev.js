@@ -519,14 +519,11 @@ It also comtains various useful, generic functions. */
         },
         obj: function (num, args) {
             var mod, int_half, multiplier, i, to_add;
-            /* args = {
-                interval, // round to nearest 4th (e.g 5.9 -> 4, 6.1 -> 8) (default: unset)
-                decimal, // rount to 10^n decimal (default: 0)
-                min_dec // pad the decimal with 0's to ensure min length, returns string
-            }; */
-            if (args === undefined) {
-                args = {};
-            }
+            args = om.get_args({
+                interval: 1, // round to nearest 4th (e.g 5.9 -> 4, 6.1 -> 8) (default: 1)
+                decimal: 0, // rount to 10^n decimal (default: 0)
+                min_dec: undefined // pad the decimal with 0's to ensure min length, returns string
+            }, args);
             if (args.interval !== undefined && args.decimal !== undefined) {
                 throw new Error("Unable to use both the 'interval' and 'decimal' options.");
             }
@@ -4037,7 +4034,7 @@ Changelog:
     om.BoxFactory.make.input.obj = om.doc({
         desc: 'Generic object creation. Base object for fancier input objects.',
         obj: function (owner, args) {
-            var obj;
+            var obj, on_click;
             args = om.get_args({
                 caption: undefined,
                 caption_orient: 'top',
@@ -4049,9 +4046,13 @@ Changelog:
                 tooltip: undefined, // a tooltip to show on mouse-over
                 validate: undefined
             }, args);
-            /* args = {
-            }; */
+            // we don't want to pass our own on_click to the base box obj, as we only want it to work on the input value
+            if (args.on_click) {
+                on_click = args.on_click;
+                args.on_click = undefined;
+            }
             obj = om.bf.make.box(owner, args);
+            obj._on_click = on_click;
             obj.$.toggleClass('om_input', true);
             // create a generic _val() function to get or set the value
             obj._args = args;
@@ -4120,8 +4121,8 @@ Changelog:
             }
             // add in a click event if supplied
             obj.$.delegate('.om_input_value', 'click dblclick', function (click_event) {
-                if (typeof(obj._args.on_click) === 'function') {
-                    obj._args.on_click(click_event, obj);
+                if (typeof(obj._on_click) === 'function') {
+                    obj._on_click(click_event, obj);
                 }
             });
             // run our on_change method when the value is changed
@@ -4816,6 +4817,7 @@ Changelog:
             var message, func;
             args = om.get_args({
                 classes: [],
+                'class': undefined,
                 constraint: $(window),
                 dont_show: false,
                 modal: false // automatically cover owning object with a skirt obj
@@ -4830,6 +4832,9 @@ Changelog:
                 classes: args.classes,
                 insert: args.insert
             });
+            if (args['class']) {
+                message.$.toggleClass(args['class'], true);
+            }
             message.$.toggleClass('om_message', true);
             // add in a skirt if in modal mode
             if (args.modal) {

@@ -2580,7 +2580,7 @@
     om.BoxFactory.make.input.obj = om.doc({
         desc: 'Generic object creation. Base object for fancier input objects.',
         obj: function (owner, args) {
-            var obj;
+            var obj, on_click;
             args = om.get_args({
                 caption: undefined,
                 caption_orient: 'top',
@@ -2592,9 +2592,13 @@
                 tooltip: undefined, // a tooltip to show on mouse-over
                 validate: undefined
             }, args);
-            /* args = {
-            }; */
+            // we don't want to pass our own on_click to the base box obj, as we only want it to work on the input value
+            if (args.on_click) {
+                on_click = args.on_click;
+                args.on_click = undefined;
+            }
             obj = om.bf.make.box(owner, args);
+            obj._on_click = on_click;
             obj.$.toggleClass('om_input', true);
             // create a generic _val() function to get or set the value
             obj._args = args;
@@ -2663,8 +2667,8 @@
             }
             // add in a click event if supplied
             obj.$.delegate('.om_input_value', 'click dblclick', function (click_event) {
-                if (typeof(obj._args.on_click) === 'function') {
-                    obj._args.on_click(click_event, obj);
+                if (typeof(obj._on_click) === 'function') {
+                    obj._on_click(click_event, obj);
                 }
             });
             // run our on_change method when the value is changed
