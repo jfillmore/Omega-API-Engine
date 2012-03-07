@@ -127,7 +127,7 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
         } else if ($encoding == 'xml') {
             $this->header('Content-Type', 'application/xml; charset=utf-8');
         } else if ($encoding == 'raw' || $encoding == 'html') {
-            if ($encode == 'html') {
+            if ($encoding == 'html') {
                 $this->header('Content-Type', 'text/html; charset=utf-8');
             }
         } else {
