@@ -12,7 +12,7 @@ BASE_DIR=$(cd $(dirname "$0") && pwd -P)
 SCRIPT_NAME=$(basename "$0")
 
 # install config options
-NGINX_VERSION="0.8.54"
+NGINX_VERSION="1.1.16"
 NGINX_SRC="http://nginx.org/download/nginx-$NGINX_VERSION.tar.gz"
 NGINX_USER="nobody"
 NGINX_BASE_DIR='/usr/local/nginx'
