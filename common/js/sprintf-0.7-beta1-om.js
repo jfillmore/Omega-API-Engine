@@ -104,7 +104,11 @@ Changelog:
 					}
 
 					if (/[^s]/.test(match[8]) && (get_type(arg) != 'number')) {
-						throw(om.sprintf('[sprintf] expecting number but found %s', get_type(arg)));
+						// it's a string, but does it quack like a number?
+						if (! (get_type(arg) == 'string' &&
+								((match[8] == 'f') && (/^(\d+\.?\d*|\.\d+)$/.test(arg)) || /^\d+$/.test(arg)))) {
+							throw(om.sprintf('[sprintf] expecting number but found %s', get_type(arg)));
+						}
 					}
 					switch (match[8]) {
 						case 'b': arg = arg.toString(2); break;
