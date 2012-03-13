@@ -980,9 +980,9 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         // inlude stats on each parameter, if requested
         if ($verbose) {
             $stats['params'] = array();
-            foreach ($r_method->getParameters() as $r_param) {
+            foreach ($r_method->getParameters() as $param_pos => $r_param) {
                 $param_name = $r_param->getName();
-                $param_pos = $r_param->getPosition();
+                //$param_pos = $r_param->getPosition(); // getPosition() only in php 5.2.3+
                 $stats['params'][$param_pos] = array(
                     'name' => $param_name,
                     'optional' => $r_param->isOptional()
