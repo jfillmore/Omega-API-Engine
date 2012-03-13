@@ -12,7 +12,11 @@
 
 import pycurl
 import urllib
-import json
+try:
+    import json
+except:
+    import simplejson
+    json = simplejson
 import re
 import dbg
 import StringIO
