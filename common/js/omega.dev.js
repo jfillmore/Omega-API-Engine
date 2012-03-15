@@ -3048,7 +3048,7 @@ Changelog:
 
 			/* Form container and methods to set/fetch data, as well as do basic layout. */
 			form: function (owner, fields, args) {
-				var form, classes, name, field;
+				var form, name, field;
 				args = om.get_args({
 					auto_break_length: null, // automatically insert a break after every X options
 					breaker_args: { // arguments to use when creating break manager
@@ -3058,6 +3058,7 @@ Changelog:
 						on_tab_change: undefined
 					},
 					break_type: undefined, // null, 'column', 'tab', 'page'
+                    classes: undefined,
 					dont_show: false
 				}, args, true);
 				/* // example of fields
@@ -3081,7 +3082,7 @@ Changelog:
 				 ... */
 				form = om.bf.make.box(owner, {
 					dont_show: true,
-					'classes': classes,
+					'classes': args.classes,
 					insert: args.insert
 				});
 				form.$.toggleClass('om_form', true);
