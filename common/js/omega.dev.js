@@ -3058,6 +3058,7 @@ Changelog:
 						on_tab_change: undefined
 					},
 					break_type: undefined, // null, 'column', 'tab', 'page'
+                    'class': undefined,
                     classes: undefined,
 					dont_show: false
 				}, args, true);
@@ -3083,6 +3084,7 @@ Changelog:
 				form = om.bf.make.box(owner, {
 					dont_show: true,
 					'classes': args.classes,
+                    'class': args['class'],
 					insert: args.insert
 				});
 				form.$.toggleClass('om_form', true);
