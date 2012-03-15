@@ -17,7 +17,7 @@
 		box: function (jquery_obj, args) {
 			var box, type, part_type, i, arg;
 			args = om.get_args({
-				html: '',
+				html: undefined,
 				imbue: undefined // object from om.bf
 				// on_* will be auto
 			}, args, true);
