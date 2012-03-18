@@ -2563,7 +2563,8 @@
 					args = om.get_args({
 						caption: undefined,
 						caption_orient: 'top',
-						classes: [],
+                        'class': undefined,
+						classes: undefined,
 						dont_show: false,
 						link_caption: true, // whether or not to link DOM events to thecaption to actual input object
 						on_change: undefined, // what to do when the value changes
