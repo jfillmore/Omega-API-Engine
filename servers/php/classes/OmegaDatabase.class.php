@@ -329,11 +329,11 @@ class OmegaDatabase {
 		if (in_array($type, array('DATE', 'TIME', 'DATETIME', 'VHARCHAR', 'CHAR', 'TIMESTAMP'))) {
 			return $value;
 		} else if (in_array($type, array('DECIMAL', 'FLOAT', 'DOUBLE'))) {
-			return (double)$value;
+			return $value === null ? $value : (double)$value;
 		} else if (in_array($type, array('BIT'))) {
-			return (boolean)$value;
+			return $value === null ? $value : (boolean)$value;
 		} else if (in_array($type, array('TINYINT', 'SMALLINT', 'INTEGER'))) {
-			return (int)$value;
+			return $value === null ? $value : (int)$value;
 		}  else {
 			return $value;
 		}
