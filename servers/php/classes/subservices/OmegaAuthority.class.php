@@ -75,7 +75,7 @@ class OmegaAuthority extends OmegaSubservice {
                 }
             }
             $om->response->header_num(401);
-            throw new Exception("Invalid username or password. $service_creds $credentials");
+            throw new Exception("Invalid username or password.");
         } else if (is_array($credentials)) {
             // old style credentials are a get/post json encoded object
             if (isset($credentials['username']) && isset($credentials['password'])) {
