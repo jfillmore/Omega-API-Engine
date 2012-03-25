@@ -406,14 +406,43 @@
                 };
 
                 ajax.on_ajax_failure = function (xml_http_request, text_status, error_thrown) {
-                    var message, error;
-                    if (typeof(fail_callback) === 'function') {
-                        fail_callback({result: false, reason: xml_http_request.responseText});
+                    var response_parts, response_encoding, response;
+                    response_parts = xml_http_request.getResponseHeader('Content-Type').split('; ');
+                    response_encoding = response_parts[0];
+                    if (response_parts.length > 1) {
+                        response_charset = response_parts[1];
+                    }
+                    response = xml_http_request.responseText;
+                    if (response_encoding === 'application/json') {
+                        // if there was any spillage then note
+                        response = om.json.decode(response);
+                        if (response.spillage !== undefined) {
+                            spillage = om.bf.make.confirm(
+                                $('body'),
+                                'API Spillage: ' + api,
+                                '<div class="om_spillage">' + response.spillage + '</div>'
+                            );
+                            spillage._constrain_to();
+                        }
+                        // if this succeeded then execute any included callback code
+                        if (response.result !== undefined) {
+                            if (response.reason === undefined) {
+                                response.reason = "Failed to execute '" + api + "'; an unknown error has occurred.";
+                            }
+                            if (typeof(fail_callback) === 'function') {
+                                fail_callback(response.reason, ajax_args);
+                            } else {
+                                throw new Error(response.reason);
+                            }
+                        } else {
+                            if (typeof(fail_callback) === 'function') {
+                                fail_callback("Failed to execute '" + api + "'; response object contains no result boolean.", ajax_args);
+                            } else {
+                                throw new Error("Failed to execute '" + api + "'; response object contains no result boolean.");
+                            }
+                        }
                     } else {
-                        message = 'An error has occurred within Omega. The following data was returned, but could not be interpretted:<br/><br/>' + xml_http_request.responseText;
-                        error = om.bf.make.confirm($('body'), 'Omega Error', message);
-                        error._constrain_to();
-                        throw new Error(message);
+                        om.get(om_client.on_fail, response, ajax_args);
                     }
                 };
 

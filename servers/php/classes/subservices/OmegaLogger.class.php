@@ -65,6 +65,27 @@ class OmegaLogger extends OmegaSubservice {
     /** Set the log verbosity for the request. See 'get_verbocity_options' for list of options.
         expects: verbosity=array */
     public function _set_verbosity($verbosity) {
+        // older applications use a bit-based system, which we can translate
+        if (is_numeric($verbosity)) {
+            $bits = str_split(strrev(decbin($verbosity)));
+            $items = array();
+            if (isset($bits[0]) && $bits[0]) {
+                $items[] = 'api_params';
+            }
+            if (isset($bits[1]) && $bits[1]) {
+                $items[] = 'api_data';
+            }
+            if (isset($bits[2]) && $bits[2]) {
+                $items[] = 'api_data';
+            }
+            if (isset($bits[3]) && $bits[3]) {
+                $items[] = 'app_dump';
+                $items[] = 'api_environ';
+            }
+            $verbosity = $items;
+
+        }
+        // coerce into an array
         if (! is_array($verbosity)) {
             $verbosity = array($verbosity);
         }

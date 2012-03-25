@@ -520,7 +520,7 @@ It also comtains various useful, generic functions. */
         obj: function (num, args) {
             var mod, int_half, multiplier, i, to_add;
             args = om.get_args({
-                interval: 1, // round to nearest 4th (e.g 5.9 -> 4, 6.1 -> 8) (default: 1)
+                interval: undefined, // round to nearest 4th (e.g 5.9 -> 4, 6.1 -> 8) (default: 1)
                 decimal: 0, // rount to 10^n decimal (default: 0)
                 min_dec: undefined // pad the decimal with 0's to ensure min length, returns string
             }, args);
@@ -4038,7 +4038,8 @@ Changelog:
             args = om.get_args({
                 caption: undefined,
                 caption_orient: 'top',
-                classes: [],
+                classes: undefined,
+                'class': undefined,
                 dont_show: false,
                 link_caption: true, // whether or not to link DOM events to thecaption to actual input object
                 on_change: undefined, // what to do when the value changes
@@ -5536,14 +5537,43 @@ Changelog:
                 };
 
                 ajax.on_ajax_failure = function (xml_http_request, text_status, error_thrown) {
-                    var message, error;
-                    if (typeof(fail_callback) === 'function') {
-                        fail_callback({result: false, reason: xml_http_request.responseText});
+                    var response_parts, response_encoding, response;
+                    response_parts = xml_http_request.getResponseHeader('Content-Type').split('; ');
+                    response_encoding = response_parts[0];
+                    if (response_parts.length > 1) {
+                        response_charset = response_parts[1];
+                    }
+                    response = xml_http_request.responseText;
+                    if (response_encoding === 'application/json') {
+                        // if there was any spillage then note
+                        response = om.json.decode(response);
+                        if (response.spillage !== undefined) {
+                            spillage = om.bf.make.confirm(
+                                $('body'),
+                                'API Spillage: ' + api,
+                                '<div class="om_spillage">' + response.spillage + '</div>'
+                            );
+                            spillage._constrain_to();
+                        }
+                        // if this succeeded then execute any included callback code
+                        if (response.result !== undefined) {
+                            if (response.reason === undefined) {
+                                response.reason = "Failed to execute '" + api + "'; an unknown error has occurred.";
+                            }
+                            if (typeof(fail_callback) === 'function') {
+                                fail_callback(response.reason, ajax_args);
+                            } else {
+                                throw new Error(response.reason);
+                            }
+                        } else {
+                            if (typeof(fail_callback) === 'function') {
+                                fail_callback("Failed to execute '" + api + "'; response object contains no result boolean.", ajax_args);
+                            } else {
+                                throw new Error("Failed to execute '" + api + "'; response object contains no result boolean.");
+                            }
+                        }
                     } else {
-                        message = 'An error has occurred within Omega. The following data was returned, but could not be interpretted:<br/><br/>' + xml_http_request.responseText;
-                        error = om.bf.make.confirm($('body'), 'Omega Error', message);
-                        error._constrain_to();
-                        throw new Error(message);
+                        om.get(om_client.on_fail, response, ajax_args);
                     }
                 };
 
