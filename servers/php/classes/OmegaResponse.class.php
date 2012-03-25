@@ -161,6 +161,7 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
         expects: num=number
         returns: array */
     public function header_num($num) {
+        global $om;
         if (! in_array($num, array_keys($this->status_codes))) {
             throw new Exception("Invalid HTTP return status code: $num.");
         }
@@ -287,10 +288,6 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
         }
         // we won't return anything unless the result is at least set
         if (isset($this->response['result'])) {
-            // if the result is false then require a reason
-            if (! isset($this->response['result'])) {
-                throw new Exception("An internal application error occurred. A problem occurred but no reason was logged. An administrator has been automatically notified of this problem.");
-            }
             // return an encoded version of ourself
             switch ($encoding) {
                 case 'json':

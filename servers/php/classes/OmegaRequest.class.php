@@ -51,8 +51,17 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         // e.g. base_uri = '/foo/bar'
         $base_uri = $om->_pretty_path($om->config->get('omega.location'), true);
         // e.g. request_uri = '/foo/bar/a/b/cde'
-        $request_uri = $om->_pretty_path($_SERVER['REQUEST_URI'], true);
-        // chop off '?...'\
+        // document uri = nginx rewritten URL, request_uri = actual HTTP request
+        // it's preferable to use the rewritten URL so APIs can be mounted at
+        // locations other than in 'omega.location'
+        if (isset($_SERVER['DOCUMENT_URI'])) {
+            $request_uri = $_SERVER['DOCUMENT_URI'];
+        } else {
+            $request_uri = $_SERVER['REQUEST_URI'];
+        }
+        $request_uri = $om->_pretty_path($request_uri, true);
+        //throw new Exception(var_export($_SERVER, true));
+        // chop off '?...' from URI
         $q_pos = strpos($request_uri, '?');
         if ($q_pos !== false) {
             $request_uri = substr($request_uri, 0, $q_pos);
@@ -70,13 +79,14 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         $api_parts = array();
         for ($i = 0; $i < count($request_parts); $i++) {
             $req_part = $request_parts[$i];
-            // prune routes that are too short, unless partial allowed
             if ($i < count($base_parts)) {
-                // we should match the base URL
+                // we should match the base URL each step here
                 if ($req_part != $base_parts[$i]) {
                     $om->response->header_num(404);
+                    throw new Exception("Unable to parse API from $request_uri: expected '" . $base_parts[$i] . "', found '$req_part'.");
                 }
             } else {
+                // otherwise, this is part of the API
                 $api_parts[] = $req_part;
             }
         }
@@ -362,6 +372,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
             'get' => $_GET,
             'post' => $_POST,
             'stdin' => file_get_contents('php://input'),
+            'doc_uri' => $_SERVER['DOCUMENT_URI'],
             'http_method' => $_SERVER['REQUEST_METHOD'],
             'http_request' => $_SERVER['REQUEST_URI'],
             'http_accept' => $_SERVER['HTTP_ACCEPT'],

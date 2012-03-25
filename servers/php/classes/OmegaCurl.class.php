@@ -4,7 +4,6 @@ class OmegaCurl {
     private $curl_handle;
     private $server;
     private $cookie_file;
-    private $use_ssl = false;
     private $http_auth = false;
     private $http_auth_info = null;
     private $agent = null;
@@ -30,21 +29,9 @@ class OmegaCurl {
         @unlink($this->cookie_file);
     }
 
-    private function get_protocol() {
-        if ($this->use_ssl) {
-            return 'https://';
-        } else {
-            return 'http://';
-        }
-    }
-
     public function get_port() {
         if ($this->port === null) {
-            if ($this->use_ssl) {
-                return 443;
-            } else {
-                return 80;
-            }
+			return 80;
         } else {
             return $this->port;
         }
@@ -57,15 +44,6 @@ class OmegaCurl {
             // null = 80/443 by default
             $this->port = null;
         }
-    }
-
-    public function set_ssl($enable = true) {
-        if ($enable) {
-            $this->use_ssl = true;
-        } else {
-            $this->use_ssl = false;
-        }
-        $this->init();
     }
 
     private function get_base_url() {
@@ -92,10 +70,8 @@ class OmegaCurl {
         if ($this->curl_handle === false) {
             throw new Exception('Failed to initialize cURL handle.');
         }
-        if ($this->use_ssl) {
-            curl_setopt($this->curl_handle, CURLOPT_SSL_VERIFYHOST, 0);
-            curl_setopt($this->curl_handle, CURLOPT_SSL_VERIFYPEER, 0);
-        }
+		curl_setopt($this->curl_handle, CURLOPT_SSL_VERIFYHOST, 0);
+		curl_setopt($this->curl_handle, CURLOPT_SSL_VERIFYPEER, 0);
         if ($this->http_auth && $this->http_auth_info != null) {
             curl_setopt($this->curl_handle, CURLOPT_HTTPAUTH, CURLAUTH_ANY);
             curl_setopt($this->curl_handle, CURLOPT_USERPWD, $this->http_auth_info);
@@ -128,7 +104,7 @@ class OmegaCurl {
             throw new Exception("cURL not initialized; this should not happen.");
         }
         $method = strtoupper($method);
-        $url = $this->get_protocol() . $this->get_base_url() . "/$url";
+        $url = $this->get_base_url() . "/$url";
         $content_length = strlen($params);
         if ($method === 'GET') {    
             if (is_array($params)) {
@@ -180,7 +156,8 @@ class OmegaCurl {
                 'meta' => $meta
             );
         } else {
-            if ($meta['http_code'] < 200 || 
+            if ($result === false ||
+				$meta['http_code'] < 200 || 
                 $meta['http_code'] >= 300) {
                 throw new Exception("Failed to access '$url' with the HTTP error code " . $meta['http_code'] . '. cURL error message was "' . curl_error($this->curl_handle) . '".');
             }

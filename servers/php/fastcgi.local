@@ -24,7 +24,7 @@ FCGI_WEB_SERVER_ADDRS='127.0.0.1'
 ALLOWED_ENV="PATH USER"
 
 # if this script is run as root switch to the following user
-USERID=wendel
+USERID=nginx
 
 
 if test x$PHP_FCGI_CHILDREN = x; then

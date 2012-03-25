@@ -12,25 +12,38 @@ class OmegaClient {
     const version = '0.2';
 
     private $base_url;
+    private $service_url; // e.g. https://
+	private $uri_root; // e.g. /, /api (parsed from service_url)
     private $credentials;
     private $curl;
     private $verbose;
+	private $port;
     private $cookie_file = 'c_is_for_cookie-thats_good_enough_for_me';
 
-    public function __construct($base_url, $credentials = null, $port = 5800, $verbose = false) {
+    public function __construct($service_url, $credentials = null, $port = 5800, $verbose = false) {
+        $this->set_verbose($verbose);
+		// extract the base URL and SSL 
+		$matches = array();
+		//                  proto:1/2    hostname:3       path:4
+		if (! preg_match('/^(http(s):\/\/)?([a-z0-9-\.]+)\/?(.*)$/i',
+			$service_url,
+			$matches)
+			) {
+			throw new Exception("Invalid URL: '$service_url'.");
+		}
+		if (! $matches[1]) {
+			$matches[1] = 'https://'; // default to SSL
+		}
+		$this->base_url = $matches[1] . $matches[3];
+		$this->uri_root = '/' . $matches[4] . '/';
+		$this->set_service_url($service_url);
+		$this->set_credentials($credentials);
         $this->curl = new OmegaCurl(
-            $base_url,
+            $this->base_url,
             $port
         );
-        $this->set_verbose($verbose);
-    }
-
-    private function get_protocol() {
-        if ($this->use_ssl) {
-            return 'https';
-        } else {
-            return 'http';
-        }
+		$this->port = $port;
+		$this->curl->init();
     }
 
     private function get_service_url() {
@@ -40,7 +53,9 @@ class OmegaClient {
     public function set_credentials($value) {
         if (is_array($value)) {
             // make sure we have a user or pass
-            if (! (isset($value['username']) && isset($value['password']))) {
+            if (! (isset($value['username']) &&
+				isset($value['password']))
+				) {
                 throw new Exception("Invalid credentials array. Keys of 'username' and 'password' expected, but were not found.");
             }
             $this->credentials = $value;
@@ -64,33 +79,13 @@ class OmegaClient {
     }
 
     public function __wakeup() {
-        $this->init_curl();
+        $this->curl = new OmegaCurl(
+            $this->base_url,
+            $this->port
+        );
+        $this->curl->init();
     }
     
-    private function init_curl() {
-        if (! function_exists('curl_init')) {
-            throw new Exception('There appears to be no support for cURL in this PHP installation.');
-        }
-        $curl_handle = curl_init();
-        if ($curl_handle === false) {
-            throw new Exception('Failed to initialize cURL handle.');
-        }
-        if ($this->use_ssl) {
-            curl_setopt($curl_handle, CURLOPT_SSL_VERIFYHOST, 0);
-            curl_setopt($curl_handle, CURLOPT_SSL_VERIFYPEER, 0);
-        }
-        curl_setopt($curl_handle, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($curl_handle, CURLOPT_POST, 1);
-        curl_setopt($curl_handle, CURLOPT_HEADER, 0);
-        curl_setopt($curl_handle, CURLOPT_USERAGENT, 'OmegaClient v' . OmegaClient::version);
-        curl_setopt($curl_handle, CURLOPT_COOKIEFILE, $this->cookie_file);
-        curl_setopt($curl_handle, CURLOPT_COOKIESESSION, 1);
-        if ($curl_handle == null) {
-            throw new Exception("cURL not initialized; this should not happen.");
-        }
-        return $curl_handle;
-    }
-
     public function set_verbose($verbose = false) {
         if ($verbose) {
             $this->verbose = true;
@@ -103,8 +98,8 @@ class OmegaClient {
         global $om;
         $meta = array(
             'timestamp' => time(),
-            'secure' => $this->use_ssl,
-            'server' => $this->service_url  . ':' . $this->port,
+            'server' => $this->service_url,
+			'port' => $this->port
         );
         if ($this->credentials === null) {
             $meta['credentials'] = null;
@@ -117,17 +112,48 @@ class OmegaClient {
     }
 
     public function get($url, $params = '', $extended = false, $headers = null) {
-        return $this->curl->get($url, $params, $extended, $headers);
+        return $this->curl->get(
+			$this->uri_root . $url,
+			$params,
+			$extended,
+			$headers
+		);
+    }
+
+    public function post($url, $params = '', $extended = false, $headers = null) {
+        return $this->curl->post(
+			$this->uri_root . $url,
+			$params,
+			$extended,
+			$headers
+		);
+    }
+
+    public function put($url, $params = '', $extended = false, $headers = null) {
+        return $this->curl->put(
+			$this->uri_root . $url,
+			$params,
+			$extended,
+			$headers
+		);
+    }
+
+    public function delete($url, $params = '', $extended = false, $headers = null) {
+        return $this->curl->delete(
+			$this->uri_root . $url,
+			$params,
+			$extended,
+			$headers
+		);
     }
 
     public function exec($api, $params = null, $args = array()) {
         global $om;
         // deprecated, non RESTful API
-        $curl_handle = $this->init_curl();
         $args = $om->_get_args(array(
             'full_response' => false,
             'verbose' => $this->verbose
-        }, $args);
+        ), $args);
         // check and prep the data
         if ($api == '') {
             throw new Exception("Invalid service API: '$api'.");
@@ -143,13 +169,19 @@ class OmegaClient {
             'OMEGA_API_PARAMS=' . urlencode(addslashes($params)), 
             'OMEGA_CREDENTIALS=' . urlencode(addslashes(json_encode($this->get_credentials())))
         );
-        $result = $this->curl->get($api, implode('&', $data), true);
+        $result = $this->curl->get(
+			$this->uri_root . $api,
+			implode('&', $data),
+			true
+		);
         return $this->parse_result($result, $args);
     }
 
-    private function parse_result($result, $args) {
+    private function parse_result($result_info, $args) {
         // make sure we got back a meaningful result
-        $content_type = substr($result_info['content_type'], 0, 16);
+		$result = $result_info['response'];
+		$meta = $result_info['meta'];
+        $content_type = substr($meta['content_type'], 0, 16);
         if ($content_type == 'application/json') {
             $response = json_decode($result, true);
             if ($response === false || $response === null) {
@@ -187,6 +219,7 @@ class OmegaClient {
         } else {
             return $result;
         }
+	}
 }
 
 ?>

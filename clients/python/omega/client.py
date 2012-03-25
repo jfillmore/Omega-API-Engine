@@ -174,11 +174,20 @@ class OmegaClient:
 		response = response.getvalue()
 		http_code = curl.getinfo(curl.HTTP_CODE)
 		if http_code < 200 or http_code >= 300:
-			raise Exception("Server returned HTTP code %s. %s" %
-				(str(http_code), str(response)))
+			# see if we got json data back
+			try:
+				decoded = self.decode(response)
+				if 'reason' in decoded:
+					error = decoded['reason']
+				else:
+					error = response
+			except:
+				error = response
+			raise Exception("Server returned HTTP code %s. Response:\n%s" %
+				(str(http_code), str(error)))
 		curl.close()
 		if raw_response:
-			return response.read()
+			return response
 		else:
 			# decode the response and check whether or not it was successful
 			# TODO: check response encoding in header
