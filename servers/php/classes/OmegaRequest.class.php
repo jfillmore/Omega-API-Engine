@@ -56,17 +56,23 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         // locations other than in 'omega.location'
         if (isset($_SERVER['DOCUMENT_URI'])) {
             $request_uri = $_SERVER['DOCUMENT_URI'];
+            // we are already URL decoded, so only chop ?... if there is stuff after
+            if (preg_match('/\?.+/', $request_uri)) {
+                $q_pos = strpos($request_uri, '?');
+                if ($q_pos !== false) {
+                    $request_uri = substr($request_uri, 0, $q_pos);
+                }
+            }
         } else {
             $request_uri = $_SERVER['REQUEST_URI'];
+            // chop off '?...' from URI
+            $q_pos = strpos($request_uri, '?');
+            if ($q_pos !== false) {
+                $request_uri = substr($request_uri, 0, $q_pos);
+            }
+            $request_uri = urldecode($request_uri);
         }
         $request_uri = $om->_pretty_path($request_uri, true);
-        //throw new Exception(var_export($_SERVER, true));
-        // chop off '?...' from URI
-        $q_pos = strpos($request_uri, '?');
-        if ($q_pos !== false) {
-            $request_uri = substr($request_uri, 0, $q_pos);
-        }
-        $request_uri = urldecode($request_uri);
         // determine the request type
         // TODO: have a better way of handling introspection than this hack
         if (substr($request_uri, -1) == '?') { // aka '?'
