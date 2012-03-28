@@ -1703,7 +1703,7 @@
     om.BoxFactory.make.form = om.doc({
         desc: 'Form container and methods to set/fetch data, as well as do basic layout. ',
         obj: function (owner, fields, args) {
-            var form, classes, name, field;
+            var form, name, field;
             args = om.get_args({
                 auto_break_length: null, // automatically insert a break after every X options
                 breaker_args: { // arguments to use when creating break manager
@@ -1713,6 +1713,8 @@
                     on_tab_change: undefined
                 },
                 break_type: undefined, // null, 'column', 'tab', 'page'
+                'class': undefined,
+                classes: undefined,
                 dont_show: false
             }, args, true);
             /* // example of fields
@@ -1736,7 +1738,8 @@
              ... */
             form = om.bf.make.box(owner, {
                 dont_show: true,
-                'classes': classes,
+                'classes': args.classes,
+                'class': args['class'],
                 insert: args.insert
             });
             form.$.toggleClass('om_form', true);
