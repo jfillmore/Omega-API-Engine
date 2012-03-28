@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 PATH="$PATH:/usr/local/bin"
 
@@ -24,7 +24,7 @@ FCGI_WEB_SERVER_ADDRS='127.0.0.1'
 ALLOWED_ENV="PATH USER"
 
 # if this script is run as root switch to the following user
-USERID=nginx
+USERID=wendel
 
 
 if test x$PHP_FCGI_CHILDREN = x; then
