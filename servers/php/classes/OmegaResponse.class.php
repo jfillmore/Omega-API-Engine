@@ -310,6 +310,7 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
                             if (is_resource($this->response['data'])) {
                                 // assume this is a file descriptor and just pass it through
                                 $response = '';
+                                rewind($this->response['data']);
                                 fpassthru($this->response['data']);
                             } else {
                                 // encode data anyway, so we don't just say 'Array'

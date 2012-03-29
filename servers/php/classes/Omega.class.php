@@ -13,6 +13,7 @@ class Omega extends OmegaRESTful implements OmegaApi {
     private $save_service_state; // whether or not to save the state of the service after each request
     private $session_id; // used when scope = 'session'
     private $restful; // whether or not the API is RESTful
+    private $output_stream = null;
 
     // service information
     public $api; // alias to $this->service
@@ -77,6 +78,22 @@ class Omega extends OmegaRESTful implements OmegaApi {
         );
     }
 
+    /** Returns a reference to an output stream that can be written to for providing an API response. */
+    public function _get_output_stream() {
+        global $om;
+        // not returning JSON data if we use this
+        $result = fopen('php://temp/maxmemory:128', 'rw');
+        if ($result === false || $result === null) {
+            throw new Exception("Failed to create output stream.");
+        }
+        $this->output_stream = $result;
+        return $this->output_stream;
+    }
+
+    /** Returns whether or not the output stream was initialized for use. */
+    public function _has_output_stream() {
+        return ($this->output_stream !== null);
+    }
     /** Returns whether or not the service API is restful.
         returns: boolean */
     public function is_restful() {
@@ -168,7 +185,13 @@ class Omega extends OmegaRESTful implements OmegaApi {
             $this->response->set_result(true);
         } else {
             try {
-                $this->response->set_data($this->request->_answer());
+                $answer = $this->request->_answer();
+                // check to see if we got the answer back in an output stream or if they just returned it
+                if ($this->_has_output_stream()) {
+                    $this->response->set_data($this->output_stream);
+                } else {
+                    $this->response->set_data($answer);
+                }
                 $this->response->set_result(true);
                 if ($this->subservice->is_enabled('logger') && isset($this->subservice->logger)) { // gotta also be sure the subservice is initialized too, otherwise an error on enabling will happen
                     // don't log boring things like queries or APIs about logging
