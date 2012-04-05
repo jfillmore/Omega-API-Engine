@@ -1,0 +1,310 @@
+<h3>om.doc</h3>
+<script type="text/javascript">
+var foo;
+foo = function (a, b) {
+	return a + b;
+};
+func = om.doc({
+	desc: 'Returns the sum of "a" and "b".',
+	desc_ext: 'Math is fun!',
+	params: {
+		a: {
+			desc: 'The first number.',
+			type: 'number'
+		},
+		b: {
+			desc: 'The second number.',
+			type: 'number'
+		}
+	},
+	obj: foo
+});
+canvas.html(om.vis.obj2html(foo._doc));
+</script>
+
+<h3>om.get_args</h3>
+<script type="text/javascript">
+var foo;
+foo = function (args) {
+	args = om.get_args({
+		foo: 3,
+		bar: undefined,
+		marco: 'polo'
+	}, args, true);
+	return om.vis.obj2html(args);
+};
+canvas.html(foo({
+	foo: 5,
+	never_expect: 'the spanish inquisition'
+}));
+</script>
+
+<h3>om.get</h3>
+<script type="text/javascript">
+var foo, bar;
+foo = function (a, b) {
+	return a + b;
+};
+bar = 1;
+bar = om.get(foo, bar, 4);
+canvas.
+	html(bar).
+	append('<br/>').
+	append(om.get(foo, bar, 5));
+</script>
+
+<h3>om.ucfirst</h3>
+<script type="text/javascript">
+canvas.html(om.ucfirst('fooBar'));
+</script>
+
+<h3>om.lcfirst</h3>
+<script type="text/javascript">
+canvas.html(om.lcfirst('FooBar'));
+</script>
+
+<h3>om.flatten</h3>
+<script type="text/javascript">
+canvas.html([
+	om.flatten('alpha_bravoCharlie'),
+	om.flatten('zero one_twoThreeFour', true),
+	om.flatten('zero one_twoThreeFour', true, true)
+].join('<br/>'));
+</script>
+
+<h3>om.subtract</h3>
+<script type="text/javascript">
+canvas.html([
+	om.subtract(3.33, 1.10999),
+	3.33 - 1.10999
+].join('<br/>'));
+</script>
+
+<h3>om.is_jquery</h3>
+<script type="text/javascript">
+canvas.html([
+	om.is_jquery($),
+	om.is_jquery(canvas),
+	om.is_jquery(window),
+	om.is_jquery($('body'))
+].join('<br/>'));
+</script>
+
+<h3>om.is_numeric</h3>
+<script type="text/javascript">
+canvas.html('<ol><li>' + [
+	om.is_numeric(5), // #1
+	om.is_numeric(5.5), // #2
+	om.is_numeric('5'), // #3
+	om.is_numeric(' 5 '), // #4
+	om.is_numeric('1.5'), // #5
+	om.is_numeric(0177), // #6
+	om.is_numeric(0xFF), // #7
+	om.is_numeric(5/3), // #8
+	om.is_numeric('5 d'), // #9
+	om.is_numeric(false), // #10
+	om.is_numeric(''), // #11
+	om.is_numeric(NaN), // #12
+	om.is_numeric(5/0), // #13
+	om.is_numeric(null) // #14
+].join('</li><li>') + '</li></ol>');
+</script>
+
+<h3>om.isnt_numeric</h3>
+<script type="text/javascript">
+canvas.html('<ol><li>' + [
+	om.isnt_numeric(5), // #1
+	om.isnt_numeric(5.5), // #2
+	om.isnt_numeric('5'), // #3
+	om.isnt_numeric(' 5 '), // #4
+	om.isnt_numeric('1.5'), // #5
+	om.isnt_numeric(0177), // #6
+	om.isnt_numeric(0xFF), // #7
+	om.isnt_numeric(5/3), // #8
+	om.isnt_numeric('5 d'), // #9
+	om.isnt_numeric(false), // #10
+	om.isnt_numeric(''), // #11
+	om.isnt_numeric(NaN), // #12
+	om.isnt_numeric(5/0), // #13
+	om.isnt_numeric(null) // #14
+].join('</li><li>') + '</li></ol>');
+</script>
+
+<h3>om.empty</h3>
+<script type="text/javascript">
+canvas.html('<ol><li>' + [
+	om.empty({}), // #1
+	om.empty([]), // #2
+	om.empty({foo: 'bar'}), // #3
+	om.empty({foo: 1, bar: 2}), // #4
+	om.empty([1, 2]), // #5
+	om.empty([42]) // #6
+].join('</li><li>') + '</li></ol>');
+</script>
+
+<h3>om.plural</h3>
+<script type="text/javascript">
+canvas.html('<ol><li>' + [
+	om.plural({}), // #1
+	om.plural([]), // #2
+	om.plural({foo: 'bar'}), // #3
+	om.plural({foo: 1, bar: 2}), // #4
+	om.plural([1, 2]), // #5
+	om.plural([42]) // #6
+].join('</li><li>') + '</li></ol>');
+</script>
+
+<h3>om.link_event</h3>
+<script type="text/javascript">
+var p1, p2, on_click;
+on_click = function (click_ev) {
+	canvas.append($(click_ev.target).html() + ' clicked.<br/>');
+};
+p1 = om.bf.make.box(canvas, {
+	type: 'p',
+	html: 'Click me',
+	on_click: on_click
+});
+p2 = om.bf.make.box(canvas, {
+	type: 'p',
+	html: 'Click me, #2',
+	on_click: on_click
+});
+om.link_event('click', p1.$, p2.$);
+</script>
+
+<h3>om.assemble</h3>
+<script type="text/javascript">
+canvas.html(om.assemble(
+	'p',
+	{'style': 'color: #99cc99'},
+	'Foo Bar'
+));
+</script>
+
+<h3>om.set_cookie</h3>
+<script type="text/javascript">
+var query;
+query = om.bf.make.query(canvas, 'Set cookie', '', {
+	form_fields: {
+		name: {
+			type: 'text',
+			args: {
+				caption: 'Cookie name:',
+				caption_orient: 'left'
+			}
+		},
+		value: {
+			type: 'text',
+			args: {
+				caption: 'Cookie value:',
+				caption_orient: 'left'
+			}
+		}
+	},
+	constraint: canvas,
+	modal: true,
+	ok_caption: 'Set Cookie',
+	on_ok: function (click_ev, input, query) {
+		om.set_cookie(input.name, input.value);
+		canvas.html(om.sprintf(
+			'Cookie "%s" set with value "%s"',
+			input.name, input.value
+		));
+	}
+});
+query._cancel_button._remove();
+</script>
+
+<h3>om.get_cookies</h3>
+<script type="text/javascript">
+canvas.html(om.vis.obj2html(
+	om.get_cookies() || 'There are no cookies currently set.'
+));
+</script>
+
+<h3>om.get_cookie</h3>
+<script type="text/javascript">
+var cookie;
+cookie = om.bf.make.box(canvas, {
+    html: 'Cookie value: '
+});
+cookie.value = cookie._extend('right');
+om.bf.make.input.text(canvas, 'cookie_name', {
+    caption: 'Enter cookie name',
+    on_change: function (change_ev, text) {
+        var name, value;
+        name = text.val();
+        value = om.get_cookie(name);
+        if (value !== undefined) {
+            cookie.$.html(value);
+        } else {
+            cookie.$.html('No cookie with the name "' + name + '" has been set.');
+        }
+    }
+});
+</script>
+
+<h3>om.find_cookies</h3>
+<script type="text/javascript">
+var cookie;
+cookie = om.bf.make.box(canvas, {
+    html: 'Matched Cookies: '
+});
+cookie.value = cookie._extend('right');
+om.bf.make.input.text(canvas, 'cookie_name', {
+    caption: 'Enter cookie name',
+    on_change: function (change_ev, text) {
+        var name, value;
+        name = text.val();
+        value = om.find_cookie(name);
+        if (value !== undefined) {
+            cookie.$.html(value);
+        } else {
+            cookie.$.html('No cookies matching the name "*' + name + '*" have been set.');
+        }
+    }
+});
+</script>
+
+<h3>om.round</h3>
+<script type="text/javascript">
+canvas.html('<ol><li>' + [
+	om.round(5.5), // #1
+	om.round(8, {interval: 5}), // #2
+	om.round(8.49, {decimal: 1}); // #3
+	om.round(8.504, {decimal: 2}), // #4
+	om.round(8.504, {decimal: 2, min_decimal: 2}) // #5
+].join('</li><li>') + '</li></ol>');
+</script>
+
+<h3>om.Error</h3>
+<script type="text/javascript">
+var fail_count = 0;
+
+function fail_if_true(fail) {
+    try {
+        if (fail) {
+            fail_count += 1;
+            throw new Error('Foobar error');
+        }
+    } catch (e) {
+        om.Error(e.message, {
+            target: canvas,
+            title: 'Fail #' + fail_count,
+            retry: arguments,
+            modal: true,
+            on_close: function () {
+                om.bf.make.confirm(
+                    canvas,
+                    'Fail count: ' + fail_count,
+                    "If at first you don't succeed, try to hide your astonishment.",
+                    {modal: true}
+                );
+            }
+        });
+    }
+};
+
+fail_if_true(true);
+</script>

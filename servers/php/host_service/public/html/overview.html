@@ -1,0 +1,30 @@
+<h2>Overview</h2>
+<p>
+	Omega has two primary components.
+</p>
+<ul>
+	<li>PHP Framework for hosting RESTful APIs.</li>
+	<li>JavaScript libraries for GUI building.</li>
+</ul>
+<p>
+	The PHP server uses Nginx and PHP-FastCGI. It includes configuration scripts
+	for upstart/initctl for the services "nginx" and "omega-php". By default
+	nginx runs HTTPS on port 5800 (and optionally 5858 for insecure). PHP-FastCGI runs as a daemon on port 5900.
+</p>
+<h4>Requirements</h3>
+<ul>
+	<li>PHP 5.2+ with FastCGI support and support for the following:
+		<ul>
+			<li>JSON</li>
+			<li>MySQL/MySQLi</li>
+			<li>Curl</li>
+		</ul>
+	<li>nginx 0.8.x+</li>
+	<li>python 2.3+ w/ JSON or SimpleJSON modules for command-line tools.</li>
+</ul>
+<h4>Supported Distributions</h3>
+<ul>
+	<li>Ubuntu 10+</li>
+	<li>RHEL 4+/CentOS 5+</li>
+	<li>Other distribution supported with manual configuration.</li>
+</ul>
