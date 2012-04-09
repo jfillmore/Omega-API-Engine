@@ -94,6 +94,7 @@ class Omega extends OmegaRESTful implements OmegaApi {
     public function _has_output_stream() {
         return ($this->output_stream !== null);
     }
+
     /** Returns whether or not the service API is restful.
         returns: boolean */
     public function is_restful() {
@@ -248,6 +249,8 @@ class Omega extends OmegaRESTful implements OmegaApi {
         }
         // see if we spilled anywhere... if so, pick it up to ensure we have a clean stream
         $spillage = ob_get_contents();
+        // encode the response that we'll send back
+        $response = $this->response->encode($this->response->get_encoding());
         ob_end_clean();
         if (strlen($spillage) > 0) {
             $this->response->set_spillage($spillage);
@@ -268,8 +271,7 @@ class Omega extends OmegaRESTful implements OmegaApi {
         }
         // set our status code (e.g. 200, 404, etc)
         header($this->response->get_status());
-        // and return the request with the requested encoding
-        $response = $this->response->encode($this->response->get_encoding());
+        // and finally print the response
         echo $response;
     }
     
@@ -322,7 +324,6 @@ class Omega extends OmegaRESTful implements OmegaApi {
             }
             // if the client is requesting the service itself then consider that a request for a new session
             // unless they're explicitly initializing the service-- if so, let it be done
-            ;
             if ($session_id != ''
                 && file_exists($this->shed->get_location() . '/' . $this->service_name . '/instances/sessions/' . $session_id)
                 && $this->request->get_api() != $this->config->get('omega.nickname')) {

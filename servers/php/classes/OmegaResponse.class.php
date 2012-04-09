@@ -314,10 +314,12 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
                                 fpassthru($this->response['data']);
                             } else {
                                 // encode data anyway, so we don't just say 'Array'
-                                if (is_array($this->response['data'])) {
-                                    $this->response['data'] = json_encode($this->response['data']);
+                                if (is_array($this->response['data']) || is_object($this->response['data'])) {
+                                    $this->set_encoding('json');
+                                    $response = json_encode($this->response);
+                                } else {
+                                    $response = (string)$this->response['data'];
                                 }
-                                $response = (string)$this->response['data'];
                             }
                         } else {
                             $response = null;
