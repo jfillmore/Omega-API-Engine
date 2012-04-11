@@ -166,8 +166,8 @@ class OmegaClient {
         }
         $data = array(
             'OMEGA_ENCODING=json',
-            'OMEGA_API_PARAMS=' . urlencode(addslashes($params)), 
-            'OMEGA_CREDENTIALS=' . urlencode(addslashes(json_encode($this->get_credentials())))
+            'OMEGA_API_PARAMS=' . urlencode($params), 
+            'OMEGA_CREDENTIALS=' . urlencode(json_encode($this->get_credentials()))
         );
         $result = $this->curl->get(
 			$this->uri_root . $api,
