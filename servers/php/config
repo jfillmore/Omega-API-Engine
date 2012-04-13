@@ -359,7 +359,7 @@ function do_install {
 			location @OmegaServer {
 			    fastcgi_pass 127.0.0.1:5859;
 			    include fastcgi_params;
-			    rewrite ^/os_admin/(.*) /?OMEGA_API=\$1 break;
+			    #rewrite ^/os_admin/(.*) /?OMEGA_API=\$1 break;
 			    fastcgi_param OMEGA_SERVICE OmegaServer;
 			    fastcgi_param SCRIPT_FILENAME $BASE_DIR/init.php;
 			}
