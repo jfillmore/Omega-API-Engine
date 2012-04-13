@@ -81,6 +81,9 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         // compare where we're configured at against what was requested to determine the API
         $base_parts = explode('/', substr($base_uri, 1));
         $request_parts = explode('/', substr($request_uri, 1));
+        if ($base_parts[0] === '') {
+            $base_parts = array();
+        }
         // the first part of the API should match the base URI, the rest are the API
         $api_parts = array();
         for ($i = 0; $i < count($request_parts); $i++) {
