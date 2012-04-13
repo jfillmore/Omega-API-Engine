@@ -1,4 +1,4 @@
-#!/usr/bin/python -tt
+#!/usr/bin/env python
 
 # omega - python client
 # https://github.com/jfillmore/Omega-API-Engine
