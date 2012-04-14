@@ -103,10 +103,6 @@ class OmegaConfig extends OmegaRESTful implements OmegaApi {
         $path = explode('.', $path);
         // make sure we don't create a new value unless requested    
         if (! $this->exists($path)) {
-            // no adding new stuff to 'omega.*'
-            if ($path[0] == 'core') {
-                throw new Exception("Unable to add new values to the omega configuration.");
-            }
             if (! $new) {
                 throw new Exception("Unable to set new configuration item '$path' without force.");
             }

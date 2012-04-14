@@ -240,13 +240,89 @@ class OmegaServiceManager implements OmegaApi {
         $this->_save_config();
     }
 
-    /** Returns the configuration file for the specified service.
-        expects: service=string
+    /** Returns configuration data for the specified service.
+        expects: service=string, path=string
         */
-    public function get_service_config($service) {
+    public function get_service_config($service, $path = '') {
         $shed = new OmegaFileShed(OmegaConstant::data_dir);
-        return $shed->get($service, 'config');
-    }            
+        $config = $shed->get($service, 'config');
+        if (is_array($path)) {
+            $path = implode('.', $path);
+        }
+        if ($path == '') {
+            return $config;
+        } else {
+            $path = explode('.', $path);
+            $last = array_pop($path);
+            $obj = $config;
+            // walk through the parts of the path, and check that each part exists
+            foreach ($path as $item) {
+                if (isset($obj[$item])) {
+                    $obj = $obj[$item];
+                } else {
+                    throw new Exception("Invalid config path: '$item' not found in '" . join('.', $path) . "'.");
+                }
+            }
+            if (isset($obj[$last])) {
+                return $obj[$last];
+            } else {
+                throw new Exception("Invalid config path: '$last' not found in '" . join('.', $path) . "'.");
+            }
+        }
+    }
+
+    /** Update configuration information for a service.
+        expects: service=string, path=string, value=undefined, new=boolean
+        returns: undefined */
+    public function set_service_config($service, $path, $value, $new = false) {
+        $shed = new OmegaFileShed(OmegaConstant::data_dir);
+        $config = $shed->get($service, 'config');
+        if (is_array($path)) {
+            $path = implode('.', $path);
+        }
+        if ($path == '') {
+            throw new Exception("Invalid config path: '$path'.");
+        }
+        $path = explode('.', $path);
+        // make sure we don't create a new value unless requested    
+        if (! $this->exists($service, $path)) {
+            if (! $new) {
+                throw new Exception("Unable to set new configuration item '$path' without force.");
+            }
+        }
+        // finally set it, and save ourself
+        $full_path = $path;
+        $last = array_pop($path);
+        $obj =& $config;
+        // walk through the parts of the path, and check that each part exists
+        foreach ($path as $part) {
+            if (isset($obj[$part])) {
+                $obj =& $obj[$part];
+            } else {
+                throw new Exception("Invalid config name: '$part'.");
+            }
+        }
+        $obj[$last] = $value;
+        $shed->store($service, 'config', $config);
+        return $this->get_service_config($service, $full_path);
+    }
+
+    /** Returns whether or not a configuration value exists.
+        expects: path=string
+        returns: boolean */
+    private function exists($service, $path) {
+        if (! is_array($path)) {
+            $path = explode('.', $path);
+        }
+        if (count($path) == 0) {
+            throw new Exception("Failed to split path into separate parts. This should never happen.");
+        } else {
+            $last = array_pop($path);
+            $branch = $this->get_service_config($service, $path);
+            return isset($branch[$last]);
+        }
+    }
+
 }
 
 ?>
