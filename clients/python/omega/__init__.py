@@ -13,4 +13,4 @@ __all__ = ['client', 'dbg', 'browser', 'box_factory', 'error', 'util', 'shell']
 
 import dbg
 from util import *
-from error import Error
+from error import Exception

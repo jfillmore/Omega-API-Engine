@@ -15,7 +15,7 @@ import omega
 import omega.client
 
 def usage():
-	sys.stdout.write('''usage: om_api [METHOD] api [api_params] [arguments]
+    sys.stdout.write('''usage: om_api [METHOD] api [api_params] [arguments]
 
 methods: GET, DELETE, POST, PUT. Defaults to 'GET' if not specified.
 
@@ -44,177 +44,177 @@ arguments:
    -u, --url URL          A URL to the service location (default: localhost/).
 
 Environmentals:
-	OMEGA_USER               The username to authenticate with.
-	OMEGA_PASS               The password to authenticate with.
-	OMEGA_TOKEN              The token (e.g. in lieu of the user/pass) to authenticate with.
+    OMEGA_USER               The username to authenticate with.
+    OMEGA_PASS               The password to authenticate with.
+    OMEGA_TOKEN              The token (e.g. in lieu of the user/pass) to authenticate with.
 
 RESTful example:
-	om_api -u example.com/api GET /service/37
-	om_api -u example.com/api POST /service/create service.domain=foobar.com
+    om_api -u example.com/api GET /service/37
+    om_api -u example.com/api POST /service/create service.domain=foobar.com
 
 Old-style examples:
-	om_api systems.server.?
-	om_api -u api.example.com/foo systems.servers.find server=%example%
-	om_api -u foo/v1 systems.server.get -j '{"server": "il-bridge.slc.westdc.net"}'
-	om_api -u foo/v1 systems.server.get -j '["il-bridge.slc.westdc.net"]'
+    om_api systems.server.?
+    om_api -u api.example.com/foo systems.servers.find server=%example%
+    om_api -u foo/v1 systems.server.get -j '{"server": "il-bridge.slc.westdc.net"}'
+    om_api -u foo/v1 systems.server.get -j '["il-bridge.slc.westdc.net"]'
 ''')
 
 def get_opts(defaults, argv):
-	i = 1
-	args = defaults
-	while i < len(argv):
-		arg = argv[i]
-		if arg == '-c' or arg == '--color':
-			args['color'] = True
-		if arg == '-f' or arg == '--full':
-			args['full_response'] = True
-		elif arg == '-h' or arg == '--help' or arg == '-H':
-			usage()
-			exit()
-		elif arg == '-g' or arg == '--gui':
-			if args['raw_response']:
-				raise Exception('Unable to toggle GUI mode when using raw responses.')
-			if args['shell_mode']:
-				raise Exception('Unable to use both GUI mode and shell mode at the same time.')
-			args['gui_mode'] = True
-		elif arg == '-s' or arg == '--shell':
-			if args['gui_mode']:
-				raise Exception('Unable to use both GUI mode and shell mode at the same time.')
-			args['shell_mode'] = True
-		elif arg == '-i' or arg == '--insecure':
-			args['use_https'] = False
-		elif arg == '-v' or arg == '--verbose':
-			args['verbose'] = True
-		elif arg == '-p' or arg == '--port':
-			i += 1
-			if i == len(argv):
-				raise Exception("Missing value for server port.")
-			args['port'] = int(argv[i])
-		elif arg == '-G' or arg == '--get':
-			i += 1
-			if i == len(argv):
-				raise Exception("Missing GET name=value pair.")
-			# make sure we have a valid pair
-			if argv[i].find('=') == -1 or argv[i].find('&') != -1:
-				raise Exception("Invalid GET name=value pair.")
-			args['GET'].append(argv[i])
-		elif arg == '-P' or arg == '--post':
-			i += 1
-			if i == len(argv):
-				raise Exception("Missing POST name=value pair.")
-			# make sure we have a valid pair
-			if argv[i].find('=') == -1 or argv[i].find('&') != -1:
-				raise Exception("Invalid POST name=value pair.")
-			args['POST'].append(argv[i])
-		elif arg == '-F' or arg == '--file':
-			i += 1
-			if i == len(argv):
-				raise Exception("Missing value for file to upload.")
-			# collect up the name
-			if argv[i].find('=') == -1 or argv[i].find('&') != -1:
-				raise Exception("Invalid file name=file_path pair.")
-			(name, path) = argv[i].split('=', 1)	
-			# make sure the file exists
-			if not os.path.isfile(path):
-				raise Exception("Unable to either read or locate file '%s." % path)
-			args['FILES'][name] = path
-		elif arg == '-j' or arg == '--json':
-			i += 1
-			if i == len(argv):
-				raise Exception("Missing value for JSON API params.")
-			args['json_params'] = argv[i]
-		elif arg == '--test': # secret test mode
-			args['test_mode'] = True
-		elif arg == '-r' or arg == '--raw':
-			if args['gui_mode']:
-				raise Exception('Unable to toggle raw responses when using GUI mode.')
-			args['raw_response'] = True
-		elif arg == '-u' or arg == '--url':
-			i += 1
-			if i == len(argv):
-				raise Exception("Missing value for URL.")
-			args['url'] = argv[i]
-		else:
-			if args['http_method'] == None and arg.upper() in \
-				('GET', 'POST', 'DELETE', 'PUT', 'EXEC'):
-				args['http_method'] = arg.upper()
-			elif args['api'] == None:
-				args['api'] = arg
-			else:
-				# we have a parameter; split it up on the =
-				param_parts = arg.split('=', 1)
-				if len(param_parts) == 1:
-					if param_parts[0] == '?':
-						args['params']['?'] = '?'
-					else:
-						if param_parts[0].startswith('!'):
-							args['params'][param_parts[0]] = False
-						else:
-							args['params'][param_parts[0]] = True
-				else:
-					# check to see if we have a psuedo array (e.g. 'foo.bar=3' => 'foo = {"bar": 3}')
-					if param_parts[0].find('.') == -1:
-						args['params'][param_parts[0]] = param_parts[1]
-					else:
-						# break the array into the parts
-						parts = param_parts[0].split('.')
-						base = parts[0]
-						key = parts.pop()
-						params = args['params']
-						for part in parts:
-							if not part in params:
-								params[part] = {}
-							params = params[part]
-						params[key] = param_parts[1]
-		i += 1
-	return args
+    i = 1
+    args = defaults
+    while i < len(argv):
+        arg = argv[i]
+        if arg == '-c' or arg == '--color':
+            args['color'] = True
+        if arg == '-f' or arg == '--full':
+            args['full_response'] = True
+        elif arg == '-h' or arg == '--help' or arg == '-H':
+            usage()
+            exit()
+        elif arg == '-g' or arg == '--gui':
+            if args['raw_response']:
+                raise Exception('Unable to toggle GUI mode when using raw responses.')
+            if args['shell_mode']:
+                raise Exception('Unable to use both GUI mode and shell mode at the same time.')
+            args['gui_mode'] = True
+        elif arg == '-s' or arg == '--shell':
+            if args['gui_mode']:
+                raise Exception('Unable to use both GUI mode and shell mode at the same time.')
+            args['shell_mode'] = True
+        elif arg == '-i' or arg == '--insecure':
+            args['use_https'] = False
+        elif arg == '-v' or arg == '--verbose':
+            args['verbose'] = True
+        elif arg == '-p' or arg == '--port':
+            i += 1
+            if i == len(argv):
+                raise Exception("Missing value for server port.")
+            args['port'] = int(argv[i])
+        elif arg == '-G' or arg == '--get':
+            i += 1
+            if i == len(argv):
+                raise Exception("Missing GET name=value pair.")
+            # make sure we have a valid pair
+            if argv[i].find('=') == -1 or argv[i].find('&') != -1:
+                raise Exception("Invalid GET name=value pair.")
+            args['GET'].append(argv[i])
+        elif arg == '-P' or arg == '--post':
+            i += 1
+            if i == len(argv):
+                raise Exception("Missing POST name=value pair.")
+            # make sure we have a valid pair
+            if argv[i].find('=') == -1 or argv[i].find('&') != -1:
+                raise Exception("Invalid POST name=value pair.")
+            args['POST'].append(argv[i])
+        elif arg == '-F' or arg == '--file':
+            i += 1
+            if i == len(argv):
+                raise Exception("Missing value for file to upload.")
+            # collect up the name
+            if argv[i].find('=') == -1 or argv[i].find('&') != -1:
+                raise Exception("Invalid file name=file_path pair.")
+            (name, path) = argv[i].split('=', 1)    
+            # make sure the file exists
+            if not os.path.isfile(path):
+                raise Exception("Unable to either read or locate file '%s." % path)
+            args['FILES'][name] = path
+        elif arg == '-j' or arg == '--json':
+            i += 1
+            if i == len(argv):
+                raise Exception("Missing value for JSON API params.")
+            args['json_params'] = argv[i]
+        elif arg == '--test': # secret test mode
+            args['test_mode'] = True
+        elif arg == '-r' or arg == '--raw':
+            if args['gui_mode']:
+                raise Exception('Unable to toggle raw responses when using GUI mode.')
+            args['raw_response'] = True
+        elif arg == '-u' or arg == '--url':
+            i += 1
+            if i == len(argv):
+                raise Exception("Missing value for URL.")
+            args['url'] = argv[i]
+        else:
+            if args['http_method'] == None and arg.upper() in \
+                ('GET', 'POST', 'DELETE', 'PUT', 'EXEC'):
+                args['http_method'] = arg.upper()
+            elif args['api'] == None:
+                args['api'] = arg
+            else:
+                # we have a parameter; split it up on the =
+                param_parts = arg.split('=', 1)
+                if len(param_parts) == 1:
+                    if param_parts[0] == '?':
+                        args['params']['?'] = '?'
+                    else:
+                        if param_parts[0].startswith('!'):
+                            args['params'][param_parts[0]] = False
+                        else:
+                            args['params'][param_parts[0]] = True
+                else:
+                    # check to see if we have a psuedo array (e.g. 'foo.bar=3' => 'foo = {"bar": 3}')
+                    if param_parts[0].find('.') == -1:
+                        args['params'][param_parts[0]] = param_parts[1]
+                    else:
+                        # break the array into the parts
+                        parts = param_parts[0].split('.')
+                        base = parts[0]
+                        key = parts.pop()
+                        params = args['params']
+                        for part in parts:
+                            if not part in params:
+                                params[part] = {}
+                            params = params[part]
+                        params[key] = param_parts[1]
+        i += 1
+    return args
 
 opts = get_opts({
-	'gui_mode': False,
-	'shell_mode': False,
-	'params': {},
-	'full_response': False,
-	'json_params': None,
-	'color': sys.stdout.isatty(),
-	'raw_response': False,
-	'api': None,
-	'http_method': None,
-	'use_https': True,
-	'url': 'localhost',
-	'creds': None,
-	'port': None,
-	'test_mode': False,
-	'verbose': False,
-	'FILES': {},
-	'GET': [],
-	'POST': []
+    'gui_mode': False,
+    'shell_mode': False,
+    'params': {},
+    'full_response': False,
+    'json_params': None,
+    'color': sys.stdout.isatty(),
+    'raw_response': False,
+    'api': None,
+    'http_method': None,
+    'use_https': True,
+    'url': 'localhost',
+    'creds': None,
+    'port': None,
+    'test_mode': False,
+    'verbose': False,
+    'FILES': {},
+    'GET': [],
+    'POST': []
 }, sys.argv)
 if not opts['api'] and not opts['shell_mode'] and not opts['gui_mode'] and not opts['test_mode']:
-	# no API or special run modes?
-	usage()
-	sys.exit(1)
+    # no API or special run modes?
+    usage()
+    sys.exit(1)
 
 # gather up any credentials
 if 'OMEGA_USER' in os.environ and 'OMEGA_PASS' in os.environ:
-	opts['creds'] = {
-		'username': os.environ['OMEGA_USER'],
-		'password': os.environ['OMEGA_PASS']
-	}
+    opts['creds'] = {
+        'username': os.environ['OMEGA_USER'],
+        'password': os.environ['OMEGA_PASS']
+    }
 elif 'OMEGA_TOKEN' in os.environ:
-	opts['creds'] = {'token': os.environ['OMEGA_TOKEN']}
+    opts['creds'] = {'token': os.environ['OMEGA_TOKEN']}
 
 # create an omega client
 if opts['port'] == None:
-	if opts['use_https']:
-		opts['port'] = 5800
-	else:
-		opts['port'] = 5858
+    if opts['use_https']:
+        opts['port'] = 5800
+    else:
+        opts['port'] = 5858
 
 client = omega.client.OmegaClient(
-	opts['url'],
-	opts['creds'],
-	opts['port'],
-	opts['use_https']
+    opts['url'],
+    opts['creds'],
+    opts['port'],
+    opts['use_https']
 )
 del opts['url']
 del opts['creds']
@@ -226,24 +226,24 @@ shell = omega.shell.Shell(client, opts)
 
 # gather up our options if we have any
 if opts['json_params'] != None:
-	opts['params'] = client.decode(opts['json_params'])
+    opts['params'] = client.decode(opts['json_params'])
 
 # start a GUI/shell if requested
 if opts['test_mode']:
-	shell.run_cmd('test')
+    shell.run_cmd('test')
 elif opts['gui_mode']:
-	import omega.browser
-	browser = omega.browser.Browser(client, opts['api'], opts['params'])
-	browser.start()
+    import omega.browser
+    browser = omega.browser.Browser(client, opts['api'], opts['params'])
+    browser.start()
 elif opts['shell_mode']:
-	# if we have an API, run it first
-	if opts['api']:
-		# TODO: handle args better
-		shell.run(opts['http_method'], opts['api'], opts['params'], opts)
-	shell.start()
+    # if we have an API, run it first
+    if opts['api']:
+        # TODO: handle args better
+        shell.run(opts['http_method'], opts['api'], opts['params'], opts)
+    shell.start()
 else:
-	# otherwise just execute the API
-	response = shell.run(opts['http_method'], opts['api'], opts['params'], opts)
-	if not response['result']:
-		sys.exit(1)
+    # otherwise just execute the API
+    response = shell.run(opts['http_method'], opts['api'], opts['params'], opts)
+    if not response['result']:
+        sys.exit(1)
 

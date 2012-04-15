@@ -38,7 +38,7 @@ dark_colors = {
 def get_obj_info(obj, include_private = False):
 	try:
 		value = str(obj)
-	except UnicodeEncodeError:
+	except UnicodeEncodeException:
 		value = repr(obj)
 	obj_info = {
 		'type': type(obj).__name__,
