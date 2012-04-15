@@ -190,10 +190,10 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         // otherwise, fall back to ghetto get/post vars, which means we're probably not restful
         if (isset($_POST[$param])) {
             $this->restful = false;
-            return stripslashes($_POST[$param]);
+            return $_POST[$param];
         } else if (isset($_GET[$param])) {
             $this->restful = false;
-            return stripslashes($_GET[$param]);
+            return $_GET[$param];
         } else {
             throw new Exception("The value '$param' is not present in the GET or POST data.");
         }
