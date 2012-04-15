@@ -80,15 +80,16 @@ class Shell:
                 self._print_response(False, 'Unable to get API information; tab completion unavailable.\n' + e.message)
 
     def start(self):
-        self.reload(True)
+        self.reload(False)
+        #self.reload(True)
         # test our client first and load info about the API
-        readline.parse_and_bind('tab: complete')
-        readline.set_completer(self.cmd_complete)
+        # disabled until rest support works: //TODO readline.parse_and_bind('tab: complete')
+        # disabled until rest support works: //TODO readline.set_completer(self.cmd_complete)
         #self.set_edit_mode(self.args['edit_mode'])
         # load our history
         try:
             readline.read_history_file(self._histfile)
-        except IOException:
+        except:
             pass
         # TODO: setup auto-completion for API trees, methods, and params
         # run APIs until the cows come home
