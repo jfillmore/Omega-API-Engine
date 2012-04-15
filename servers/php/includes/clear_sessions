@@ -1,4 +1,4 @@
-#!/bin/bash -u
+#~/usr/bin/env bash
 
 # omega - PHP server
 # https://github.com/jfillmore/Omega-API-Engine
