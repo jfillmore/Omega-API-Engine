@@ -55,9 +55,13 @@ class OmegaCurl {
         return $this->base_url;
     }
 
-    public function set_http_auth($username, $password) {
+    public function set_http_auth($username, $password = null) {
         $this->http_auth = true;
-        $this->http_auth_info = "$username:$password";
+        if ($password !== null) {
+            $this->http_auth_info = "$username:$password";
+        } else {
+            $this->http_auth_info = "$username";
+        }
     }
 
     public function clear_http_auth() {
@@ -72,10 +76,12 @@ class OmegaCurl {
         }
 		curl_setopt($this->curl_handle, CURLOPT_SSL_VERIFYHOST, 0);
 		curl_setopt($this->curl_handle, CURLOPT_SSL_VERIFYPEER, 0);
+        /* // doesn't seem to be working
         if ($this->http_auth && $this->http_auth_info != null) {
             curl_setopt($this->curl_handle, CURLOPT_HTTPAUTH, CURLAUTH_ANY);
             curl_setopt($this->curl_handle, CURLOPT_USERPWD, $this->http_auth_info);
         }
+        */
         curl_setopt($this->curl_handle, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($this->curl_handle, CURLOPT_HEADER, 0);
         curl_setopt($this->curl_handle, CURLOPT_COOKIEFILE, $this->cookie_file);
@@ -106,6 +112,15 @@ class OmegaCurl {
         $method = strtoupper($method);
         $url = $this->get_base_url() . "/$url";
         $content_length = strlen($params);
+        if (! $headers) {
+            $headers = array(
+                'Content-Type: application/json'
+            );
+        }
+        if ($this->http_auth && $this->http_auth_info != null) {
+            // write our auth info
+            $headers[] = 'Authentication: Basic ' . base64_encode(md5($this->http_auth_info));
+        }
         if ($method === 'GET') {    
             if (is_array($params)) {
                 $param_list = array();
@@ -139,9 +154,6 @@ class OmegaCurl {
         }
         curl_setopt($this->curl_handle, CURLOPT_URL, $url);
         curl_setopt($this->curl_handle, CURLOPT_PORT, $this->get_port());
-        if (! $headers) {
-            $headers = array();
-        }
         if ($content_length !== null) {
             $headers[] = 'Content-Length: ' . $content_length;
         }

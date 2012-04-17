@@ -150,7 +150,16 @@ class Omega extends OmegaRESTful implements OmegaApi {
 
         // if authentication is enabled then check access now
         if ($this->subservice->is_enabled('authority')) {
-            $this->subservice->authority->authenticate($this->request->get_credentials());
+            try {
+                $this->subservice->authority->authenticate($this->request->get_credentials());
+            } catch (Exception $e) {
+                $data = array(
+                    'backtrace' => $this->_clean_trace($e->getTrace())
+                );
+                $this->response->set_data($data);
+                $this->subservice->logger->commit_log(false);
+                throw $e;
+            }
         }
 
         // load in our service or start a new one if this is our first load of this service

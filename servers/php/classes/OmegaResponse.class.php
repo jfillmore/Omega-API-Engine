@@ -81,7 +81,7 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
     public function __construct() {
         global $om;
         $this->default_headers = array(
-            'Content-Type' => 'text/html; charset=utf-8',
+            'Content-Type' => 'application/json; charset=utf-8',
             'Cache-Control' => 'no-cache'
         );
         $this->headers = $this->default_headers;
