@@ -37,12 +37,12 @@ class OmegaClient {
 		$this->base_url = $matches[1] . $matches[3];
 		$this->uri_root = '/' . $matches[4] . '/';
 		$this->set_service_url($service_url);
-		$this->set_credentials($credentials);
         $this->curl = new OmegaCurl(
             $this->base_url,
             $port
         );
 		$this->port = $port;
+		$this->set_credentials($credentials);
 		$this->curl->init();
     }
 
@@ -58,11 +58,7 @@ class OmegaClient {
 				) {
                 throw new Exception("Invalid credentials array. Keys of 'username' and 'password' expected, but were not found.");
             }
-            $this->credentials = $value;
-        } else { // otherwise assume we've got a token
-            if ($value !== '') {
-                $this->credentials = $value;
-            }
+            $this->curl->set_http_auth($value['username'], $value['password']);
         }
     }
 
@@ -111,40 +107,40 @@ class OmegaClient {
         return $meta;
     }
 
-    public function get($url, $params = '', $extended = false, $headers = null) {
-        return $this->curl->get(
+    public function get($url, $params = '', $args = array(), $headers = array()) {
+        return $this->parse_result($this->curl->get(
 			$this->uri_root . $url,
 			$params,
-			$extended,
+			true,
 			$headers
-		);
+		), $args);
     }
 
-    public function post($url, $params = '', $extended = false, $headers = null) {
-        return $this->curl->post(
+    public function post($url, $params = '', $args = array(), $headers = array()) {
+        return $this->parse_result($this->curl->post(
 			$this->uri_root . $url,
 			$params,
-			$extended,
+			true,
 			$headers
-		);
+		), $args);
     }
 
-    public function put($url, $params = '', $extended = false, $headers = null) {
-        return $this->curl->put(
+    public function put($url, $params = '', $args = array(), $headers = array()) {
+        return $this->parse_result($this->curl->put(
 			$this->uri_root . $url,
 			$params,
-			$extended,
+			true,
 			$headers
-		);
+		), $args);
     }
 
-    public function delete($url, $params = '', $extended = false, $headers = null) {
-        return $this->curl->delete(
+    public function delete($url, $params = '', $args = array(), $headers = array()) {
+        return $this->parse_result($this->curl->delete(
 			$this->uri_root . $url,
 			$params,
-			$extended,
+			true,
 			$headers
-		);
+		), $args);
     }
 
     public function exec($api, $params = null, $args = array()) {
