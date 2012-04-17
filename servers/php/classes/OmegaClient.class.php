@@ -60,6 +60,7 @@ class OmegaClient {
             }
             $this->curl->set_http_auth($value['username'], $value['password']);
         }
+        $this->credentials = $value;
     }
 
     private function get_credentials() {
