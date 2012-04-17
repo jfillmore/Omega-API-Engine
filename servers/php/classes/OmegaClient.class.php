@@ -115,7 +115,7 @@ class OmegaClient {
 			$this->uri_root . $url,
 			$params,
 			true,
-            array('Content-Type: application/json')
+            array()
 		), $args);
     }
 

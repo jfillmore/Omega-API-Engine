@@ -15,6 +15,7 @@ class OmegaCurl {
         $this->cookie_file = '/tmp/.cookies.' . uniqid();
         $this->set_port($port);
         $this->set_agent($agent);
+        $this->init(true);
     }
 
     public function set_agent($agent) {
@@ -69,7 +70,7 @@ class OmegaCurl {
         $this->http_auth_info = null;
     }
 
-    public function init() {
+    public function init($first = false) {
         $this->curl_handle = curl_init();
         if ($this->curl_handle === false) {
             throw new Exception('Failed to initialize cURL handle.');
@@ -84,8 +85,11 @@ class OmegaCurl {
         */
         curl_setopt($this->curl_handle, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($this->curl_handle, CURLOPT_HEADER, 0);
-        curl_setopt($this->curl_handle, CURLOPT_COOKIEFILE, $this->cookie_file);
-        curl_setopt($this->curl_handle, CURLOPT_COOKIEJAR, $this->cookie_file);
+        if ($first) {
+            curl_setopt($this->curl_handle, CURLOPT_COOKIEJAR, $this->cookie_file);
+        } else {
+            curl_setopt($this->curl_handle, CURLOPT_COOKIEFILE, $this->cookie_file);
+        }
         if ($this->agent !== null) {
             curl_setopt($this->curl_handle, CURLOPT_USERAGENT, $this->agent);
         }
@@ -112,8 +116,8 @@ class OmegaCurl {
         $method = strtoupper($method);
         $url = $this->get_base_url() . "/$url";
         $content_length = strlen($params);
+        // write our auth info
         if ($this->http_auth && $this->http_auth_info != null) {
-            // write our auth info
             $headers[] = 'Authentication: Basic ' . base64_encode(md5($this->http_auth_info));
         }
         if ($method === 'GET') {    
