@@ -18,7 +18,7 @@ try {
     $omega = null;
     $om = null;
 
-    public function _clean_trace($st) {
+    function _clean_trace($st) {
         $stack = array();
         foreach ($st as $trace) {
             $line = '';
