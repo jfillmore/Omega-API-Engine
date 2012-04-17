@@ -176,6 +176,10 @@ class OmegaClient {
     }
 
     private function parse_result($result_info, $args) {
+        global $om;
+        $args = $om->_get_args(array(
+            'verbose' => $this->verbose
+        ), $args);
         // make sure we got back a meaningful result
 		$result = $result_info['response'];
 		$meta = $result_info['meta'];
@@ -190,22 +194,19 @@ class OmegaClient {
                 if (isset($response['reason'])) {
                     if ($args['verbose']) {
                         throw new OmegaException($response['reason'], array(
-                            'api' => $api,
                             'response' => $response,
                             'meta' => $this->get_meta()
                         ));
                     } else {
                         throw new OmegaException($response['reason'], array(
-                            'api' => $api,
                             'response' => $response,
                             'meta' => $this->get_meta()
                         ));
                         throw new Exception($response['reason']);
                     }
                 } else {
-                    $reason = 'API "' . $api . '" to "' . $this->get_service_url() . '" failed without an explanation.';
+                    $reason = 'API to "' . $this->get_service_url() . '" failed without an explanation.';
                     throw new OmegaException($reason, array(
-                        'api' => $api,
                         'params' => $params,
                         'response' => $response,
                         'meta' => $this->get_meta()
