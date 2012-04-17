@@ -4,19 +4,19 @@ class OmegaCurl {
     private $curl_handle;
     private $server;
     private $cookie_file;
-    private $first;
     private $http_auth = false;
     private $http_auth_info = null;
     private $agent = null;
     private $port = null; // null = 80/443 by default
     private $base_url = null; // e.g. example.com/foo
+    public $num_requests;
 
     public function __construct($base_url = '', $port = null, $agent = 'cURL wrapper 0.2') {
         $this->set_base_url($base_url);
-        $this->cookie_file = '/tmp/.cookies.' . uniqid();
+        $this->cookie_file = '/tmp/.cookies.omega';
         $this->set_port($port);
         $this->set_agent($agent);
-        $this->first = true;
+        $this->num_requests = 0;
     }
 
     public function set_agent($agent) {
@@ -28,7 +28,7 @@ class OmegaCurl {
     }
 
     public function clear_cookies() {
-        @unlink($this->cookie_file);
+        //@unlink($this->cookie_file);
     }
 
     public function get_port() {
@@ -80,15 +80,14 @@ class OmegaCurl {
         curl_setopt($this->curl_handle, CURLOPT_SSL_VERIFYPEER, 0);
         curl_setopt($this->curl_handle, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($this->curl_handle, CURLOPT_HEADER, 0);
-        if ($this->first) {
+        if ($this->agent !== null) {
+            curl_setopt($this->curl_handle, CURLOPT_USERAGENT, $this->agent);
+        }
+        if ($this->num_requests == 0) {
             curl_setopt($this->curl_handle, CURLOPT_COOKIEJAR, $this->cookie_file);
-            $this->first = false;
         } else {
             curl_setopt($this->curl_handle, CURLOPT_COOKIEFILE, $this->cookie_file);
             curl_setopt($this->curl_handle, CURLOPT_COOKIEJAR, $this->cookie_file);
-        }
-        if ($this->agent !== null) {
-            curl_setopt($this->curl_handle, CURLOPT_USERAGENT, $this->agent);
         }
     }
 
@@ -158,6 +157,7 @@ class OmegaCurl {
         }
         $result = curl_exec($this->curl_handle);
         $meta = curl_getinfo($this->curl_handle);
+        $this->num_requests++;
         if ($extended) {
             return array(
                 'response' => $result,
@@ -167,7 +167,33 @@ class OmegaCurl {
             if ($result === false ||
                 $meta['http_code'] < 200 || 
                 $meta['http_code'] >= 300) {
-                throw new Exception("Failed to access '$url' with the HTTP error code " . $meta['http_code'] . '. cURL error message was "' . curl_error($this->curl_handle) . '".');
+                $content_type = substr($meta['content_type'], 0, 16);
+                $data = array(
+                    'meta' => $meta
+                );
+                if ($content_type == 'application/json') {
+                    $decoded = json_decode($result, true);
+                    if ($decoded === false || $decoded === null) {
+                        throw new OmegaException(
+                            "Failed to decode JSON: " . $result,
+                            $meta
+                        );
+                    }
+                    $data['response'] = $decoded;
+                    // hack for omega responses
+                    if (isset($decoded['reason'])) {
+                        $reason = $decoded['reason'];
+                    } else {
+                        $reason = '';
+                    }
+                } else {
+                    $data['response'] = $result;
+                    $reason = $result;
+                }
+                throw new OmegaException(
+                    "'$url' - HTTP " . $meta['http_code'] . '. ' . $reason,
+                    $data
+                );
             }
             return $result;
         }
@@ -179,6 +205,10 @@ class OmegaCurl {
     
     public function post($url, $params = '', $extended = false, $headers = null) {
         return $this->request($url, $params, 'POST', $extended, $headers);
+    }
+
+    public function patch($url, $params = '', $extended = false, $headers = null) {
+        return $this->request($url, $params, 'PATCH', $extended, $headers);
     }
 
     public function put($url, $params = '', $extended = false, $headers = null) {

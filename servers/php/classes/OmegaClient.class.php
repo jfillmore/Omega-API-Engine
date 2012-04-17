@@ -15,12 +15,12 @@ class OmegaClient {
     private $service_url; // e.g. https://
     private $uri_root; // e.g. /, /api (parsed from service_url)
     private $credentials;
-    private $curl;
     private $verbose;
     private $port;
-    private $cookie_file = 'c_is_for_cookie-thats_good_enough_for_me';
+    public $curl;
 
     public function __construct($service_url, $credentials = null, $port = 5800, $verbose = false) {
+        global $om;
         $this->set_verbose($verbose);
         // extract the base URL and SSL 
         $matches = array();
@@ -35,15 +35,16 @@ class OmegaClient {
             $matches[1] = 'https://'; // default to SSL
         }
         $this->base_url = $matches[1] . $matches[3];
-        $this->uri_root = '/' . $matches[4] . '/';
+        $this->uri_root = $om->_pretty_path(
+            '/' . $matches[4] . '/'
+        );
         $this->set_service_url($service_url);
         $this->curl = new OmegaCurl(
-            $this->base_url,
+            $this->base_url . $this->uri_root,
             $port
         );
         $this->port = $port;
         $this->set_credentials($credentials);
-        $this->curl->init();
     }
 
     private function get_service_url() {
@@ -80,7 +81,6 @@ class OmegaClient {
             $this->base_url,
             $this->port
         );
-        $this->curl->init();
     }
     
     public function set_verbose($verbose = false) {
@@ -112,16 +112,25 @@ class OmegaClient {
 
     public function get($url, $params = '', $args = array()) {
         return $this->parse_result($this->curl->get(
-            $this->uri_root . $url,
+            $url,
             $params,
             true,
-            array()
+            array('Content-Type: application/json')
         ), $args);
     }
 
     public function post($url, $params = '', $args = array()) {
         return $this->parse_result($this->curl->post(
-            $this->uri_root . $url,
+            $url,
+            json_encode($params),
+            true,
+            array('Content-Type: application/json')
+        ), $args);
+    }
+
+    public function patch($url, $params = '', $args = array()) {
+        return $this->parse_result($this->curl->patch(
+            $url,
             json_encode($params),
             true,
             array('Content-Type: application/json')
@@ -130,7 +139,7 @@ class OmegaClient {
 
     public function put($url, $params = '', $args = array()) {
         return $this->parse_result($this->curl->put(
-            $this->uri_root . $url,
+            $url,
             json_encode($params),
             true,
             array('Content-Type: application/json')
@@ -139,7 +148,7 @@ class OmegaClient {
 
     public function delete($url, $params = '', $args = array()) {
         return $this->parse_result($this->curl->delete(
-            $this->uri_root . $url,
+            $url,
             json_encode($params),
             true,
             array('Content-Type: application/json')
@@ -169,7 +178,7 @@ class OmegaClient {
             'OMEGA_CREDENTIALS=' . urlencode(json_encode($this->get_credentials()))
         );
         $result = $this->curl->get(
-            $this->uri_root . $api,
+            $api,
             implode('&', $data),
             true
         );
@@ -188,7 +197,10 @@ class OmegaClient {
         if ($content_type == 'application/json') {
             $response = json_decode($result, true);
             if ($response === false || $response === null) {
-                throw new Exception("Failed to decode Omega response. Returned data was '$result'.");
+                throw new OmegaException("Failed to decode Omega response.", array(
+                'response' => $result,
+                'meta' => $meta
+            ));
             }
             // check to see if our API call was successful
             if (isset($response['result']) && $response['result'] == false) {
