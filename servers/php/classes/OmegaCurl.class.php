@@ -143,7 +143,7 @@ class OmegaCurl {
             curl_setopt($this->curl_handle, CURLOPT_CUSTOMREQUEST, 'POST');
             curl_setopt($this->curl_handle, CURLOPT_POSTFIELDS, $params);
         } else if ($method === 'PUT') {
-            curl_setopt($this->curl_handle, CURLOPT_PUT, 1);
+            curl_setopt($this->curl_handle, CURLOPT_CUSTOMREQUEST, 'PUT');
             $this->write_body($params);
         } else if ($method === 'DELETE') {
             curl_setopt($this->curl_handle, CURLOPT_CUSTOMREQUEST, 'DELETE');

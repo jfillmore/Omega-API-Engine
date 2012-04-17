@@ -97,6 +97,7 @@ class OmegaClient {
             'server' => $this->service_url,
 			'port' => $this->port
         );
+        /*
         if ($this->credentials === null) {
             $meta['credentials'] = null;
         } else if (is_array($this->credentials)) {
@@ -104,6 +105,7 @@ class OmegaClient {
         } else {
             $meta['credentials'] = 'token|' . $this->credentials;
         }
+        */
         return $meta;
     }
 
@@ -119,7 +121,7 @@ class OmegaClient {
     public function post($url, $params = '', $args = array(), $headers = array()) {
         return $this->parse_result($this->curl->post(
 			$this->uri_root . $url,
-			$params,
+			json_encode($params),
 			true,
 			$headers
 		), $args);
@@ -128,7 +130,7 @@ class OmegaClient {
     public function put($url, $params = '', $args = array(), $headers = array()) {
         return $this->parse_result($this->curl->put(
 			$this->uri_root . $url,
-			$params,
+			json_encode($params),
 			true,
 			$headers
 		), $args);
@@ -137,7 +139,7 @@ class OmegaClient {
     public function delete($url, $params = '', $args = array(), $headers = array()) {
         return $this->parse_result($this->curl->delete(
 			$this->uri_root . $url,
-			$params,
+			json_encode($params),
 			true,
 			$headers
 		), $args);
@@ -193,18 +195,21 @@ class OmegaClient {
                             'meta' => $this->get_meta()
                         ));
                     } else {
+                        throw new OmegaException($response['reason'], array(
+                            'api' => $api,
+                            'response' => $response,
+                            'meta' => $this->get_meta()
+                        ));
                         throw new Exception($response['reason']);
                     }
                 } else {
                     $reason = 'API "' . $api . '" to "' . $this->get_service_url() . '" failed without an explanation.';
-                    if ($args['verbose']) {
-                        throw new OmegaException($reason, array(
-                            'api' => $api,
-                            'params' => $params,
-                            'response' => $response,
-                            'meta' => $this->get_meta()
-                        ));
-                    }
+                    throw new OmegaException($reason, array(
+                        'api' => $api,
+                        'params' => $params,
+                        'response' => $response,
+                        'meta' => $this->get_meta()
+                    ));
                 }
             }
             if (isset($response['data'])) {
