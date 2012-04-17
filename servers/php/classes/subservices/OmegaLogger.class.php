@@ -194,7 +194,7 @@ class OmegaLogger extends OmegaSubservice {
             }
             if (in_array('app_dump', $verbosity)) {
                 $this->buffer_write("\tApplication State:\t");
-                $this->buffer_write(json_encode($om->service) . "\n");
+                $this->buffer_write(json_encode($om) . "\n");
             }
         }
         // and finally write ourselves out
