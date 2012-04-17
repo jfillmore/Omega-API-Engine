@@ -109,39 +109,39 @@ class OmegaClient {
         return $meta;
     }
 
-    public function get($url, $params = '', $args = array(), $headers = array()) {
+    public function get($url, $params = '', $args = array()) {
         return $this->parse_result($this->curl->get(
 			$this->uri_root . $url,
 			$params,
 			true,
-			$headers
+            array('Content-Type: application/json')
 		), $args);
     }
 
-    public function post($url, $params = '', $args = array(), $headers = array()) {
+    public function post($url, $params = '', $args = array()) {
         return $this->parse_result($this->curl->post(
 			$this->uri_root . $url,
 			json_encode($params),
 			true,
-			$headers
+            array('Content-Type: application/json')
 		), $args);
     }
 
-    public function put($url, $params = '', $args = array(), $headers = array()) {
+    public function put($url, $params = '', $args = array()) {
         return $this->parse_result($this->curl->put(
 			$this->uri_root . $url,
 			json_encode($params),
 			true,
-			$headers
+            array('Content-Type: application/json')
 		), $args);
     }
 
-    public function delete($url, $params = '', $args = array(), $headers = array()) {
+    public function delete($url, $params = '', $args = array()) {
         return $this->parse_result($this->curl->delete(
 			$this->uri_root . $url,
 			json_encode($params),
 			true,
-			$headers
+            array('Content-Type: application/json')
 		), $args);
     }
 

@@ -101,7 +101,7 @@ class OmegaCurl {
         }
     }
 
-    public function request($url, $params = '', $method = 'GET', $extended = false, $headers = null) {
+    public function request($url, $params = '', $method = 'GET', $extended = false, $headers = array()) {
         $this->init();
         if ($url == '') {
             throw new Exception("Invalid URL: '$url'.");
@@ -112,11 +112,6 @@ class OmegaCurl {
         $method = strtoupper($method);
         $url = $this->get_base_url() . "/$url";
         $content_length = strlen($params);
-        if (! $headers) {
-            $headers = array(
-                'Content-Type: application/json'
-            );
-        }
         if ($this->http_auth && $this->http_auth_info != null) {
             // write our auth info
             $headers[] = 'Authentication: Basic ' . base64_encode(md5($this->http_auth_info));
