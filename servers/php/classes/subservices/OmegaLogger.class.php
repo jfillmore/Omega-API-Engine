@@ -132,11 +132,11 @@ class OmegaLogger extends OmegaSubservice {
             $verbosity = $this->get_verbosity();
         }
         // determine the log file path based on the current date
-        $log_path = $this->log_dir . '/' . date('Y');
+        $log_path = $this->log_dir . '/' . @date('Y');
         $this->mkdir_r($log_path);
 
         // Lead with writing the date, user, and API/method called.
-        $this->buffer_write(date('[Y-m-d H:i:s]', $start_time)); // e.g. 2009-04-05 13:50:59
+        $this->buffer_write(@date('[Y-m-d H:i:s]', $start_time)); // e.g. 2009-04-05 13:50:59
         $this->buffer_write(' ' . $om->request->get_api());
         if ($om->subservice->is_enabled('authority')) {
             $this->buffer_write(' - ' . $om->subservice->authority->authed_username);
@@ -199,7 +199,7 @@ class OmegaLogger extends OmegaSubservice {
         }
         // and finally write ourselves out
         // open and lock the log file
-        $log_file = $log_path . '/' . strtolower(date('m-F'));
+        $log_file = $log_path . '/' . strtolower(@date('m-F'));
         $file_handle = @fopen($log_file, 'a');
         if ($file_handle === false) {
             throw new Exception("Failed to open service log file '$log_file'.");
@@ -253,7 +253,7 @@ class OmegaLogger extends OmegaSubservice {
             $month = "0$month";
         }
         $log_time = mktime(0, 0, 0, $month, 1, $year);
-        $log_file = $this->log_dir . '/' . strtolower(date('Y/m-F', $log_time));
+        $log_file = $this->log_dir . '/' . strtolower(@date('Y/m-F', $log_time));
         if (! file_exists($log_file)) {
             throw new Exception("No log file exists for the date $month/$year ($log_file).");
         }
@@ -347,7 +347,7 @@ class OmegaLogger extends OmegaSubservice {
             $month = "0$month";
         }
         $log_time = mktime(0, 0, 0, $month, 1, $year);
-        $log_file = $this->log_dir . '/' . strtolower(date('Y/m-F', $log_time));
+        $log_file = $this->log_dir . '/' . strtolower(@date('Y/m-F', $log_time));
         if (! file_exists($log_file)) {
             throw new Exception("No log file exists for the date $month/$year ($log_file).");
         }
@@ -361,13 +361,13 @@ class OmegaLogger extends OmegaSubservice {
     /** Retreives the current log file.
         returns: array */
     public function get_cur_log_file() {
-        return $this->get_log_file(date('Y'), date('m'));
+        return $this->get_log_file(@date('Y'), @date('m'));
     }
 
     /** Returns the unparsed contents of the current log file.
         returns: string */
     public function get_cur_log_file_raw() {
-        return $this->get_log_file_raw(date('Y'), date('m'));
+        return $this->get_log_file_raw(@date('Y'), @date('m'));
     }
 
     /** Returns a list of log files, grouped by year, available on the server.
@@ -488,10 +488,10 @@ class OmegaLogger extends OmegaSubservice {
             return $matches;
         }
         // figure out which logs we need to parse
-        $start_year = ($start_time === null ? null : (int)date('Y', $start_time));
-        $start_month = ($start_time === null ? null : (int)date('n', $start_time));
-        $end_year = ($end_time === null ? null : (int)date('Y', $end_time));
-        $end_month = ($end_time === null ? null : (int)date('n', $end_time));
+        $start_year = ($start_time === null ? null : (int)@date('Y', $start_time));
+        $start_month = ($start_time === null ? null : (int)@date('n', $start_time));
+        $end_year = ($end_time === null ? null : (int)@date('Y', $end_time));
+        $end_month = ($end_time === null ? null : (int)@date('n', $end_time));
         foreach ($log_files as $year => $logs) {
             $year = (int)$year;
             if ($start_time !== null) {
