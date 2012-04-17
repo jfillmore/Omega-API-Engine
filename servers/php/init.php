@@ -18,13 +18,33 @@ try {
     $omega = null;
     $om = null;
 
+    public function _clean_trace($st) {
+        $stack = array();
+        foreach ($st as $trace) {
+            $line = '';
+            if (isset($trace['file'])) {
+                $line .= $trace['file'] . ' ';
+            }
+            if (isset($trace['line'])) {
+                $line .= $trace['line'] . ' ';
+            }
+            if (isset($trace['class'])) {
+                $line .= ' ' . $trace['class'] . $trace['type'];
+            }
+            // don't return the actual args by default for security reasons
+            $line .= $trace['function'] . '(' . count($trace['args']) . ' ' . (count($trace['args']) === 1 ? 'arg' : 'args') . ')';
+            $stack[] = $line;
+        }
+        return $stack;
+    }
+
     function _fail($exception) {
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode(array(
             'result' => false,
             'reason' => $exception->getMessage(),
             'data' => array(
-                'backtrace' => $exception->getTraceAsString()
+                'backtrace' => _clean_trace($exception->getTrace())
             )
         ));
         exit(1);

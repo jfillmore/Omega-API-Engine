@@ -157,6 +157,7 @@ class Omega extends OmegaRESTful implements OmegaApi {
                     'backtrace' => $this->_clean_trace($e->getTrace())
                 );
                 $this->response->set_data($data);
+                $this->subservice->logger->log($data);
                 $this->subservice->logger->commit_log(false);
                 throw $e;
             }
