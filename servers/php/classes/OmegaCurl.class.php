@@ -4,6 +4,7 @@ class OmegaCurl {
     private $curl_handle;
     private $server;
     private $cookie_file;
+    private $first;
     private $http_auth = false;
     private $http_auth_info = null;
     private $agent = null;
@@ -15,7 +16,7 @@ class OmegaCurl {
         $this->cookie_file = '/tmp/.cookies.' . uniqid();
         $this->set_port($port);
         $this->set_agent($agent);
-        $this->init(true);
+        $this->first = true;
     }
 
     public function set_agent($agent) {
@@ -32,7 +33,7 @@ class OmegaCurl {
 
     public function get_port() {
         if ($this->port === null) {
-			return 80;
+            return 80;
         } else {
             return $this->port;
         }
@@ -70,25 +71,21 @@ class OmegaCurl {
         $this->http_auth_info = null;
     }
 
-    public function init($first = false) {
+    public function init() {
         $this->curl_handle = curl_init();
         if ($this->curl_handle === false) {
             throw new Exception('Failed to initialize cURL handle.');
         }
-		curl_setopt($this->curl_handle, CURLOPT_SSL_VERIFYHOST, 0);
-		curl_setopt($this->curl_handle, CURLOPT_SSL_VERIFYPEER, 0);
-        /* // doesn't seem to be working
-        if ($this->http_auth && $this->http_auth_info != null) {
-            curl_setopt($this->curl_handle, CURLOPT_HTTPAUTH, CURLAUTH_ANY);
-            curl_setopt($this->curl_handle, CURLOPT_USERPWD, $this->http_auth_info);
-        }
-        */
+        curl_setopt($this->curl_handle, CURLOPT_SSL_VERIFYHOST, 0);
+        curl_setopt($this->curl_handle, CURLOPT_SSL_VERIFYPEER, 0);
         curl_setopt($this->curl_handle, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($this->curl_handle, CURLOPT_HEADER, 0);
-        if ($first) {
+        if ($this->first) {
             curl_setopt($this->curl_handle, CURLOPT_COOKIEJAR, $this->cookie_file);
+            $this->first = false;
         } else {
             curl_setopt($this->curl_handle, CURLOPT_COOKIEFILE, $this->cookie_file);
+            curl_setopt($this->curl_handle, CURLOPT_COOKIEJAR, $this->cookie_file);
         }
         if ($this->agent !== null) {
             curl_setopt($this->curl_handle, CURLOPT_USERAGENT, $this->agent);
@@ -168,7 +165,7 @@ class OmegaCurl {
             );
         } else {
             if ($result === false ||
-				$meta['http_code'] < 200 || 
+                $meta['http_code'] < 200 || 
                 $meta['http_code'] >= 300) {
                 throw new Exception("Failed to access '$url' with the HTTP error code " . $meta['http_code'] . '. cURL error message was "' . curl_error($this->curl_handle) . '".');
             }
