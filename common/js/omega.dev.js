@@ -2992,7 +2992,10 @@ Changelog:
                 }
                 option = om.bf.make.box(
                     menu._options_box.$,
-                    {classes: args.classes}
+                    {
+                        classes: args.classes,
+                        'class': args['class']
+                    }
                 );
                 option.$.toggleClass('om_menu_option', true);
                 // make sure the menu doesn't have an option with this name already

@@ -90,17 +90,7 @@ try {
     } else {
         header($om->response->get_status());
     }
-    if ($om->request) {
-        $encoding = $om->request->get_encoding();
-    } else {
-        $encoding = 'raw';
-    }
-    if ($encoding === 'json') {
-        _fail($e);
-    } else {
-        echo $e->getMessage();
-        exit(1);
-    }
+    _fail($e);
 }
 
 ?>
