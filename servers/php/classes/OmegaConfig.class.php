@@ -47,7 +47,7 @@ class OmegaConfig extends OmegaRESTful implements OmegaApi {
         returns: boolean */
     public function exists($path) {
         if (! is_array($path)) {
-            $path = explode('.', $path);
+            $path = preg_split('/[\.\/]/', $path);
         }
         if (count($path) == 0) {
             throw new Exception("Failed to split path into separate parts. This should never happen.");
@@ -63,12 +63,12 @@ class OmegaConfig extends OmegaRESTful implements OmegaApi {
         returns: undefined */
     public function get($path = '') {
         if (is_array($path)) {
-            $path = implode('.', $path);
+            $path = implode('/', $path);
         }
         if ($path == '') {
             return $this->config;
         } else {
-            $path = explode('.', $path);
+            $path = preg_split('/[\.\/]/', $path);
             $last = array_pop($path);
             $obj = $this->config;
             // walk through the parts of the path, and check that each part exists
@@ -100,7 +100,7 @@ class OmegaConfig extends OmegaRESTful implements OmegaApi {
         if ($path == '') {
             throw new Exception("Invalid config path: '$path'.");
         }
-        $path = explode('.', $path);
+        $path = preg_split('/[\.\/]/', $path);
         // make sure we don't create a new value unless requested    
         if (! $this->exists($path)) {
             if (! $new) {
@@ -129,7 +129,7 @@ class OmegaConfig extends OmegaRESTful implements OmegaApi {
         if ($path == '') {
             throw new Exception("Invalid config path to remove: '$path'.");
         }
-        $path = explode('.', $path);
+        $path = preg_split('/[\.\/]/', $path);
         if ($path[0] == 'core') {
             throw new Exception("Unable to remove values from the omega configuration.");
         }
@@ -144,10 +144,10 @@ class OmegaConfig extends OmegaRESTful implements OmegaApi {
             }
         }
         if (! is_array($obj)) {
-            throw new Exception("Invalid config path: '" . implode('.', $path) . "'.");
+            throw new Exception("Invalid config path: '" . implode('/', $path) . "'.");
         }
         if (! isset($obj[$last])) {
-            throw new Exception("No configuration item named '$last' found in '" . implode('.', $path) . "'.");
+            throw new Exception("No configuration item named '$last' found in '" . implode('/', $path) . "'.");
         }
         unset($obj[$last]);
         $this->_save_config();

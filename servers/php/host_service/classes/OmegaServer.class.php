@@ -9,13 +9,20 @@
 
 
 /** Hosts and manages omega services powered by this omega server. */
-class OmegaServer implements OmegaApi {
+class OmegaServer extends OmegaRESTful implements OmegaApi {
     public $service_manager;
     public $config;
 
+    public function _get_routes() {
+        return array(
+            '/config' => $this->config,
+            '/manage' => $this->service_manager
+        );
+    }
+
     public function __construct() {
         global $om;
-        // make sure the authority and logger are enabled
+        // make sure the authority and logger are enabled for the host service
         $fixed_setup = false;
         foreach (array('logger', 'authority') as $subservice) {
             if (! $om->subservice->is_active($subservice)) {
@@ -27,13 +34,7 @@ class OmegaServer implements OmegaApi {
                 $fixed_setup = true;
             }
         }
-        if ($fixed_setup) {
-            //throw new Exception("The OmegaServer was not setup properly. It has been automatically configured for secure use.");
-            // good for me :)
-        }
-        // load up our configuration
         $this->config = new OmegaServerConfig();
-        // and build the services branch
         $this->service_manager = new OmegaServiceManager();
     }
 }

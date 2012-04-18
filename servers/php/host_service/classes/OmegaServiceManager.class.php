@@ -8,8 +8,30 @@
    http://www.opensource.org/licenses/mit-license.php */
 
 /** Omega service management methods. */
-class OmegaServiceManager implements OmegaApi {
+class OmegaServiceManager extends OmegaRESTful implements OmegaApi {
     private $config = null;
+
+    public function _get_handlers() {
+        return array(
+            'get' => array(
+                '/services' => 'get_config',
+                '/enabled' => 'list_enabled',
+                '/:service/enabled' => 'is_enabled',
+                '/:service/disabled' => 'is_disabled',
+                '/:service/exists' => 'is_present'
+            ),
+            'post' => array(
+                '/:service/enable' => 'enable',
+                '/:service/disable' => 'disable',
+                '/' => 'create'
+            ),
+            'put' => array(),
+            'patch' => array(),
+            'delete' => array(
+                '/:service' => 'remove'
+            )
+        );
+    }
 
     public function __construct() {
         global $om;
@@ -18,44 +40,6 @@ class OmegaServiceManager implements OmegaApi {
             $this->config = $om->shed->get($om->service_name . '/services', 'config');
         } catch (Exception $e) {
             throw new Exception("Failed to read Omega services file. Please ensure that the configuration has been run.");
-        }
-    }
-
-    public function _save_config() {
-        global $om;
-        $om->shed->store($om->service_name . '/services', 'config', $this->config);
-    }
-
-    /** Get the current omega service manager configuration object.
-        returns: object */
-    public function get_config() {
-        return $this->config;
-    }
-
-    /** Sets the omega service manager configuration object, provided it is valid.
-        expects: config=object */
-    public function _set_config($config) {
-        $this->_validate_config($config);
-        $this->config = $config;
-        $this->_save_config();
-    }
-
-    /** Validates the omega service manager configuration object. Throws an exception if any problems are found.
-        expects: config=object */
-    public function _validate_config($config) {
-        if (! is_array($config)) {
-            throw new Exception("Invalid configuration object; it is not an array.");
-        }
-        if (! (count($config) == 1 && isset($config['services']))) {
-            throw new Exception("Invalid configuration option; unrecognized parts.");
-        }
-        foreach ($config['services'] as $service => $enabled) {
-            if (! in_array($service, $this->services)) {
-                throw new Exception("Unrecognized service: $service.");
-            }
-            if (! is_bool($enabled)) {
-                throw new Exception("Invalid value for 'enabled': '$enabled'.");
-            }
         }
     }
 
@@ -134,7 +118,7 @@ class OmegaServiceManager implements OmegaApi {
 
     /** Creates a new omega service. The service name is the PHP class to instantiate to build the service API. The nickname is what the API is called by. The description is a short description of the service. The key is used to authenticate the service maintainer. The class_dirs are an array of directories to look for the service class and interface files in. If async is set to true then the service will be stateless, and thus asynchronous. The scope sets the service instance life-style (global, user, none).
         expects:
-            service_name=string
+            service=string
             nickname=string
             description=string
             key=string
@@ -144,11 +128,11 @@ class OmegaServiceManager implements OmegaApi {
             scope=string
             enabled=boolean
             */
-    public function create($service_name, $nickname, $description, $key, $class_dirs, $location, $async = true, $scope = 'global', $enabled = true) {
+    public function create($service, $nickname, $description, $key, $class_dirs, $location, $async = true, $scope = 'global', $enabled = true) {
         global $om;
         // validate our input
-        if (! preg_match(OmegaTest::word_re, $service_name)) {
-            throw new Exception("Invalid service name: '$service_name'.");
+        if (! preg_match(OmegaTest::word_re, $service)) {
+            throw new Exception("Invalid service name: '$service'.");
         }
         if (! preg_match(OmegaTest::word_re, $nickname)) {
             throw new Exception("Invalid service nickname: '$nickname'.");
@@ -173,11 +157,11 @@ class OmegaServiceManager implements OmegaApi {
             throw new Exception("Invalid service location: '$location'.");
         }
         // make sure the service name is available
-        if (in_array($service_name, array_keys($this->config['services']))) {
-            throw new Exception("The service name '$service_name' is already in use.");
+        if (in_array($service, array_keys($this->config['services']))) {
+            throw new Exception("The service name '$service' is already in use.");
         }
         // figure out where we'll store the data
-        $data_dir = OmegaConstant::data_dir . "/$service_name";
+        $data_dir = OmegaConstant::data_dir . "/$service";
         if (file_exists($data_dir) && ! is_dir($data_dir)) {
             throw new Exception("Unable to replace file '$data_dir' with a directory.");
         }
@@ -209,24 +193,24 @@ class OmegaServiceManager implements OmegaApi {
             throw $e;
         }
         // and update our own configuration to add the service, initially disabled
-        $this->config['services'][$service_name] = false;
+        $this->config['services'][$service] = false;
         $this->_save_config();
         if ($enabled) {
-            $this->enable($service_name);
+            $this->enable($service);
         }
     }
 
     /** Removes an omega service from the server, optionally deleting all of the internal data.
-        expects: service_name=string, clear_data=boolean */
-    public function remove($service_name, $clear_data=false) {
+        expects: service=string, clear_data=boolean */
+    public function remove($service, $clear_data=false) {
         // make sure the service is present
-        if (! in_array($service_name, array_keys($this->config['services']))) {
-            throw new Exception("No service by '$service_name' exists.");
+        if (! in_array($service, array_keys($this->config['services']))) {
+            throw new Exception("No service by '$service' exists.");
         }
         // remove the data if requested
         if ($clear_data) {
             // figure out just where exactly that data is at
-            $data_dir = OmegaConstant::data_dir . "/$service_name";
+            $data_dir = OmegaConstant::data_dir . "/$service";
             if (! is_dir($data_dir)) {
                 throw new Exception("Unable to remove service and clear data: '$data_dir' is not a directory as expected.");
             }
@@ -235,91 +219,46 @@ class OmegaServiceManager implements OmegaApi {
             $shed->clear_shed(true);
         }
         // remove it
-        unset($this->config['services'][$service_name]);
+        unset($this->config['services'][$service]);
         // and save the config
         $this->_save_config();
     }
 
-    /** Returns configuration data for the specified service.
-        expects: service=string, path=string
-        */
-    public function get_service_config($service, $path = '') {
-        $shed = new OmegaFileShed(OmegaConstant::data_dir);
-        $config = $shed->get($service, 'config');
-        if (is_array($path)) {
-            $path = implode('.', $path);
-        }
-        if ($path == '') {
-            return $config;
-        } else {
-            $path = explode('.', $path);
-            $last = array_pop($path);
-            $obj = $config;
-            // walk through the parts of the path, and check that each part exists
-            foreach ($path as $item) {
-                if (isset($obj[$item])) {
-                    $obj = $obj[$item];
-                } else {
-                    throw new Exception("Invalid config path: '$item' not found in '" . join('.', $path) . "'.");
-                }
-            }
-            if (isset($obj[$last])) {
-                return $obj[$last];
-            } else {
-                throw new Exception("Invalid config path: '$last' not found in '" . join('.', $path) . "'.");
-            }
-        }
+    public function _save_config() {
+        global $om;
+        $om->shed->store($om->service_name . '/services', 'config', $this->config);
     }
 
-    /** Update configuration information for a service.
-        expects: service=string, path=string, value=undefined, new=boolean
-        returns: undefined */
-    public function set_service_config($service, $path, $value, $new = false) {
-        $shed = new OmegaFileShed(OmegaConstant::data_dir);
-        $config = $shed->get($service, 'config');
-        if (is_array($path)) {
-            $path = implode('.', $path);
-        }
-        if ($path == '') {
-            throw new Exception("Invalid config path: '$path'.");
-        }
-        $path = explode('.', $path);
-        // make sure we don't create a new value unless requested    
-        if (! $this->exists($service, $path)) {
-            if (! $new) {
-                throw new Exception("Unable to set new configuration item '$path' without force.");
-            }
-        }
-        // finally set it, and save ourself
-        $full_path = $path;
-        $last = array_pop($path);
-        $obj =& $config;
-        // walk through the parts of the path, and check that each part exists
-        foreach ($path as $part) {
-            if (isset($obj[$part])) {
-                $obj =& $obj[$part];
-            } else {
-                throw new Exception("Invalid config name: '$part'.");
-            }
-        }
-        $obj[$last] = $value;
-        $shed->store($service, 'config', $config);
-        return $this->get_service_config($service, $full_path);
+    /** Get the current omega service manager configuration object.
+        returns: object */
+    public function get_config() {
+        return $this->config;
     }
 
-    /** Returns whether or not a configuration value exists.
-        expects: path=string
-        returns: boolean */
-    private function exists($service, $path) {
-        if (! is_array($path)) {
-            $path = explode('.', $path);
+    /** Sets the omega service manager configuration object, provided it is valid.
+        expects: config=object */
+    public function _set_config($config) {
+        $this->_validate_config($config);
+        $this->config = $config;
+        $this->_save_config();
+    }
+
+    /** Validates the omega service manager configuration object. Throws an exception if any problems are found.
+        expects: config=object */
+    public function _validate_config($config) {
+        if (! is_array($config)) {
+            throw new Exception("Invalid configuration object; it is not an array.");
         }
-        if (count($path) == 0) {
-            throw new Exception("Failed to split path into separate parts. This should never happen.");
-        } else {
-            $last = array_pop($path);
-            $branch = $this->get_service_config($service, $path);
-            return isset($branch[$last]);
+        if (! (count($config) == 1 && isset($config['services']))) {
+            throw new Exception("Invalid configuration option; unrecognized parts.");
+        }
+        foreach ($config['services'] as $service => $enabled) {
+            if (! in_array($service, $this->services)) {
+                throw new Exception("Unrecognized service: $service.");
+            }
+            if (! is_bool($enabled)) {
+                throw new Exception("Invalid value for 'enabled': '$enabled'.");
+            }
         }
     }
 
