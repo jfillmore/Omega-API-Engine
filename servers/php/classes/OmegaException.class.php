@@ -44,14 +44,20 @@ class OmegaException extends Exception {
     private function generate_report() {
         global $om;
         $message = $this->getMessage();
-        $email_body = "The following exception was thrown by " . $om->service_name . ' (' . $om->whoami() . ") during API '" . $om->request->get_api() . "': $message\n\n";
+        if (isset($om->service_name) && isset($om->whoami)) {
+            $email_body = "The following exception was thrown by " . $om->service_name . ' (' . $om->whoami() . ") during API '" . $om->request->get_api() . "': $message\n\n";
+        } else {
+            $email_body = 'Exception: ';
+        }
         $email_body .= "Back trace:\n";
-        $bt_lines = $om->_clean_trace($this->getTrace());
-        // get rid of parts of the trace we don't need
-        array_pop($bt_lines);
-        array_pop($bt_lines);
-        array_pop($bt_lines);
-        $email_body .= implode("\n", $bt_lines);
+        if (isset($om->_clean_trace)) {
+            $bt_lines = $om->_clean_trace($this->getTrace());
+            // get rid of parts of the trace we don't need
+            array_pop($bt_lines);
+            array_pop($bt_lines);
+            array_pop($bt_lines);
+            $email_body .= implode("\n", $bt_lines);
+        }
         if ($this->comment !== null) {
             $email_boxy .= "\nError Comment:\n$comment\n";
         }
@@ -68,7 +74,11 @@ class OmegaException extends Exception {
                 $email_body .= "-------------------------------\n";
             }
         }
-        $this->subject = $om->service_name . ' (' . $om->whoami() . ') Exception: ' . $message;
+        if (isset($om->service_name) && isset($om->whoami)) {
+            $this->subject = $om->service_name . ' (' . $om->whoami() . ') Exception: ' . $message;
+        } else {
+            $this->subject = 'Exception: ' . $message;
+        }
         $this->body = $email_body;
     }
 }
