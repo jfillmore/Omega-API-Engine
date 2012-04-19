@@ -40,7 +40,7 @@ $(document).ready(function () {
             gui.shed.fetch(
                 'service_config',
                 service_name,
-                'os.service_manager.get_service_config',
+                'os.config.get',
                 service_name,
                 function (config) {
                     var diviner, menu_depth, ratio, win, colors, gen_color;
