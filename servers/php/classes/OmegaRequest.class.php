@@ -145,6 +145,9 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
             'PUT' => array(
                 'test' => 'test'
             ),
+            'PATCH' => array(
+                'test' => 'test'
+            ),
             'DELETE' => array(
                 'test' => 'test'
             )

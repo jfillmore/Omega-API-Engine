@@ -11,7 +11,7 @@
 class Omega extends OmegaRESTful implements OmegaApi {
     public $session;
     private $save_service_state; // whether or not to save the state of the service after each request
-    private $session_id; // used when scope = 'session'
+    private $session_id; // used when scope = 'session', can be prefixed with $om->response->set_cookie_prefix()
     private $restful; // whether or not the API is RESTful
     private $output_stream = null;
 
@@ -140,6 +140,16 @@ class Omega extends OmegaRESTful implements OmegaApi {
         $this->response = new OmegaResponse();
         // prepare to generate the request to yield a response
         $this->request = new OmegaRequest();
+        // determine what cookie the session will use, if present
+        try {
+            $this->response->set_cookie_name(
+                $this->config->get('omega.cookie_name')
+            );
+        } catch (Exception $e) {
+            $this->response->set_cookie_name(
+                'OMEGA_SESSION_ID'
+            );
+        }
         if ($_SERVER['CONTENT_TYPE'] === 'application/json') {
             $this->response->set_encoding('json');
         } else {
@@ -270,9 +280,14 @@ class Omega extends OmegaRESTful implements OmegaApi {
             header($header_name . ': ' . $header_value);
         }
         // if we have a session ID respond with that cookie
-        if ($this->session_id !== null) {
+        if ($this->get_session_id() !== null) {
             $cookie_path = $this->response->get_cookie_path();
-            setcookie('OMEGA_SESSION_ID', $this->session_id, 0, $cookie_path);
+            setcookie(
+                $this->response->get_cookie_name(),
+                $this->get_session_id(),
+                0,
+                $cookie_path
+            );
         }
         // if we failed and still have a 2xx status code then you know the drill
         if ((! $this->response->get_result()) &&
@@ -326,9 +341,9 @@ class Omega extends OmegaRESTful implements OmegaApi {
                 $this->shed->lock($this->service_name . '/instances/users', $username);
             }
         } else if ($scope == 'session') {
-            // look for a OMEGA_SESSION_ID cookie to see if we have a session going-- if so, resume it
-            if (isset($_COOKIE['OMEGA_SESSION_ID'])) {
-                $session_id = $_COOKIE['OMEGA_SESSION_ID'];
+            // look for a cookie to see if we have a session going-- if so, resume it
+            if (isset($_COOKIE[$this->response->get_cookie_name()])) {
+                $session_id = $_COOKIE[$this->response->get_cookie_name()];
             } else {
                 $session_id = '';
             }
@@ -340,15 +355,20 @@ class Omega extends OmegaRESTful implements OmegaApi {
                 $this->session = $this->shed->get($this->service_name . '/instances/sessions', $session_id);
                 $this->service = $this->session['service'];
                 $this->api = $this->service;
-                $this->session_id = $_COOKIE['OMEGA_SESSION_ID'];
+                $this->session_id = $_COOKIE[$this->response->get_cookie_name()];
             } else {
                 $this->_create_session();
                 $this->_init_service();
                 $this->session['service'] = $this->service;
-                $this->shed->store($this->service_name . '/instances/sessions', $this->session_id, $this->session);
+                // add our session cookie prefix if given one
+                $this->shed->store(
+                    $this->service_name . '/instances/sessions',
+                    $this->get_session_id(),
+                    $this->session
+                );
             }
             if ($this->save_service_state) {
-                $this->shed->lock($this->service_name . '/instances/sessions', $this->session_id);
+                $this->shed->lock($this->service_name . '/instances/sessions', $this->get_session_id());
             }
         } else if ($scope == 'none') {
             // each service is served fresh within 5 minutes or its free
@@ -389,12 +409,16 @@ class Omega extends OmegaRESTful implements OmegaApi {
             }
         } else if ($this->config->get('omega.scope') == 'session') {
             if (! $files_locked) {
-                $this->shed->lock($this->service_name . '/instances/sessions', $this->session_id);
+                $this->shed->lock($this->service_name . '/instances/sessions', $this->get_session_id());
             }
             $this->session['service'] = $this->service;
-            $this->shed->store($this->service_name . '/instances/sessions', $this->session_id, $this->session);
+            $this->shed->store(
+                $this->service_name . '/instances/sessions',
+                $this->get_session_id(),
+                $this->session
+            );
             if (! $files_locked) {
-                $this->shed->unlock($this->service_name . '/instances/sessions', $this->session_id);
+                $this->shed->unlock($this->service_name . '/instances/sessions', $this->get_session_id());
             }
         } else if ($this->config->get('omega.scope') === 'none') {
             // do nothing, as we don't care to save the state... technically this shouldn't be called
@@ -583,7 +607,7 @@ class Omega extends OmegaRESTful implements OmegaApi {
     /** Returns the session ID for the service if the scope is set to 'session'. */
     public function get_session_id() {
         if ($this->config->get('omega.scope') == 'session') {
-            return $this->session_id;
+            return $this->response->get_cookie_prefix() . $this->session_id;
         } else {
             return null;
         }

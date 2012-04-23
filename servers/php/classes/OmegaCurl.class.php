@@ -13,7 +13,7 @@ class OmegaCurl {
 
     public function __construct($base_url = '', $port = null, $agent = 'cURL wrapper 0.2') {
         $this->set_base_url($base_url);
-        $this->cookie_file = '/tmp/.cookies.omega';
+        $this->cookie_file = '/tmp/.cookies.' . uniqid();
         $this->set_port($port);
         $this->set_agent($agent);
         $this->num_requests = 0;
@@ -28,7 +28,7 @@ class OmegaCurl {
     }
 
     public function clear_cookies() {
-        //@unlink($this->cookie_file);
+        @unlink($this->cookie_file);
     }
 
     public function get_port() {
