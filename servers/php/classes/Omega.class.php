@@ -11,7 +11,7 @@
 class Omega extends OmegaRESTful implements OmegaApi {
     public $session;
     private $save_service_state; // whether or not to save the state of the service after each request
-    private $session_id; // used when scope = 'session', can be prefixed with $om->response->set_cookie_prefix()
+    public $session_id; // used when scope = 'session', can be prefixed with $om->response->set_cookie_prefix()
     private $restful; // whether or not the API is RESTful
     private $output_stream = null;
 
