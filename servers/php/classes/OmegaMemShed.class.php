@@ -9,7 +9,7 @@
 
 /** Stores serialized (or raw) objects by index within a memcache server.. */
 class OmegaMemShed {
-    const key_re = '/^[a-zA-Z0-9\.@#$%^&\*]{1,250}$/';
+    const key_re = '/^[a-zA-Z0-9\.@#$%^&\*~]{1,250}$/';
     const memserver_port = 11211;
 
     private $location;

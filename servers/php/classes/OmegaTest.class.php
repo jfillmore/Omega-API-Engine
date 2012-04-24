@@ -13,8 +13,8 @@ abstract class OmegaTest {
     const ip4_address_re = '/^\d{1,3}(\.\d{1,3}){3}$/';
     const ip6_address_re = '/^(\:{0,2}[a-fA-F0-9]{1,4}\:{0,2}){3,39}$/';
     const email_address_re = '/^[a-zA-Z0-9+._-]+@[a-zA-Z0-9+._\-]+$/';
-    const file_name_re = '/^[\'()a-zA-Z0-9@&%^*<>, _\.\-]+$/';
-    const file_path_re = '/^[\'()\/a-zA-Z0-9@&%^*<>, _\.\-]+$/';
+    const file_name_re = '/^[\'()a-zA-Z0-9@&%^*<>, _\.\-~]+$/';
+    const file_path_re = '/^[\'()\/a-zA-Z0-9@&%^*<>, _\.\-~]+$/';
     const word_re = '/^[a-zA-Z0-9_-]+$/';
     const float2_re = '/^[0-9]*(\.[0-9]{1,2})?$/';
     const float3_re = '/^[0-9]*(\.[0-9]{1,3})?$/';
