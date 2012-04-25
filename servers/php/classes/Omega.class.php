@@ -390,7 +390,7 @@ class Omega extends OmegaRESTful implements OmegaApi {
             // if the client is requesting the service itself then consider that a request for a new session
             // unless they're explicitly initializing the service-- if so, let it be done
             if ($session_id != ''
-                && $this->sessions->exists($this->service_name . '/instances/sessions/' . $session_id)
+                && $this->sessions->exists($this->service_name . '/instances/sessions/', $session_id)
                 && $this->request->get_api() != $this->config->get('omega/nickname')
                 ) {
                 $this->session = $this->sessions->get($this->service_name . '/instances/sessions', $session_id);
