@@ -123,14 +123,16 @@ class OmegaConfig extends OmegaRESTful implements OmegaApi {
         return $this->get($path);
     }
 
-    /** Remove a configuration item. Omega configuration items cannot be removed.
-        expects: path=string */
-    public function rem($path) {
+    // TODO: method to patch object so you can update multiple keys at once
+
+    /** Remove a configuration item. Omega configuration items cannot be removed without force.
+        expects: path=string, force=boolean */
+    public function rem($path, $force = false) {
         if ($path == '') {
             throw new Exception("Invalid config path to remove: '$path'.");
         }
         $path = preg_split('/[\.\/]/', $path);
-        if ($path[0] == 'core') {
+        if ($path[0] == 'omega' && ! $force) {
             throw new Exception("Unable to remove values from the omega configuration.");
         }
         $last = array_pop($path);

@@ -56,6 +56,8 @@ class OmegaServerConfig extends OmegaRESTful implements OmegaApi {
         }
     }
 
+    // TODO: API to patch config so you can update multiple keys at once
+
     /** Update configuration information for a service.
         expects: service=string, path=string, value=undefined, new=boolean
         returns: undefined */
@@ -111,18 +113,20 @@ class OmegaServerConfig extends OmegaRESTful implements OmegaApi {
         }
     }
 
-    /** Remove a configuration item. Omega configuration items cannot be removed.
-        expects: path=string */
-    public function remove($path) {
+    /** Remove a configuration item. Omega configuration items cannot be removed without force. Returns the removed item.
+        expects: service=string, path=string, force=boolean */
+    public function remove($service, $path, $force) {
+        $shed = new OmegaFileShed(OmegaConstant::data_dir);
         if ($path == '') {
             throw new Exception("Invalid config path to remove: '$path'.");
         }
         $path = preg_split('/[\.\/]/', $path);
-        if ($path[0] == 'omega') {
+        if ($path[0] == 'omega' && ! $force) {
             throw new Exception("Unable to remove values from the omega configuration.");
         }
         $last = array_pop($path);
-        $obj =& $this->config;
+        $config = $shed->get($service, 'config');
+        $obj =& $config;
         // walk through the parts of the path, and check that each part exists
         foreach ($path as $part) {
             if (isset($obj[$part])) {
@@ -137,8 +141,10 @@ class OmegaServerConfig extends OmegaRESTful implements OmegaApi {
         if (! isset($obj[$last])) {
             throw new Exception("No configuration item named '$last' found in '" . implode('/', $path) . "'.");
         }
+        $removed = $obj[$last];
         unset($obj[$last]);
-        $this->_save_config();
+        $shed->store($service, 'config', $config);
+        return $removed;
     }
 
 }
