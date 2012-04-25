@@ -484,6 +484,10 @@
                 return om_client.request('PUT', api, params, callback, fail_callback, args);
             };
 
+            om_client.patch = function (api, params, callback, fail_callback, args) {
+                return om_client.request('PATCH', api, params, callback, fail_callback, args);
+            };
+
             om_client.del = function (api, params, callback, fail_callback, args) {
                 return om_client.request('DELETE', api, params, callback, fail_callback, args);
             };

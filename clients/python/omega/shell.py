@@ -413,7 +413,7 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
                 args['raw_response'] = True
             else:
                 # exec = force old-style API
-                if method == None and part.upper() in ('GET', 'POST', 'PUT', 'DELETE', 'EXEC'):
+                if method == None and part.upper() in ('GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'EXEC'):
                     method = part.upper()
                 elif api == None:
                     api = part

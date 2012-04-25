@@ -38,11 +38,7 @@ class OmegaAuthority extends OmegaSubservice {
     public function authenticate($credentials) {
         global $om;
         // first see if there is a session ID we can use to get the user info
-        try {
-            $cookie_name = $om->config->get('omega.cookie_name');
-        } catch (Exception $e) {
-            $cookie_name = 'OMEGA_SESSION_ID';
-        }
+        $cookie_name = $om->response->get_cookie_name();
         if (isset($_COOKIE[$cookie_name])) {
             $session = $om->shed->get(
                 $om->service_name . '/instances/sessions',

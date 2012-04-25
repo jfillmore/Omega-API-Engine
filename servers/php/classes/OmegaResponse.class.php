@@ -18,6 +18,9 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
     private $response; // the array to contain the reponse we convert to JSON
     private $encoding;
     private $cookie_path;
+    private $cookie_name;
+    private $cookie_prefix = '';
+
     public $headers;
     public $default_headers;
     private $response_status = 200;
@@ -96,7 +99,7 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
         $this->set_cookie_path($cookie_path);
     }
     
-    /** Sets the path for any session cookies. Defaults to the configuration item "omega.location".
+    /** Sets the path for the session cookies. Defaults to the configuration item "omega.location".
         expects: path=string */
     public function set_cookie_path($path) {
         if (preg_match('/^[a-zA-Z0-9_\/]+$/', $path)) {
@@ -110,6 +113,56 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
         returns: string */
     public function get_cookie_path() {
         return $this->cookie_path;
+    }
+
+    /** Sets the name for the session cookies. Defaults to the configuration item "omega.cookie_name".
+        expects: name=string */
+    public function set_cookie_name($name) {
+        if (strlen($name) && strlen($name) < 64) {
+            $this->cookie_name = $name;
+        } else {
+            throw new Exception("Invalid cookie name: '$name'.");
+        }
+    }
+
+    /** Return the session cookie name.
+        returns: string */
+    public function get_cookie_name() {
+        return $this->cookie_name;
+    }
+
+    /** Sets the prefix for the session cookies. Defaults to nothing.
+        expects: prefix=string */
+    public function set_cookie_prefix($prefix) {
+        if (strlen($prefix) && strlen($prefix) < 64) {
+            $this->cookie_prefix = $prefix;
+        } else {
+            throw new Exception("Invalid cookie prefix: '$prefix'.");
+        }
+    }
+
+    /** Return the session cookie prefix.
+        returns: string */
+    public function get_cookie_prefix() {
+        return $this->cookie_prefix;
+    }
+
+    /** Sets the value for the session cookies. Defaults to using a randomly generated value for session cookies..
+        expects: value=string */
+    public function set_cookie_value($value) {
+        global $om;
+        if (strlen($value) && strlen($value) < 256) {
+            $om->session_id = $value;
+        } else {
+            throw new Exception("Invalid cookie value: '$value'.");
+        }
+    }
+
+    /** Return the session cookie value.
+        returns: string */
+    public function get_cookie_value() {
+        global $om;
+        return $om->get_session_id();
     }
 
     /** Set the type of encoding that will be used to serialize the response. Default 'json', set to 'raw' or 'html' to disable response encoding (e.g. to serve a file).
@@ -266,9 +319,7 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
 
     /** Set the response data. */
     public function set_data($data) {
-        if (isset($data)) { // no worries if there isn't anything set... we'll just politely do nothing
-            $this->response['data'] = $data;
-        }
+        $this->response['data'] = $data;
     }
 
     /** Returns the response as an encoded string. 
