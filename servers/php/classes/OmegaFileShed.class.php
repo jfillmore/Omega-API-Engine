@@ -159,6 +159,19 @@ class OmegaFileShed {
         return $this->store_raw($bin, $key, $dna, $no_clobber);
     }
 
+    /** Returns whether or not anything exists for the specified bin/key.
+        expects: bin=string, key=string
+        returns: boolean */
+    public function exists($bin, $key) {
+        if (! $this->valid_bin_name($bin)) {
+            throw new Exception("Invalid bin name: '$bin'.");
+        }
+        if (! $this->valid_key_name($key)) {
+            throw new Exception("Invalid key name: '$key'.");
+        }
+        return is_file($this->location . "/$bin/$key");
+    }
+
     /** Retrieves the specified data from a bin. If the data was not found an exception will be thrown.
         expects: bin=string, key=string
         returns: undefined */

@@ -24,7 +24,8 @@ class Omega extends OmegaRESTful implements OmegaApi {
     public $config; // configuration information about this service
     public $request; // the request that is being processed
     public $response; // the response that will be sent back
-    public $shed; // the storage engine
+    public $shed; // the storage engine for config data
+    public $sessions; // a separate storage engine (possibly overlapping 'shed') for session data
     public $subservice; // subservices to help out
 
     public function __construct($service_name) {
@@ -46,6 +47,20 @@ class Omega extends OmegaRESTful implements OmegaApi {
         } catch (Exception $e) {
             throw new Exception("Unknown service: '$service_name'.");
         }
+        // initialize our storage engine for sessions
+        try {
+            $engine = $this->config->get('omega/session/engine');
+            $engine_args = $this->config->get('omega/session/engine_args');
+        } catch (Exception $e) {
+            // default to OmegaFileShed
+            $engine = 'File';
+            $engine_args = array('location' => OmegaConstant::data_dir);
+        }
+        $class_name = 'Omega' . ucfirst($engine) . 'Shed';
+        $r_class = new ReflectionClass($class_name);
+        $this->sessions = $r_class->newInstanceArgs(
+            $this->_get_construct_args($r_class, $engine_args)
+        );
         // if we're an async service then don't save the state so we can execute requests simultaneously
         if ($this->config->get('omega.async') == true) {
             $this->save_service_state = false;
@@ -88,6 +103,31 @@ class Omega extends OmegaRESTful implements OmegaApi {
         }
         $this->output_stream = $result;
         return $this->output_stream;
+    }
+
+    /** Rewrites the arguments from associative to positional to work for the class constructor. */
+    private function _get_construct_args($r_class, $args) {
+        global $om;
+        $missing_params = array();
+        $params = array();
+        $param_count = 0;
+        $r_method = $r_class->getMethod('__construct');
+        foreach ($r_method->getParameters() as $i => $r_param) {
+            // make sure the parameter is available, if present
+            $param_name = $r_param->getName();
+            // is this in our args?
+            if (isset($args[$param_name])) {
+                $params[$param_count] = $args[$param_name];
+            } else {
+                // damn, you missed!
+                $missing_params[] = $param_name;
+            }
+            $param_count++;
+        }
+        if (count($missing_params) > 0) {
+            throw new Exception("Constructor for '" . $r_class->getShortName() . "' is missing the following parameters: " . implode(', ', $missing_params) . '.');
+        }
+        return $params;
     }
 
     /** Returns whether or not the output stream was initialized for use. */
@@ -254,7 +294,7 @@ class Omega extends OmegaRESTful implements OmegaApi {
             }
         }
         // unlock and save the service instance if needed
-        if ($this->save_service_state && $this->config->get('omega.scope') != 'none') {
+        if ($this->save_service_state && $this->config->get('omega/scope') != 'none') {
             $this->_save_session(false);
         }
         // see if we spilled anywhere... if so, pick it up to ensure we have a clean stream
@@ -286,22 +326,22 @@ class Omega extends OmegaRESTful implements OmegaApi {
     }
     
     public function _load_session() {
-        $scope = $this->config->get('omega.scope');
+        $scope = $this->config->get('omega/scope');
         $this->session_id = null;
         if ($scope == 'global') {
             // global scope means every request is served by the same server
             try {
-                $this->service = $this->shed->get($this->service_name . '/instances', 'global');
+                $this->service = $this->sessions->get($this->service_name . '/instances', 'global');
                 $this->api = $this->service;
             } catch (Exception $e) {
                 // failed to get it? start one up fresh
                 $this->_init_service();
                 // and save it
-                $this->shed->store($this->service_name . '/instances', 'global', $this->service);
+                $this->sessions->store($this->service_name . '/instances', 'global', $this->service);
             }
             // if we can serve requests asyncronously then don't lock the instance file
             if ($this->save_service_state) {
-                $this->shed->lock($this->service_name . '/instances', 'global');
+                $this->sessions->lock($this->service_name . '/instances', 'global');
             }
         } else if ($scope == 'user') {
             // user scope means each user has their own private service instance
@@ -313,17 +353,17 @@ class Omega extends OmegaRESTful implements OmegaApi {
                 $username = $this->subservice->authority->authed_username;
             }
             try {
-                $this->service = $this->shed->get($this->service_name . '/instances/users', $username);
+                $this->service = $this->sessions->get($this->service_name . '/instances/users', $username);
                 $this->api = $this->service;
             } catch (Exception $e) {
                 // failed to get it? start one up fresh
                 $this->_init_service();
                 // and save it
-                $this->shed->store($this->service_name . '/instances/users', $username, $this->service);
+                $this->sessions->store($this->service_name . '/instances/users', $username, $this->service);
             }
             // if we can serve requests asyncronously then don't lock the instance file
             if ($this->save_service_state) {
-                $this->shed->lock($this->service_name . '/instances/users', $username);
+                $this->sessions->lock($this->service_name . '/instances/users', $username);
             }
         } else if ($scope == 'session') {
             // look for a OMEGA_SESSION_ID cookie to see if we have a session going-- if so, resume it
@@ -335,9 +375,10 @@ class Omega extends OmegaRESTful implements OmegaApi {
             // if the client is requesting the service itself then consider that a request for a new session
             // unless they're explicitly initializing the service-- if so, let it be done
             if ($session_id != ''
-                && file_exists($this->shed->get_location() . '/' . $this->service_name . '/instances/sessions/' . $session_id)
-                && $this->request->get_api() != $this->config->get('omega.nickname')) {
-                $this->session = $this->shed->get($this->service_name . '/instances/sessions', $session_id);
+                && $this->sessions->exists($this->service_name . '/instances/sessions/' . $session_id)
+                && $this->request->get_api() != $this->config->get('omega/nickname')
+                ) {
+                $this->session = $this->sessions->get($this->service_name . '/instances/sessions', $session_id);
                 $this->service = $this->session['service'];
                 $this->api = $this->service;
                 $this->session_id = $_COOKIE['OMEGA_SESSION_ID'];
@@ -345,10 +386,10 @@ class Omega extends OmegaRESTful implements OmegaApi {
                 $this->_create_session();
                 $this->_init_service();
                 $this->session['service'] = $this->service;
-                $this->shed->store($this->service_name . '/instances/sessions', $this->session_id, $this->session);
+                $this->sessions->store($this->service_name . '/instances/sessions', $this->session_id, $this->session);
             }
             if ($this->save_service_state) {
-                $this->shed->lock($this->service_name . '/instances/sessions', $this->session_id);
+                $this->sessions->lock($this->service_name . '/instances/sessions', $this->session_id);
             }
         } else if ($scope == 'none') {
             // each service is served fresh within 5 minutes or its free
@@ -365,42 +406,43 @@ class Omega extends OmegaRESTful implements OmegaApi {
 
     public function _save_session($files_locked = true) {
         // save our state
-        if ($this->config->get('omega.scope') == 'global') {
+        $scope = $this->config->get('omega/scope');
+        if ($scope == 'global') {
             // unlock and save the service instance
             if (! $files_locked) {
-                $this->shed->lock($this->service_name . '/instances', 'global');
+                $this->sessions->lock($this->service_name . '/instances', 'global');
             }
-            $this->shed->store($this->service_name . '/instances', 'global', $this->service);
+            $this->sessions->store($this->service_name . '/instances', 'global', $this->service);
             if (! $files_locked) {
-                $this->shed->unlock($this->service_name . '/instances', 'global');
+                $this->sessions->unlock($this->service_name . '/instances', 'global');
             }
-        } else if ($this->config->get('omega.scope') == 'user') {
+        } else if ($scope == 'user') {
             // only supported if the authority service is available
             if ($this->subservice->is_enabled('authority')) {
                 throw new Exception("Unable to run service at the 'user' level without the authority service.");
             }
             $username = $this->subservice->authority->authed_username;
             if (! $files_locked) {
-                $this->shed->lock($this->service_name . '/instances/users', $username);
+                $this->sessions->lock($this->service_name . '/instances/users', $username);
             }
-            $this->shed->store($this->service_name . '/instances/users', $username, $this->service);
+            $this->sessions->store($this->service_name . '/instances/users', $username, $this->service);
             if (! $files_locked) {
-                $this->shed->unlock($this->service_name . '/instances/users', $username);
+                $this->sessions->unlock($this->service_name . '/instances/users', $username);
             }
-        } else if ($this->config->get('omega.scope') == 'session') {
+        } else if ($scope == 'session') {
             if (! $files_locked) {
-                $this->shed->lock($this->service_name . '/instances/sessions', $this->session_id);
+                $this->sessions->lock($this->service_name . '/instances/sessions', $this->session_id);
             }
             $this->session['service'] = $this->service;
-            $this->shed->store($this->service_name . '/instances/sessions', $this->session_id, $this->session);
+            $this->sessions->store($this->service_name . '/instances/sessions', $this->session_id, $this->session);
             if (! $files_locked) {
-                $this->shed->unlock($this->service_name . '/instances/sessions', $this->session_id);
+                $this->sessions->unlock($this->service_name . '/instances/sessions', $this->session_id);
             }
-        } else if ($this->config->get('omega.scope') === 'none') {
+        } else if ($scope === 'none') {
             // do nothing, as we don't care to save the state... technically this shouldn't be called
             // but just in case...
         } else {
-            throw new Exception("Invalid service scope '" . $this->config->get('omega.scope') . "'.");
+            throw new Exception("Invalid service scope '$scope'.");
         }
     }
 
@@ -435,13 +477,13 @@ class Omega extends OmegaRESTful implements OmegaApi {
     public function restart_service() {
         // delete the service instance
         if ($this->config->get('omega.scope') == 'global') {
-            $this->shed->forget($this->service_name . '/instances', 'global');
+            $this->sessions->forget($this->service_name . '/instances', 'global');
         } else if ($this->config->get('omega.scope') == 'user') {
             if ($this->subservice->is_enabled('authority')) {
-                $this->shed->forget($this->service_name . '/instances/users', $this->subservice->authority->authed_username);
+                $this->sessions->forget($this->service_name . '/instances/users', $this->subservice->authority->authed_username);
             }
         } else if ($this->config->get('omega.scope') == 'session') {
-            $this->shed->forget($this->service_name . '/instances/sessions', $this->session_id);
+            $this->sessions->forget($this->service_name . '/instances/sessions', $this->session_id);
         }
         // unset the service so it can wind down nicely
         unset($this->service);
