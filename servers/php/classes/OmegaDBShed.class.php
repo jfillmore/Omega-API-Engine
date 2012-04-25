@@ -191,7 +191,7 @@ class OmegaDBShed {
         expects: bin=string, key=string
         returns: boolean */
     public function exists($bin, $key) {
-        global $db;
+        global $om;
         $bin = $this->db->escape($om->_pretty_path($bin) . '/');
         $key = $this->db->escape($key);
         $sql = "SELECT COUNT(*) AS count FROM `" . $this->table . "` WHERE `bin` = '$bin' AND `key` = '$key'";
