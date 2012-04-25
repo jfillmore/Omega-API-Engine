@@ -523,9 +523,9 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
         if result:
             if 'raw_response' in args and args['raw_response']:
                 if 'stdout_redir' in args and args['stdout_redir'] != None:
-                    args['file'].write(response)
+                    args['file'].write(response + '\n')
                 else:
-                    sys.stdout.write(response)
+                    sys.stdout.write(response + '\n')
             else:
                 if response != None:
                     if 'stdout_redir' in args and args['stdout_redir'] != None:
