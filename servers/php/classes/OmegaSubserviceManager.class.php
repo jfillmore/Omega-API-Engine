@@ -29,13 +29,8 @@ class OmegaSubserviceManager extends OmegaRESTful implements OmegaApi {
                 'subservices' => array(),
             );
         }
-        // instantiate only the enabled services
-        foreach ($this->config['subservices'] as $subservice => $enabled) { 
-            if (! $enabled) {
-                // disabled? sorry not gonna load you
-                continue;
-            }
-            // load up the subservice
+        // instantiate all subservices by default
+        foreach ($this->subservices as $subservice) {
             $class_name = "Omega" . ucfirst($subservice);
             $subservice_obj = new $class_name();
             $this->$subservice = $subservice_obj;
@@ -80,7 +75,7 @@ class OmegaSubserviceManager extends OmegaRESTful implements OmegaApi {
         }
     }
 
-    /** Lists the subservices provided by this omega server and whether or not they are active for this service. May optionally be filtered by a name (e.g. 'auth%').
+    /** Lists the subservices provided by this omega server. May optionally be filtered by a name (e.g. 'auth%').
         expects: name=string, case_sensitive=boolean
         returns: object */
     public function find($name = '%', $case_sensitive = false) {
@@ -100,26 +95,12 @@ class OmegaSubserviceManager extends OmegaRESTful implements OmegaApi {
                     );  
                 }
                 $subservices[$service] = array(
-                    'active' => $this->is_active($service),
                     'enabled' => $this->is_enabled($service),
                     'description' => $doc_string
                 );
             }
         }
         return $subservices;
-    }
-
-    /** Lists the active subservices for this service.
-        returns: array */
-    public function list_active() {
-        return array_keys($this->config['subservices']);
-        $active = array();
-        foreach ($this->config['subservices'] as $subservice => $is_enabled) {
-            if ($this->$subservice !== null) {
-                $active[] = $subservice;
-            }
-        }
-        return $active;
     }
 
     /** Lists the enabled subservices for this service.
@@ -134,57 +115,12 @@ class OmegaSubserviceManager extends OmegaRESTful implements OmegaApi {
         return $enabled;
     }
 
-    /** Returns the default configuration file for the specified subservice.
-        expects: subservice=string
-        returns: object */
-    public function get_default_config($subservice) {
-        $class_name = "Omega" . ucfirst($subservice);
-        $subservice_obj = new $class_name();
-        return $subservice_obj->get_default_config();
-    }
-
-    /** Subscribes your service to a subservice, which is disabled by default. It must be configured and enabled before it will operate.
-        expects: subservice=string
-        returns: object */
-    public function activate($subservice, $config = null) {
-        global $om;
-        // make sure this is a valid subservice
-        $subservice = strtolower($subservice);
-        if (! in_array($subservice, $this->subservices)) {
-            throw new Exception("No subservice by the name $subservice exists.");
-        }
-        // make sure it hasn't already been activated
-        if ($this->is_active($subservice)) {
-            throw new Exception("The subservice '$subservice' is already active.");
-        }
-        // instantiate it
-        $class_name = "Omega" . ucfirst($subservice);
-        $subservice_obj = new $class_name();
-        // generate a default config if needed
-        if ($config === null) {
-            $config = $subservice_obj->get_default_config();
-        }
-        $subservice_obj->set_config($config);
-        // add it to the config as a disabled subservice
-        $this->config['subservices'][$subservice] = false;
-        // save the service manager config
-        $this->_save_config();
-        if (isset($this->logger)) {
-            $this->logger->log("Activated subservice '$subservice'.");
-        }
-        return $this->get_config();
-    }
-
     /** Unsubscribe your service from a subservice. Any data created by that subservice will be retained so it may be reactivated later. The data stored by the subservice may be cleared with the 'clear_data' option. Returns the subservice configuration information.
         expects: subservice=string, clear_data=boolean
         returns: object */
     public function deactivate($subservice, $clear_data = false) {
         global $om;
-        // make sure it is currently activated
         $subservice = strtolower($subservice);
-        if (! $this->is_active($subservice)) {
-            throw new Exception("The subservice '$subservice' is currently inactive.");
-        }
         // clear the data if requested
         if ($clear_data) {
             // TODO: clear any local config files?
@@ -197,8 +133,6 @@ class OmegaSubserviceManager extends OmegaRESTful implements OmegaApi {
         unset($this->config['subservices'][$subservice]);
         // save our config
         $this->_save_config();
-        // kill the subservice
-        unset($this->$subservice);
         return $this->get_config();
     }
 
@@ -212,7 +146,7 @@ class OmegaSubserviceManager extends OmegaRESTful implements OmegaApi {
         }
     }
 
-    /** Enables and activates a subservice.
+    /** Enables a subservice.
         expects: subservice=string */
     public function enable($subservice) {
         $subservice = strtolower($subservice);
@@ -223,13 +157,13 @@ class OmegaSubserviceManager extends OmegaRESTful implements OmegaApi {
         // enable it in the config
         $this->config['subservices'][$subservice] = true;
         $this->_save_config();
-        if (isset($this->logger)) {
+        if ($this->is_enabled('logger')) {
             $this->logger->log("Enabled subservice '$subservice'.");
         }
         return $this->get_config();
     }
 
-    /** Disables an active subservice.
+    /** Disables a subservice.
         expects: subservice=string */
     public function disable($subservice) {
         $subservice = strtolower($subservice);
@@ -240,32 +174,26 @@ class OmegaSubserviceManager extends OmegaRESTful implements OmegaApi {
         // disable it in the config
         $this->config['subservices'][$subservice] = false;
         $this->_save_config();
-        $this->logger->log("Disabled subservice '$subservice'.");
+        if ($this->is_enabled('logger')) {
+            $this->logger->log("Disabled subservice '$subservice'.");
+        }
         return $this->get_config();
-    }
-
-    /** Returns whether or not a particular subservice is currently active.
-        expects: subservice=string
-        returns: boolean */
-    public function is_active($subservice) {
-        // return whether or not it is currently active
-        return in_array($subservice, $this->list_active());
     }
 
     /** Returns whether or not a particular subservice is currently enabled.
         expects: subservice=string
         returns: boolean */
     public function is_enabled($subservice) {
-        // it must be active and not in the 'disabled' list
-        return $this->is_active($subservice) && $this->config['subservices'][$subservice];
+        return isset(
+            $this->config['subservices'][$subservice]
+        ) && $this->config['subservices'][$subservice];
     }
 
     /** Returns whether or not a particular subservice is currently disabled.
         expects: subservice=string
         returns: boolean */
     public function is_disabled($subservice) {
-        // it must be active and disabled
-        return $this->is_active($subservice) && $this->config['subservices'][$subservice] == false;
+        return ! $this->is_enabled($subservice);
     }
 }
 

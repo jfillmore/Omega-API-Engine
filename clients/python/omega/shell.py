@@ -66,7 +66,7 @@ class Shell:
         except Exception, e:
             self._print_response(False, e.message)
             sys.exit(1)
-        if cmd_tree:
+        if cmd_tree and False:
             try:
                 # rebuild our data for tab completion
                 self._cmd_tree = self._build_cmd_tree(

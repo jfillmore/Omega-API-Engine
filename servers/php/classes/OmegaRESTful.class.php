@@ -9,8 +9,11 @@ abstract class OmegaRESTful {
       target handler. 
     - Route targets should be either a ref to the OmegaRESTful object to
       route to, or a string with the object's name
+    - You can use "@pre_route" to specify a method that will be called before
+      any routing takes place within that class file.
     // e.g.
     return $routes = array(
+        /@pre_route' => 'preroute_method',
         'account' => $this->account,
         '/service' => 'service',
         'server/' => $this->server,
@@ -59,15 +62,18 @@ abstract class OmegaRESTful {
         if ($routes === null) {
             $routes = $this->_get_routes();
         }
+        $pre_proc = array();
         foreach ($routes as $route => $target) {
             $start = substr($om->_pretty_path($route, true), 0, 2);
-            if ($start == '/:') {
+            if ($route == '@pre_route') {
+                $pre_proc[$route] = $target;
+            } else if ($start == '/:') {
                 $vars[$route] = $target;
             } else {
                 $literals[$route] = $target;
             }
         }
-        return array_merge($literals, $vars);
+        return array_merge($pre_proc, $literals, $vars);
     }
 
     public function _sorted_handlers($handlers = null) {
@@ -93,30 +99,43 @@ abstract class OmegaRESTful {
         }
         $path = $om->_pretty_path($path, true);
         if ($debug) echo "Routing path '$path' on " . get_class($this) . ".\n";
+        $pre_route = false;
         // gotta have a path do to any routing
         if (strlen($path)) {
             // try to resolve path as needed within the routes
             foreach ($this->_sorted_routes() as $route => $target) {
-                // normalize our route name
-                $route = $om->_pretty_path($route, true);
-                // convert strings to the actual branch object
-                if (is_string($target)) {
-                    $target = $this->$target;
-                }
-                // check target class as OmegaRESTful
-                if (! is_subclass_of($target, get_class())) {
-                    throw new Exception("Route target '" . get_class($target) . "' for '$route' in '" . get_class($this) . "' is not a RESTful object.");
-                }
-                // if our route matches this path...
-                if ($debug) echo "\nParse path on " . get_class($this) . ": $path => route $route\n";
-                $parsed = $this->_parse_path($path, $route, true);
-                if ($parsed) {
-                    if ($debug) echo "Routing to " . get_class($target) . "\n";
-                    // recursively route until the handler is found
-                    return $target->_route(
-                        $parsed['sub_path'],
-                        array_merge($params, $parsed['params'])
-                    );
+                // check for a pre-routing handler first
+                if ($route === '@pre_route') {
+                    $r_class = new ReflectionClass($this);
+                    if (! $r_class->hasMethod($target)) {
+                        throw new Exception("Pre-route target '$target' does not exist on " . get_class($this) . " object.");
+                    }
+                    $pre_route = $target;
+                } else {
+                    // normalize our route name
+                    $route = $om->_pretty_path($route, true);
+                    // convert strings to the actual branch object
+                    if (is_string($target)) {
+                        if (! isset($this->$target)) {
+                            throw new Exception("Route target '$target' does not exist on " . get_class($this) . " object.");
+                        }
+                        $target = $this->$target;
+                    }
+                    // check target class as OmegaRESTful
+                    if (! is_subclass_of($target, get_class())) {
+                        throw new Exception("Route target '" . get_class($target) . "' for '$route' in '" . get_class($this) . "' is not a RESTful object.");
+                    }
+                    // if our route matches this path...
+                    if ($debug) echo "\nParse path on " . get_class($this) . ": $path => route $route\n";
+                    $parsed = $this->_parse_path($path, $route, true);
+                    if ($parsed) {
+                        if ($debug) echo "Routing to " . get_class($target) . "\n";
+                        // recursively route until the handler is found
+                        return $target->_route(
+                            $parsed['sub_path'],
+                            array_merge($params, $parsed['params'])
+                        );
+                    }
                 }
             }
         }
@@ -142,7 +161,15 @@ abstract class OmegaRESTful {
                 if ($debug) echo "\nParse path on " . get_class($this) . ": $path => handler $handler\n";
                 $parsed = $this->_parse_path($path, $handler);
                 if ($parsed) {
-                    //die('matched: '. var_export($parsed, true));
+                    // if we had a pre_route handler call it now before moving on
+                    if ($pre_route) {
+                        // FIXME: get_api_params() will return params collected already; we don't want to pass those twice
+                        $this->$pre_route(
+                            $_SERVER['REQUEST_METHOD'],
+                            $om->request->get_api(),
+                            $om->request->get_api_params()
+                        );
+                    }
                     return array(
                         'api_branch' => $this,
                         'route' => $handler,
@@ -191,7 +218,7 @@ abstract class OmegaRESTful {
         $params = array();
         $sub_path = $path;
         $has_wildcard = (substr($route[count($route) - 1], 0, 1) === '*'); // because wildcards can match empty strings we have to be a bit extra careful
-        if ($debug) echo "Route $route_str has wildcard: $has_wildcard.\n";
+        if ($debug) echo "Route $route_str has wildcard: " . (int)$has_wildcard . ".\n";
         if (count($route) > count($path)) {
             // route too long? ain't ever gonna match unless it contains a *wildcard at the end
             if (! $has_wildcard) {
@@ -241,7 +268,7 @@ abstract class OmegaRESTful {
             // if we have a wildcard next and we're at the end of the line then use it now
             if ($debug) var_export($route);
             if ($debug) var_export($i);
-            if ($i + 1 >= count($path) && $i > count($route) && substr($route[$i + 1], 0, 1) == '*') {
+            if ($i + 1 >= count($path) && $i > count($route) + 1 && substr($route[$i + 1], 0, 1) == '*') {
                 $param_name = substr($route[$i + 1], 1);
                 $params[$param_name] = '';
                 if ($debug) echo "+ Collected empty parameter to populate wildcard '$param_name' in route.\n";
@@ -257,6 +284,10 @@ abstract class OmegaRESTful {
             $return['sub_path'] = $sub_path;
         }
         if ($debug) echo "returning $path_str with " . var_export($return, true);
+        // merge any params we collected
+        if ($return['params']) {
+            $om->request->_add_api_params($return['params']);
+        }
         return $return;
     }
 }

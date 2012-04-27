@@ -277,11 +277,11 @@ class OmegaClient:
             if verbose:
                 sys.stdout.write('+ Cookie [%s]\n' % (cookie))
             http.cookie = cookie
-        #if verbose:
-            #sys.stdout.write(
-                #'+ Status [%d], Reason [%s], headers [%s]' %
-                #(response.status, response.reason, response.msg)
-            #)
+        if verbose:
+            sys.stdout.write(
+                '+ Status [%d], Reason [%s], headers [%s]\n' %
+                (response.status, response.reason, response.msg)
+            )
         if raw_response:
             return response.read()
         else:

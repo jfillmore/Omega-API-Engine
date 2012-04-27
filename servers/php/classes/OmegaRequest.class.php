@@ -11,7 +11,7 @@
 class OmegaRequest extends OmegaRESTful implements OmegaApi {
     public $encodings = array('json', 'php', 'raw', 'html');
     private $encoding; // the encoding used for the data
-    private $credentials; // the credentials, if available, that the user has supplied
+    private $credentials = null; // the credentials, if available, that the user has supplied
 
     private $query_options; // options related to the query at hand
     private $type = 'command'; // whether the client is querying for information or running a command
@@ -24,7 +24,6 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 
     public function __construct() {
         global $om;
-        $service_nickname = $om->config->get('omega.nickname');
         // get the request encoding
         try {
             $this->set_encoding($this->get_omega_param('ENCODING'));
@@ -41,10 +40,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
             // decode them with the appropriate decoder
             $this->credentials = $this->decode($this->get_omega_param('CREDENTIALS'), $this->get_encoding());
         } catch (Exception $e) {
-            // no credentials? no worries, unless there is an authority around here
-            if ($om->subservice->is_enabled('authority')) {
-                $this->credentials = null;
-            }
+            // no credentials? no worries
         }
 
         // determine our API based on the URI
@@ -100,17 +96,6 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
             }
         }
         $this->set_api(join('/', $api_parts));
-        // with a properly formatted API we can see if we should infer the service name or not
-        $api_parts = explode('/', $this->get_api());
-        if (count($api_parts)) {
-            $first = $api_parts[0];
-            // the first part is generally expected to be the service nickname or 'omega'
-            if (! (in_array($first, array('omega', $service_nickname)) || substr($first, -1) == '?')) {
-                // just assume they gave us the service name to make API calls cleaner
-                array_unshift($api_parts, $service_nickname);
-                $this->set_api(join('/', $api_parts));
-            }
-        }
 
         // set our option defaults, and collect any that were sent by the user
         if ($this->get_type() == 'query') {
@@ -155,15 +140,32 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
     }
 
     private function set_api($api) {
+        global $om;
         // rewrite the API as needed to expand it
         $api = $this->translate_api($api);
-        $branches = explode('/', $api);
+        $parts = explode('/', $api);
         // just a bit of sanity checking
-        if (count($branches) == 0) {
+        if (count($parts) == 0) {
             throw new Exception("API '$api' somehow has no parts!");
         }
+        // with a properly formatted API we can see if we should infer the service name or not
+        $first = $parts[0];
+        // the first part is generally expected to be the service nickname or 'omega'
+        if (! (in_array($first, array('omega', $om->service_nickname)) || substr($first, -1) == '?')) {
+            // just assume they gave us the service name to make API calls cleaner
+            array_unshift($parts, $om->service_nickname);
+        }
         // save the names of everything
-        $this->api = $api;
+        $this->api = implode('/', $parts);
+    }
+
+    /* Add additional paramters to the API (e.g. when parsing routes). */
+    public function _add_api_params($params) {
+        $this->api_params = array_merge(
+            $params,
+            $this->api_params
+        );
+        return $this->api_params;
     }
 
     private function get_omega_param($param) {
@@ -179,16 +181,21 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                 return file_get_contents('php://input');
             }
         } else if ($param === 'OMEGA_CREDENTIALS') {
-            // hack, hack, hack
+            // gotta encode the credentials cause the old version does too
             if (isset($_SERVER['HTTP_AUTHENTICATION'])) {
                 $auth_header = $_SERVER['HTTP_AUTHENTICATION'];
                 $auth_parts = explode(' ', $auth_header);
                 if ($auth_parts[0] === 'Basic') {
                     // different format than the old version, but much easier to implement
-                    // also, gotta encode the credentials cause the old version does too
                     return json_encode($auth_parts[1]);
                 }
+            } else {
+                // if they have a session open it may contain creds alrady
+                if (is_array($om->session)) {
+                    return json_encode($om->session['creds']);
+                }
             }
+            // not provie
         }
         // otherwise, fall back to ghetto get/post vars, which means we're probably not restful
         if (isset($_POST[$param])) {
@@ -261,12 +268,10 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         } else {
             throw new Exception("Unsupport parameter encoding: '$encoding'.");
         }
-        // split the params into positional and named params, scanning for any hail maries as we go
-        $positional_params = array();
         $named_params = array();
         foreach ($params as $key => $value) {
             if (is_int($key)) {
-                $positional_params[$key] = $value;
+                throw new Exception("Positional parameters no longer supported.");
             } else {
                 if ($key == '?') {
                     $this->query_arg = true;
@@ -275,10 +280,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                 $named_params[$key] = $value;
             }
         }
-        $this->api_params = array(
-            'positional' => $positional_params,
-            'named' => $named_params
-        );
+        $this->api_params = $named_params;
     }
 
     private function collect_options() {
@@ -325,7 +327,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
 
         // for each parameter, look for and gather any flags
         $api_params = $this->get_api_params();
-        foreach ($api_params['named'] as $name => $value) {
+        foreach ($api_params as $name => $value) {
             /* parameters will look like:
                 hide=methods,branches
                 name=bob, name=bob*, name=*bob, name=*bob*, name=bob%recurse,compare-case, name=*bob%cr, name=*bob*%r,compare-case
@@ -384,11 +386,8 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
             'get' => $_GET,
             'post' => $_POST,
             'stdin' => file_get_contents('php://input'),
-            'doc_uri' => $_SERVER['DOCUMENT_URI'],
-            'http_method' => $_SERVER['REQUEST_METHOD'],
-            'http_request' => $_SERVER['REQUEST_URI'],
-            'http_accept' => $_SERVER['HTTP_ACCEPT'],
-            'http_content_type' => $_SERVER['CONTENT_TYPE'],
+            'server' => $_SERVER,
+            'cookies' => $_COOKIE,
             'api' => $this->get_api(),
             'api_params' => $this->get_api_params(),
             'foo' => $foo,
@@ -418,7 +417,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         $matches = null;
         if (preg_match('/^(omega\/service)\/?/', $api, $matches) ||
             preg_match('/^(omega\/api)\/?/', $api, $matches)) {
-            $api = $om->config->get('omega.nickname') . substr($api, strlen($matches[1]));
+            $api = $om->service_nickname . substr($api, strlen($matches[1]));
         }
         return $api;
     }
@@ -440,9 +439,9 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
             $service = $om;
             $nickname = 'omega';
             $branches[0] = substr($branches[0], 1);
-        } else if ($branches[0] == $om->config->get('omega.nickname')) {
+        } else if ($branches[0] == $om->service_nickname) {
             $service = $om->service;
-            $nickname = $om->config->get('omega.nickname');
+            $nickname = $om->service_nickname;
         } else {
             throw new Exception("Unknown service name: '" . $branches[0] . "'.");
         }
@@ -532,7 +531,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
             $nickname = 'omega';
         } else {
             $service = $om->service;
-            $nickname = $om->config->get('omega.nickname');
+            $nickname = $om->service_nickname;
         }
 
         if ($this->query_arg && ($api == '?' || substr($api, 0, -2) == '.?')) {
@@ -546,7 +545,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                 $doc_string == '';
             }
             $data = array();
-            $data['name'] = $om->config->get('omega.nickname');
+            $data['name'] = $om->service_nickname;
             $data['description'] = trim(substr($doc_string, 3, strlen($doc_string)-5));
             // and constructor information too
             $data['info'] = $this->_get_method_info($r_service->getMethod('__construct'), true);
@@ -586,11 +585,6 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                 $route = $service->_route($api_parts);
                 $api_branch = $route['api_branch'];
                 $method = trim($route['method'], '/');
-                // update our API params, as we got some new ones
-                $this->api_params['named'] = array_merge(
-                    $route['params'],
-                    $this->api_params['named']
-                );
             } else {
                 // if we're NOT a restful API then the last part is the method, or using an old request style...
                 $method = array_pop($api_parts);
@@ -612,7 +606,6 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         }
         // make sure the method is exists-- if not then see if the user has a ___404 method
         if (! $r_class->hasMethod($method)) {
-            // TODO: make this a subservice for 404's
             if (! $this->is_query() && $r_class->hasMethod('___404')) {
                 return call_user_func_array(
                     array($api_branch, '___404'),
@@ -626,7 +619,6 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         $r_method = $r_class->getMethod($method);
         // not public or hidden (/^_/)? pretend you don't exist
         if ($r_method->isPrivate() || substr($method, 0, 1) == '_') {
-            // TODO: make this a subservice for 404's
             if (! $this->is_query() && $r_class->hasMethod('___404')) {
                 return call_user_func_array(
                     array($api_branch, '___404'),
@@ -641,8 +633,6 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         if ($this->query_arg) {
             return $this->_get_method_info($r_method, $this->query_options['verbose']);
         }
-
-        // TODO: figure out verbosity, dryrun, etc
 
         // make sure we have all the parameters we need to execute the API call
         $params = $this->_get_method_params($r_method);
@@ -660,32 +650,18 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         $missing_params = array();
         $params = array();
         $param_count = 0;
-        $switched_to_named = false; // once we see a named parameter the rest must also be named
         foreach ($r_method->getParameters() as $i => $r_param) {
             // make sure the parameter is available, if present
             $param_name = $r_param->getName();
-            // is this in our positionals?
-            if (isset($api_params['positional'][$param_count])) {
-                // if we've switched to named crap out, as positionals can't be used anymore
-                if ($switched_to_named) {
-                    $om->response->header_num(400);
-                    throw new Exception("Positional argument " . ($param_count + 1) . " not allowed after named parameters have been used.");
-                }
-                $params[$param_count] = $api_params['positional'][$param_count];
+            if (isset($api_params[$param_name])) {
+                $params[$param_count] = $api_params[$param_name];
             } else {
-                // we didnt' have a positional, so see if we can fill it with something from the named parameters
-                if (isset($api_params['named'][$param_name])) {
-                    $params[$param_count] = $api_params['named'][$param_name];
-                    // note that we used a named parameter
-                    $switched_to_named = true;
+                // wasn't there either? maybe it is optional...
+                if ($r_param->isOptional()) {
+                    $params[$param_count] = $r_param->getDefaultValue();
                 } else {
-                    // wasn't there either? maybe it is optional...
-                    if ($r_param->isOptional()) {
-                        $params[$param_count] = $r_param->getDefaultValue();
-                    } else {
-                        // damn, you missed!
-                        $missing_params[] = $param_name;
-                    }
+                    // damn, you missed!
+                    $missing_params[] = $param_name;
                 }
             }
             $param_count++;
@@ -818,34 +794,36 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                 // new, RESTful style listing
                 foreach ($branch->_sorted_routes() as $route => $target) {
                     // can we use it?
-                    if (is_string($target)) {
-                        $target = $branch->$target;
-                    }
-                    try {
-                        $prop_branch = new ReflectionClass($target);
-                    } catch (Exception $e) {
-                        continue;
-                    }
-                    if (! $prop_branch) {
-                        continue;
-                    }
-                    $doc_string = $prop_branch->getDocComment();
-                    if ($doc_string === false) {
-                        $doc_string = '';
-                    } else {
-                        // trim the '/** */' and any extra white space
-                        $doc_string = trim(
-                            substr($doc_string, 3, strlen($doc_string) - 5)
-                        );
-                    }
-                    if ($recurse) {
-                        $data['routes'][$route] = $this->_get_branch_info(
-                            $target,
-                            $recurse,
-                            $verbose
-                        );
-                    } else {
-                        $data['routes'][$route] = $doc_string;
+                    if ($route !== '@pre_route') {
+                        if (is_string($target)) {
+                            $target = $branch->$target;
+                        }
+                        try {
+                            $prop_branch = new ReflectionClass($target);
+                        } catch (Exception $e) {
+                            continue;
+                        }
+                        if (! $prop_branch) {
+                            continue;
+                        }
+                        $doc_string = $prop_branch->getDocComment();
+                        if ($doc_string === false) {
+                            $doc_string = '';
+                        } else {
+                            // trim the '/** */' and any extra white space
+                            $doc_string = trim(
+                                substr($doc_string, 3, strlen($doc_string) - 5)
+                            );
+                        }
+                        if ($recurse) {
+                            $data['routes'][$route] = $this->_get_branch_info(
+                                $target,
+                                $recurse,
+                                $verbose
+                            );
+                        } else {
+                            $data['routes'][$route] = $doc_string;
+                        }
                     }
                 }
             } else {
@@ -888,7 +866,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                         // if we're peeking at 'omega.service' then call it by the service name instead
                         if (substr($this->api, 0, 6) == 'omega.' && $prop_name == 'service') {
                             $accessible = $om->subservice->authority->check_access(
-                                $om->config->get('omega.nickname') . '/?',
+                                $om->service_nickname . '/?',
                                 $om->whoami()
                             );
                         } else {
