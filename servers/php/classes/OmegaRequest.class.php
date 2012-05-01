@@ -173,7 +173,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         $param = 'OMEGA_' . strtoupper($param);
         // HTTP headers are preferred, and take priority
         if ($param === 'OMEGA_ENCODING') {
-            if ($_SERVER['CONTENT_TYPE'] === 'application/json') {
+            if (strpos($_SERVER['CONTENT_TYPE'], 'application/json') === 0) {
                 return 'json';
             }
         } else if ($param === 'OMEGA_API_PARAMS') {
@@ -388,6 +388,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
             'stdin' => file_get_contents('php://input'),
             'server' => $_SERVER,
             'cookies' => $_COOKIE,
+            'encoding' => $this->get_encoding(),
             'api' => $this->get_api(),
             'api_params' => $this->get_api_params(),
             'foo' => $foo,

@@ -192,7 +192,7 @@ class Omega extends OmegaRESTful implements OmegaApi {
                 'OMEGA_SESSION_ID'
             );
         }
-        if ($_SERVER['CONTENT_TYPE'] === 'application/json') {
+        if (strpos($_SERVER['CONTENT_TYPE'], 'application/json') === 0) {
             $this->response->set_encoding('json');
         } else {
             // default our response encoding to be the same as what we used with the request
