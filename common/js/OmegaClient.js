@@ -350,11 +350,14 @@
 
                 ajax.on_ajax_success = function (response, text_status, xml_http_request) {
                     var json_response, spillage, message, error, response_encoding,
-                        response_charset, response_parts, cookies;
-                    response_parts = xml_http_request.getResponseHeader('Content-Type').split('; ');
-                    response_encoding = response_parts[0];
-                    if (response_parts.length > 1) {
-                        response_charset = response_parts[1];
+                        response_charset, response_parts, cookies, header;
+                    header = xml_http_request.getResponseHeader('Content-Type');
+                    if (header) {
+                        response_parts = header.split('; ');
+                        response_encoding = response_parts[0];
+                        if (response_parts.length > 1) {
+                            response_charset = response_parts[1];
+                        }
                     }
                     if (response_encoding === 'application/json') {
                         // if there was any spillage then note
@@ -406,11 +409,14 @@
                 };
 
                 ajax.on_ajax_failure = function (xml_http_request, text_status, error_thrown) {
-                    var response_parts, response_encoding, response;
-                    response_parts = xml_http_request.getResponseHeader('Content-Type').split('; ');
-                    response_encoding = response_parts[0];
-                    if (response_parts.length > 1) {
-                        response_charset = response_parts[1];
+                    var response_parts, response_encoding, response, header;
+                    header = xml_http_request.getResponseHeader('Content-Type');
+                    if (header) {
+                        response_parts = header.split('; ');
+                        response_encoding = response_parts[0];
+                        if (response_parts.length > 1) {
+                            response_charset = response_parts[1];
+                        }
                     }
                     response = xml_http_request.responseText;
                     if (response_encoding === 'application/json') {
@@ -506,11 +512,14 @@
 
                 ajax.on_ajax_success = function (response, text_status, xml_http_request) {
                     var json_response, spillage, message, error, response_encoding,
-                        response_charset, response_parts, cookies;
-                    response_parts = xml_http_request.getResponseHeader('Content-Type').split('; ');
-                    response_encoding = response_parts[0];
-                    if (response_parts.length > 1) {
-                        response_charset = response_parts[1];
+                        response_charset, response_parts, cookies, header;
+                    header = xml_http_request.getResponseHeader('Content-Type');
+                    if (header) {
+                        response_parts = header.split('; ');
+                        response_encoding = response_parts[0];
+                        if (response_parts.length > 1) {
+                            response_charset = response_parts[1];
+                        }
                     }
                     if (response_encoding === 'application/json') {
                         // if there was any spillage then note
@@ -562,11 +571,14 @@
                 };
 
                 ajax.on_ajax_failure = function (xml_http_request, text_status, error_thrown) {
-                    var response_parts, response_encoding, response;
-                    response_parts = xml_http_request.getResponseHeader('Content-Type').split('; ');
-                    response_encoding = response_parts[0];
-                    if (response_parts.length > 1) {
-                        response_charset = response_parts[1];
+                    var response_parts, response_encoding, response, header;
+                    header = xml_http_request.getResponseHeader('Content-Type');
+                    if (header) {
+                        response_parts = header.split('; ');
+                        response_encoding = response_parts[0];
+                        if (response_parts.length > 1) {
+                            response_charset = response_parts[1];
+                        }
                     }
                     response = xml_http_request.responseText;
                     if (response_encoding === 'application/json') {
