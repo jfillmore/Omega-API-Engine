@@ -196,7 +196,7 @@ class OmegaDBShed {
         $key = $this->db->escape($key);
         $sql = "SELECT COUNT(*) AS count FROM `" . $this->table . "` WHERE `bin` = '$bin' AND `key` = '$key'";
         $rows = $this->db->query($sql);
-        return count($rows) > 0;
+        return $rows[0]['count'] > 0;
     }
 
     /** Retrieves and unserializes the specified data from a bin. If the data was not found an exception will be thrown.

@@ -155,8 +155,7 @@ class Omega extends OmegaRESTful implements OmegaApi {
         // make sure we've got the parameters we need
         $class_name = $this->service_name;
         $r_class = new ReflectionClass($class_name);
-        $r_method = $r_class->getMethod('__construct');
-        $params = $this->request->_get_method_params($r_method);
+        $params = $this->_get_construct_args($r_class, $this->request->get_api_params());
         $service = $r_class->newInstanceArgs($params);
         if ($service !== null) {
             $this->service = $service;
