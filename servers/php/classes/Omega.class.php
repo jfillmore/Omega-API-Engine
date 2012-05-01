@@ -10,15 +10,16 @@
 /** Omega exists as a global object ($om or $omega) and provides an API to assist omega services (e.g. provide subservices like ACLs and logging). */
 class Omega extends OmegaRESTful implements OmegaApi {
     public $session;
-    private $save_service_state; // whether or not to save the state of the service after each request
     public $session_id; // used when scope = 'session', can be prefixed with $om->response->set_cookie_prefix()
     private $restful; // whether or not the API is RESTful
     private $output_stream = null;
+    private $save_service_state; // whether or not to save the state of the service after each request
 
     // service information
     public $api; // alias to $this->service
     public $service; // the current hosted service e.g. 'new Marian(...);'
     public $service_name; // the service's name, used to initialize the client service, e.g. 'Marian'
+    public $service_nickname; // short name for the service
     
     // internal omega branches
     public $config; // configuration information about this service
@@ -174,6 +175,7 @@ class Omega extends OmegaRESTful implements OmegaApi {
     public function _do_the_right_thing() {
         // capture any crap that PHP leaks through (e.g. warnings on functions) or that the user intentionally leaks
         ob_start();
+        $this->service_nickname = $this->config->get('omega.nickname');
         // load the subservice manager first so the request and response can do subservice-dependant stuff
         $this->subservice = new OmegaSubserviceManager();
         // get a response ready
@@ -196,20 +198,35 @@ class Omega extends OmegaRESTful implements OmegaApi {
             // default our response encoding to be the same as what we used with the request
             $this->response->set_encoding($this->request->get_encoding());
         }
-        $service_nickname = $this->config->get('omega.nickname');
 
-        // if authentication is enabled then check access now
-        if ($this->subservice->is_enabled('authority')) {
-            try {
-                $this->subservice->authority->authenticate($this->request->get_credentials());
-            } catch (Exception $e) {
+        try {
+            $this->subservice->authority->authenticate(
+                $this->request->get_credentials()
+            );
+        } catch (Exception $e) {
+            // no authority enabled, then no auth needed
+            if (! $this->subservice->is_enabled('authority')) {
+                // restore our header back to OK
+                $this->response->header_num(200);
+            } else {
                 $data = array(
                     'backtrace' => $this->_clean_trace($e->getTrace())
                 );
+                $spillage = ob_get_contents();
+                ob_end_clean();
+                $this->response->set_spillage($spillage);
                 $this->response->set_data($data);
                 $this->subservice->logger->log($data);
                 $this->subservice->logger->commit_log(false);
                 throw $e;
+            }
+        }
+
+        // if the API is for omega/* but we're not authed as the service then abort
+        if (preg_match('/^omega\W/', $this->request->get_api())) {
+            if ($this->subservice->authority->authed_username !== $this->service_nickname) {
+               $this->response->header_num(403);
+               throw new Exception("Authentication required.");
             }
         }
 
@@ -222,7 +239,7 @@ class Omega extends OmegaRESTful implements OmegaApi {
             throw new Exception("Unknown or unavailable service : '" . $this->service_name . "'.");
         }
         // load/create the service instance, if needed
-        if ($this->request->get_api() == '?' || ($this->request->get_api() === $service_nickname && $this->request->is_query())) {
+        if ($this->request->get_api() == '?' || ($this->request->get_api() === $this->service_nickname && $this->request->is_query())) {
             $this->save_service_state = false;
             $this->service = null;
             $this->api = $this->service;
@@ -231,7 +248,7 @@ class Omega extends OmegaRESTful implements OmegaApi {
             $this->_load_session();
         }
         // try to answer the request
-        if ($this->request->get_api() == $service_nickname && ! $this->request->is_query()) {
+        if ($this->request->get_api() == $this->service_nickname && ! $this->request->is_query()) {
             // we're just initializing, so nothing to do really
             if ($this->request->get_encoding() == 'raw') {
                 // perform a redirection unless we've already got a 'Location' header set from the service
@@ -309,12 +326,12 @@ class Omega extends OmegaRESTful implements OmegaApi {
         }
         // see if we spilled anywhere... if so, pick it up to ensure we have a clean stream
         $spillage = ob_get_contents();
-        // encode the response that we'll send back
-        $response = $this->response->encode($this->response->get_encoding());
         ob_end_clean();
         if (strlen($spillage) > 0) {
             $this->response->set_spillage($spillage);
         }
+        // encode the response that we'll send back
+        $response = $this->response->encode($this->response->get_encoding());
         // print out the request headers
         foreach ($this->response->headers as $header_name => $header_value) {
             header($header_name . ': ' . $header_value);

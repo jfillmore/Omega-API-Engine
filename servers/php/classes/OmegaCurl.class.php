@@ -9,6 +9,10 @@ class OmegaCurl {
     private $agent = null;
     private $port = null; // null = 80/443 by default
     private $base_url = null; // e.g. example.com/foo
+    private $return_output = true;
+    private $return_binary = true;
+    private $return_header = false;
+    private $timeout = 10; // request timeout, in seconds
     public $num_requests;
 
     public function __construct($base_url = '', $port = null, $agent = 'cURL wrapper 0.2') {
@@ -21,6 +25,18 @@ class OmegaCurl {
 
     public function set_agent($agent) {
         $this->agent = $agent;
+    }
+
+    public function set_return_transfer($value) {
+        $this->return_output = (bool)$value;
+    }
+
+    public function set_return_binary($value) {
+        $this->return_binary = (bool)$value;
+    }
+
+    public function set_return_header($value) {
+        $this->return_header = (bool)$value;
     }
 
     public function __destruct() {
@@ -52,7 +68,7 @@ class OmegaCurl {
         return $this->base_url;
     }
 
-    private function set_base_url($value) {
+    public function set_base_url($value) {
         $this->base_url = $value;
         return $this->base_url;
     }
@@ -78,8 +94,9 @@ class OmegaCurl {
         }
         curl_setopt($this->curl_handle, CURLOPT_SSL_VERIFYHOST, 0);
         curl_setopt($this->curl_handle, CURLOPT_SSL_VERIFYPEER, 0);
-        curl_setopt($this->curl_handle, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($this->curl_handle, CURLOPT_HEADER, 0);
+        curl_setopt($this->curl_handle, CURLOPT_RETURNTRANSFER, (int)$this->return_output);
+        curl_setopt($this->curl_handle, CURLOPT_BINARYTRANSFER, (int)$this->return_binary);
+        curl_setopt($this->curl_handle, CURLOPT_HEADER, (int)$this->return_header);
         if ($this->agent !== null) {
             curl_setopt($this->curl_handle, CURLOPT_USERAGENT, $this->agent);
         }
@@ -92,16 +109,19 @@ class OmegaCurl {
     }
 
     private function write_body($body) {
+        $length = 0;
         if ($body) {
+            $length = strlen($body);
             $fh = fopen('php://memory', 'rw');  
             fwrite($fh, $body);
             rewind($fh);  
             curl_setopt($this->curl_handle, CURLOPT_INFILE, $fh);  
-            curl_setopt($this->curl_handle, CURLOPT_INFILESIZE, strlen($body));
+            curl_setopt($this->curl_handle, CURLOPT_INFILESIZE, $length);
         }
+        return $length;
     }
 
-    public function request($url, $params = '', $method = 'GET', $extended = false, $headers = array()) {
+    public function request($url, $params = '', $method = 'GET', $extended = false, $headers = array(), $cookies = array()) {
         $this->init();
         if ($url == '') {
             throw new Exception("Invalid URL: '$url'.");
@@ -111,7 +131,6 @@ class OmegaCurl {
         }
         $method = strtoupper($method);
         $url = $this->get_base_url() . "/$url";
-        $content_length = strlen($params);
         // write our auth info
         if ($this->http_auth && $this->http_auth_info != null) {
             $headers[] = 'Authentication: Basic ' . base64_encode(md5($this->http_auth_info));
@@ -137,23 +156,28 @@ class OmegaCurl {
         } else if ($method === 'POST') {
             curl_setopt($this->curl_handle, CURLOPT_CUSTOMREQUEST, 'POST');
             curl_setopt($this->curl_handle, CURLOPT_POSTFIELDS, $params);
+            $content_length = strlen($params);
         } else if ($method === 'PUT') {
             curl_setopt($this->curl_handle, CURLOPT_CUSTOMREQUEST, 'PUT');
-            $this->write_body($params);
+            $content_length = $this->write_body($params);
         } else if ($method === 'DELETE') {
             curl_setopt($this->curl_handle, CURLOPT_CUSTOMREQUEST, 'DELETE');
-            $this->write_body($params);
+            $content_length = $this->write_body($params);
         } else {
             curl_setopt($this->curl_handle, CURLOPT_CUSTOMREQUEST, $method);
-            $this->write_body($params);
+            $content_length = $this->write_body($params);
         }
         curl_setopt($this->curl_handle, CURLOPT_URL, $url);
         curl_setopt($this->curl_handle, CURLOPT_PORT, $this->get_port());
+        curl_setopt($this->curl_handle, CURLOPT_TIMEOUT, $this->timeout);
         if ($content_length !== null) {
             $headers[] = 'Content-Length: ' . $content_length;
         }
         if ($headers) {
             curl_setopt($this->curl_handle, CURLOPT_HTTPHEADER, $headers);
+        }
+        foreach ($cookies as $cookie) {
+            curl_setopt($this->curl_handle, CURLOPT_COOKIE, $cookie);
         }
         $result = curl_exec($this->curl_handle);
         $meta = curl_getinfo($this->curl_handle);
@@ -199,24 +223,24 @@ class OmegaCurl {
         }
     }
 
-    public function get($url, $params = '', $extended = false, $headers = null) {
-        return $this->request($url, $params, 'GET', $extended, $headers);
+    public function get($url, $params = '', $extended = false, $headers = null, $cookies = array()) {
+        return $this->request($url, $params, 'GET', $extended, $headers, $cookies);
     }
     
-    public function post($url, $params = '', $extended = false, $headers = null) {
-        return $this->request($url, $params, 'POST', $extended, $headers);
+    public function post($url, $params = '', $extended = false, $headers = null, $cookies = array()) {
+        return $this->request($url, $params, 'POST', $extended, $headers, $cookies);
     }
 
-    public function patch($url, $params = '', $extended = false, $headers = null) {
-        return $this->request($url, $params, 'PATCH', $extended, $headers);
+    public function patch($url, $params = '', $extended = false, $headers = null, $cookies = array()) {
+        return $this->request($url, $params, 'PATCH', $extended, $headers, $cookies);
     }
 
-    public function put($url, $params = '', $extended = false, $headers = null) {
-        return $this->request($url, $params, 'PUT', $extended, $headers);
+    public function put($url, $params = '', $extended = false, $headers = null, $cookies = array()) {
+        return $this->request($url, $params, 'PUT', $extended, $headers, $cookies);
     }
 
-    public function delete($url, $params = '', $extended = false, $headers = null) {
-        return $this->request($url, $params, 'DELETE', $extended, $headers);
+    public function delete($url, $params = '', $extended = false, $headers = null, $cookies = array()) {
+        return $this->request($url, $params, 'DELETE', $extended, $headers, $cookies);
     }
 
     public function get_last_error() {

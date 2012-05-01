@@ -12,48 +12,18 @@ class OmegaAuthority extends OmegaSubservice {
     public $authed_user = null; // who the currently authorized user is that we're running as
     public $authed_username; // the username of the logged in user
 
-    /** Validate the authority subservice configuration object. Throws an exception listing any errors.
-        expects: config=object */
-    public function validate_config($config) {
-        
-    }
-
-    /** Re-authenticates as the specified user, gaining the privileges of that user.
-        expects: username=string */
-    public function switch_user($username) {
-        global $om;
-        if ($username != $om->service_name) {
-            try {
-                $this->authed_user = $om->shed->get($this->_localize('users', $username));
-            } catch (Exception $e) {
-                $om->response->header_num(404);
-                throw new Exception("The username '$username' does not exist.");
-            }
-        }
-        $this->authed_username = $this->authed_user->get_username();
-    }
-
     /** Authenticates as the specified user and verifies the user's API access.
         expects: credentials=object */
     public function authenticate($credentials) {
         global $om;
-        // first see if there is a session ID we can use to get the user info
-        $cookie_name = $om->response->get_cookie_name();
-        if (isset($_COOKIE[$cookie_name])) {
-            $session = $om->shed->get(
-                $om->service_name . '/instances/sessions',
-                $_COOKIE[$cookie_name]
-            );
-            $credentials = $session['creds'];
-        }
         if (is_string($credentials)) {
-            // new style are base64(md5(user:pass))
+            // new style is base64(md5(user:pass))
             // first see if it's the service user/pass
-            $service_name = $om->config->get('omega.nickname');
-            $service_creds = base64_encode(md5( $service_name . ':' .
-                $om->config->get('omega.key')));
+            $service_creds = base64_encode(md5(
+                $om->service_nickname . ':' .  $om->config->get('omega.key')
+            ));
             if ($credentials == $service_creds) {
-                $this->authed_username = $service_name;
+                $this->authed_username = $om->service_nickname;
                 return;
             }
             // otherwise maybe it's an API user
@@ -75,7 +45,7 @@ class OmegaAuthority extends OmegaSubservice {
         } else if (is_array($credentials)) {
             // old style credentials are a get/post json encoded object
             if (isset($credentials['username']) && isset($credentials['password'])) {
-                if ($credentials['username'] == $om->config->get('omega.nickname') && $credentials['password'] == $om->config->get('omega.key')) {
+                if ($credentials['username'] == $om->service_nickname && $credentials['password'] == $om->config->get('omega.key')) {
                     // success, nothing more to do
                 } else {
                     // get the user and see if the password matches
@@ -87,7 +57,7 @@ class OmegaAuthority extends OmegaSubservice {
                         throw new Exception("Invalid username or password.");
                     }
                     if (! in_array($credentials['password'], $user->get_passwords())) {
-                        // invalid password :)
+                        // invalid password
                         $om->response->header_num(401);
                         throw new Exception("Invalid username or password.");
                     }
@@ -211,7 +181,7 @@ class OmegaAuthority extends OmegaSubservice {
     public function check_access($api, $username) {
         global $om;
         // if we're logged in as the service itself then we get access to everything
-        if ($username == $om->config->get('omega.nickname')) {
+        if ($username == $om->service_nickname) {
             return true;
         }
         $grant_access = false; // assume false unless we can prove otherwise without hitting a deny rule
@@ -264,13 +234,5 @@ class OmegaAuthority extends OmegaSubservice {
         return $grant_access;
     }
 }
-
-/* // TODO
-- audit to show recent history, list of rights, mapping of rights to actual methods w/ docs
-- method to delegate temp rights (e.g. a limited-use, limited-life user with certain ACLs)
-- 
-
-*/
-
 
 ?>
