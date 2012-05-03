@@ -292,8 +292,6 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
     public function set_spillage($spillage) {
         if ($spillage != '') {
             $this->response['spillage'] = $spillage;
-        } else {
-            throw new Exception("The spillage must not be blank, or it isn't spillage.");
         }
     }
 

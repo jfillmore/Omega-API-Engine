@@ -106,6 +106,19 @@ class Omega extends OmegaLib {
         return $this->output_stream;
     }
 
+    /** Simple method to test get_output_stream functionality. */
+    private function test_output_stream($file) {
+        if (file_exists($file)) {
+            $os = $this->_get_output_stream();
+            $this->response->set_encoding('raw');
+            $this->response->header('Content-Type', mime_content_type($file));
+            $fh = fopen($file, 'r');
+            fwrite($os, fread($fh, filesize($file)));
+        } else {
+            throw new Exception("File not found: $file.");
+        }
+    }
+
     /** Rewrites the arguments from associative to positional to work for the class constructor. */
     private function _get_construct_args($r_class, $args) {
         global $om;
