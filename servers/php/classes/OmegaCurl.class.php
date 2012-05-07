@@ -121,7 +121,7 @@ class OmegaCurl {
         return $length;
     }
 
-    public function request($url, $params = '', $method = 'GET', $extended = false, $headers = array(), $cookies = array()) {
+    public function request($url, $params = array(), $method = 'GET', $extended = false, $headers = array(), $cookies = array()) {
         $this->init();
         if ($url == '') {
             throw new Exception("Invalid URL: '$url'.");
@@ -154,9 +154,18 @@ class OmegaCurl {
             $content_length = null; // no need to send content length
             curl_setopt($this->curl_handle, CURLOPT_POSTFIELDS, $params);
         } else if ($method === 'POST') {
+            if (is_array($params)) {
+                $param_list = array();
+                foreach ($params as $key => $value) {
+                    $param_list[] = urlencode($key) . '=' . urlencode($value);
+                }
+                $param_str = implode('&', $param_list);
+            } else {
+                $param_str = $params;
+            }
             curl_setopt($this->curl_handle, CURLOPT_CUSTOMREQUEST, 'POST');
-            curl_setopt($this->curl_handle, CURLOPT_POSTFIELDS, $params);
-            $content_length = strlen($params);
+            curl_setopt($this->curl_handle, CURLOPT_POSTFIELDS, $param_str);
+            $content_length = strlen($param_str);
         } else if ($method === 'PUT') {
             curl_setopt($this->curl_handle, CURLOPT_CUSTOMREQUEST, 'PUT');
             $content_length = $this->write_body($params);
@@ -223,23 +232,23 @@ class OmegaCurl {
         }
     }
 
-    public function get($url, $params = '', $extended = false, $headers = null, $cookies = array()) {
+    public function get($url, $params = array(), $extended = false, $headers = null, $cookies = array()) {
         return $this->request($url, $params, 'GET', $extended, $headers, $cookies);
     }
     
-    public function post($url, $params = '', $extended = false, $headers = null, $cookies = array()) {
+    public function post($url, $params = array(), $extended = false, $headers = null, $cookies = array()) {
         return $this->request($url, $params, 'POST', $extended, $headers, $cookies);
     }
 
-    public function patch($url, $params = '', $extended = false, $headers = null, $cookies = array()) {
+    public function patch($url, $params = array(), $extended = false, $headers = null, $cookies = array()) {
         return $this->request($url, $params, 'PATCH', $extended, $headers, $cookies);
     }
 
-    public function put($url, $params = '', $extended = false, $headers = null, $cookies = array()) {
+    public function put($url, $params = array(), $extended = false, $headers = null, $cookies = array()) {
         return $this->request($url, $params, 'PUT', $extended, $headers, $cookies);
     }
 
-    public function delete($url, $params = '', $extended = false, $headers = null, $cookies = array()) {
+    public function delete($url, $params = array(), $extended = false, $headers = null, $cookies = array()) {
         return $this->request($url, $params, 'DELETE', $extended, $headers, $cookies);
     }
 

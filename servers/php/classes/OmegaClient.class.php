@@ -110,7 +110,7 @@ class OmegaClient {
         return $meta;
     }
 
-    public function get($url, $params = '', $args = array()) {
+    public function get($url, $params = array(), $args = array()) {
         return $this->parse_result($this->curl->get(
             $url,
             $params,
@@ -119,7 +119,7 @@ class OmegaClient {
         ), $args);
     }
 
-    public function post($url, $params = '', $args = array()) {
+    public function post($url, $params = array(), $args = array()) {
         return $this->parse_result($this->curl->post(
             $url,
             json_encode($params),
@@ -128,7 +128,7 @@ class OmegaClient {
         ), $args);
     }
 
-    public function patch($url, $params = '', $args = array()) {
+    public function patch($url, $params = array(), $args = array()) {
         return $this->parse_result($this->curl->patch(
             $url,
             json_encode($params),
@@ -137,7 +137,7 @@ class OmegaClient {
         ), $args);
     }
 
-    public function put($url, $params = '', $args = array()) {
+    public function put($url, $params = array(), $args = array()) {
         return $this->parse_result($this->curl->put(
             $url,
             json_encode($params),
@@ -146,7 +146,7 @@ class OmegaClient {
         ), $args);
     }
 
-    public function delete($url, $params = '', $args = array()) {
+    public function delete($url, $params = array(), $args = array()) {
         return $this->parse_result($this->curl->delete(
             $url,
             json_encode($params),
