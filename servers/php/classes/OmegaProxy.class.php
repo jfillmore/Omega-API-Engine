@@ -28,7 +28,7 @@ class OmegaProxy {
         $method = $_SERVER['REQUEST_METHOD'];
         $response = $this->curl->request(
             $_SERVER['REQUEST_URI'],
-            ($method === 'GET'
+            ($method !== 'GET'
                 ? json_encode($om->request->get_api_params())
                 : $om->request->get_api_params()),
             $method,
