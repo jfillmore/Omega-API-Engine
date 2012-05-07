@@ -185,8 +185,11 @@ class OmegaCurl {
         if ($headers) {
             curl_setopt($this->curl_handle, CURLOPT_HTTPHEADER, $headers);
         }
-        foreach ($cookies as $cookie) {
-            curl_setopt($this->curl_handle, CURLOPT_COOKIE, $cookie);
+        if ($cookies) {
+            if (is_array($cookies)) {
+                $cookies = join('; ', $cookies);
+            }
+            curl_setopt($this->curl_handle, CURLOPT_COOKIE, $cookies);
         }
         $result = curl_exec($this->curl_handle);
         $meta = curl_getinfo($this->curl_handle);
@@ -197,32 +200,14 @@ class OmegaCurl {
                 'meta' => $meta
             );
         } else {
+            return $result;
             if ($result === false ||
                 $meta['http_code'] < 200 || 
                 $meta['http_code'] >= 300) {
-                $content_type = substr($meta['content_type'], 0, 16);
                 $data = array(
-                    'meta' => $meta
+                    'meta' => $meta,
+                    'response' => $result
                 );
-                if ($content_type == 'application/json') {
-                    $decoded = json_decode($result, true);
-                    if ($decoded === false || $decoded === null) {
-                        throw new OmegaException(
-                            "Failed to decode JSON: " . $result,
-                            $meta
-                        );
-                    }
-                    $data['response'] = $decoded;
-                    // hack for omega responses
-                    if (isset($decoded['reason'])) {
-                        $reason = $decoded['reason'];
-                    } else {
-                        $reason = '';
-                    }
-                } else {
-                    $data['response'] = $result;
-                    $reason = $result;
-                }
                 throw new OmegaException(
                     "'$url' - HTTP " . $meta['http_code'] . '. ' . $reason,
                     $data

@@ -21,7 +21,7 @@ class OmegaProxy {
         $proxy_host = preg_replace('/^(https?:\/\/)?/', '', $hostname);
         $cookies = array();
         foreach ($_COOKIE as $name => $value) {
-            $cookies[] = "$name=$value; domain=.$proxy_host; path=/";
+            $cookies[] = "$name=$value";
         }
         // send the proxied request
         $response = $this->curl->request(
@@ -44,12 +44,12 @@ class OmegaProxy {
         // end output buffering if needed
         if (count(ob_list_handlers())) {
             $spillage = ob_get_contents();
-            ob_end_clean();
             if ($spillage) {
+                ob_end_clean();
                 throw new Exception("Unable to proxy to $hostname; API spillage: $spillage");
             }
         }
-        echo $body;
+        throw new Exception($body);
         // exit manually
         exit();
     }
