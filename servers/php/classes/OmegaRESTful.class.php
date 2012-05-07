@@ -130,6 +130,15 @@ abstract class OmegaRESTful {
                     $parsed = $this->_parse_path($path, $route, true);
                     if ($parsed) {
                         if ($debug) echo "Routing to " . get_class($target) . "\n";
+                        // if we have a pre-route attempt to use it before moving on
+                        if ($pre_route) {
+                            // FIXME: get_api_params() will return params collected already; we don't want to pass those twice
+                            $this->$pre_route(
+                                $_SERVER['REQUEST_METHOD'],
+                                $om->request->get_api(),
+                                $om->request->get_api_params()
+                            );
+                        }
                         // recursively route until the handler is found
                         return $target->_route(
                             $parsed['sub_path'],
