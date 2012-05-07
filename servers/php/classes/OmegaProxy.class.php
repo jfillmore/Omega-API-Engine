@@ -23,11 +23,15 @@ class OmegaProxy {
         foreach ($_COOKIE as $name => $value) {
             $cookies[] = "$name=$value";
         }
+        $headers[] = $_SERVER['CONTENT_TYPE'];
         // send the proxied request
+        $method = $_SERVER['REQUEST_METHOD'];
         $response = $this->curl->request(
             $_SERVER['REQUEST_URI'],
-            $om->request->get_api_params(),
-            $_SERVER['REQUEST_METHOD'],
+            ($method === 'GET'
+                ? json_encode($om->request->get_api_params())
+                : $om->request->get_api_params()),
+            $method,
             false,
             $headers,
             $cookies
@@ -45,9 +49,9 @@ class OmegaProxy {
         if (count(ob_list_handlers())) {
             $spillage = ob_get_contents();
             if ($spillage) {
-                ob_end_clean();
                 throw new Exception("Unable to proxy to $hostname; API spillage: $spillage");
             }
+            ob_end_clean();
         }
         echo $body;
         // exit manually
