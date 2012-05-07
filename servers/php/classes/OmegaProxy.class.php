@@ -49,7 +49,7 @@ class OmegaProxy {
                 throw new Exception("Unable to proxy to $hostname; API spillage: $spillage");
             }
         }
-        throw new Exception($body);
+        echo $body;
         // exit manually
         exit();
     }
