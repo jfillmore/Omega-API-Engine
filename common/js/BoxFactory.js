@@ -2839,6 +2839,7 @@
                 name = 'readonly';
             }
             readonly = om.bf.make.input.obj(owner, args);
+            readonly.$.toggleClass('om_input_readonly', true);
             readonly._extend('middle', 'om_input_value');
             readonly._type = 'readonly';
             readonly._name = name;
