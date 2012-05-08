@@ -21,6 +21,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
     private $api_params = array(); // the parameters being passed to the API
     private $query_arg = false; // whether or not the parameters contain a ? too
     private $restful = true; // whether this request is restful or not; assume and prove otherwise
+    private $stdin = null; // input read via stdin
 
     public function __construct() {
         global $om;
@@ -168,6 +169,10 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         return $this->api_params;
     }
 
+    public function get_stdin() {
+        return $this->stdin;
+    }
+
     private function get_omega_param($param) {
         global $om;
         $param = 'OMEGA_' . strtoupper($param);
@@ -178,7 +183,9 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
             }
         } else if ($param === 'OMEGA_API_PARAMS') {
             if ($this->get_encoding() === 'json' && $this->is_restful()) {
-                return file_get_contents('php://input');
+                $stdin = file_get_contents('php://input');
+                $this->stdin = $stdin;
+                return $stdin;
             }
         } else if ($param === 'OMEGA_CREDENTIALS') {
             // gotta encode the credentials cause the old version does too
@@ -385,7 +392,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         return array(
             'get' => $_GET,
             'post' => $_POST,
-            'stdin' => file_get_contents('php://input'),
+            'stdin' => $this->stdin,
             'server' => $_SERVER,
             'cookies' => $_COOKIE,
             'encoding' => $this->get_encoding(),

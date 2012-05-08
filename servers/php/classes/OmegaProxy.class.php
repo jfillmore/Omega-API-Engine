@@ -23,14 +23,15 @@ class OmegaProxy {
         foreach ($_COOKIE as $name => $value) {
             $cookies[] = "$name=$value";
         }
-        $headers[] = $_SERVER['CONTENT_TYPE'];
-        // send the proxied request
+        $headers[] = 'Content-Type: ' . $_SERVER['CONTENT_TYPE'];
         $method = $_SERVER['REQUEST_METHOD'];
+        $params = ($method === 'GET'
+            ? $om->request->get_api_params()
+            : $om->request->get_stdin());
+        // send the proxied request
         $response = $this->curl->request(
             $_SERVER['REQUEST_URI'],
-            ($method !== 'GET'
-                ? json_encode($om->request->get_api_params())
-                : $om->request->get_api_params()),
+            $params,
             $method,
             false,
             $headers,
@@ -39,11 +40,10 @@ class OmegaProxy {
         // parse headers and return the body
         $parts = explode("\r\n\r\n", $response, 2); 
         $headers = explode(chr(10), $parts[0]);
-        $body = $parts[1];
-        foreach ($headers as $value) {
-            header(trim(
-                str_replace($proxy_host, $_SERVER['SERVER_NAME'], $value)
-            ));
+        if (count($parts) > 1) {
+            $body = $parts[1];
+        } else {
+            $body = '';
         }
         // end output buffering if needed
         if (count(ob_list_handlers())) {
@@ -53,8 +53,17 @@ class OmegaProxy {
             }
             ob_end_clean();
         }
+        // print headers/response
+        $hostname = gethostname();
+        foreach ($headers as $value) {
+            $value = trim(str_replace($proxy_host, $hostname, $value));
+            if (! (strpos($value, 'Transfer-Encoding:') == 0 ||
+                strpos($value, 'Connection:') == 0)
+                ) {
+                header($value);
+            }
+        }
         echo $body;
-        // exit manually
         exit();
     }
 }

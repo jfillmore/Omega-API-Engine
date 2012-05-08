@@ -163,18 +163,22 @@ class OmegaCurl {
             } else {
                 $param_str = $params;
             }
+            $content_length = strlen($param_str);
             curl_setopt($this->curl_handle, CURLOPT_CUSTOMREQUEST, 'POST');
             curl_setopt($this->curl_handle, CURLOPT_POSTFIELDS, $param_str);
-            $content_length = strlen($param_str);
         } else if ($method === 'PUT') {
             curl_setopt($this->curl_handle, CURLOPT_CUSTOMREQUEST, 'PUT');
-            $content_length = $this->write_body($params);
+            curl_setopt($this->curl_handle, CURLOPT_POSTFIELDS, $params);
+            $content_length = strlen($params);
+            //$content_length = $this->write_body($params);
         } else if ($method === 'DELETE') {
             curl_setopt($this->curl_handle, CURLOPT_CUSTOMREQUEST, 'DELETE');
-            $content_length = $this->write_body($params);
+            curl_setopt($this->curl_handle, CURLOPT_POSTFIELDS, $params);
+            $content_length = strlen($params);
         } else {
             curl_setopt($this->curl_handle, CURLOPT_CUSTOMREQUEST, $method);
-            $content_length = $this->write_body($params);
+            curl_setopt($this->curl_handle, CURLOPT_POSTFIELDS, $params);
+            $content_length = strlen($params);
         }
         curl_setopt($this->curl_handle, CURLOPT_URL, $url);
         curl_setopt($this->curl_handle, CURLOPT_PORT, $this->get_port());
