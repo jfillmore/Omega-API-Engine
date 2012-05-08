@@ -3637,7 +3637,7 @@ Changelog:
                         }
                     }
                 }
-                om.get(form.args.on_load, form, data);
+                om.get(form._args.on_load, form, data);
                 return form;
             };
 
