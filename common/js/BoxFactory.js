@@ -2840,6 +2840,9 @@
             readonly._extend('middle', 'om_input_value');
             readonly._type = 'readonly';
             readonly._name = name;
+            if (name) {
+                readonly.$.toggleClass(name, true);
+            }
             readonly._value = readonly.$.find('div.om_input_value');
             readonly._val = function (value) {
                 if (value === undefined) { // jquery 1.4.3 hack, QQ
