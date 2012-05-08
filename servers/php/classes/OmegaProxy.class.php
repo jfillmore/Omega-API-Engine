@@ -57,9 +57,8 @@ class OmegaProxy {
         $hostname = gethostname();
         foreach ($headers as $value) {
             $value = trim(str_replace($proxy_host, $hostname, $value));
-            if (! (strpos($value, 'Transfer-Encoding:') == 0 ||
-                strpos($value, 'Connection:') == 0)
-                ) {
+            $skip_header = (stripos($value, 'Transfer-Encoding:') === 0 || stripos($value, 'Connection:') === 0);
+            if (! $skip_header) {
                 header($value);
             }
         }
