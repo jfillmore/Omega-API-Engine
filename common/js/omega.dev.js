@@ -3165,6 +3165,7 @@ Changelog:
                 auto_break_length: null, // automatically insert a break after every X options
                 breaker_args: { // arguments to use when creating break manager
                     options_orient: 'top',
+                    on_load: undefined, // callback for when data is loaded; args: form, data
                     options_inline: true,
                     equalize_tab_widths: false,
                     on_tab_change: undefined
@@ -3636,6 +3637,7 @@ Changelog:
                         }
                     }
                 }
+                om.get(form.args.on_load, form, data);
                 return form;
             };
 
