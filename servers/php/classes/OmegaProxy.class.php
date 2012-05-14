@@ -32,13 +32,9 @@ class OmegaProxy {
             $headers[] = 'Content-Type: ' . $_SERVER['CONTENT_TYPE'];
             $params = ($method === 'GET'
                 ? $om->request->get_api_params()
-                : (count($_POST)
-                    ? json_encode($_POST)
-                    : $om->request->get_stdin()
-                )
+                : $om->request->get_stdin()
             );
         }
-        //throw new Exception(var_export($params, true));
         // send the proxied request
         $response = $this->curl->request(
             $_SERVER['REQUEST_URI'],
