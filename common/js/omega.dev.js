@@ -2614,7 +2614,7 @@ Changelog:
             }
         },
         obj: function (owner, args) {
-            var html, target, box, jq, arg, box_args;
+            var html, target, box, jq, arg, box_args, attrs;
             if (owner === undefined || owner === null) {
                 owner = $('body');
             }
@@ -2624,6 +2624,7 @@ Changelog:
                 type: 'div',
                 imbue: undefined,
                 html: undefined,
+                id: undefined,
                 insert: 'append'
             }, args, true);
             if (typeof(args.classes) === 'string') {
@@ -2632,10 +2633,14 @@ Changelog:
             if (! (args['class'] === undefined || args['class'] === null)) { // IE sucks
                 args.classes.push(args['class']);
             }
-            html = om.assemble(args.type, {
+            attrs = {
                 'class': args.classes,
-                style: "display: none"
-            });
+                'style': "display: none"
+            };
+            if (args.id) {
+                attrs.id = args.id;
+            }
+            html = om.assemble(args.type, attrs);
             // determine if the owner is a box or a jquery
             if (owner.$ !== undefined && owner.$.jquery !== undefined && owner.$.length !== undefined && owner.$.length > 0) {
                 target = owner.$;
@@ -3196,6 +3201,7 @@ Changelog:
              ... */
             form = om.bf.make.box(owner, {
                 dont_show: true,
+                type: 'form',
                 'classes': args.classes,
                 'class': args['class'],
                 insert: args.insert
@@ -4054,7 +4060,7 @@ Changelog:
                 on_click: undefined, // what to do when the input is clicked
                 tooltip: undefined, // a tooltip to show on mouse-over
                 validate: undefined
-            }, args);
+            }, args, true);
             // we don't want to pass our own on_click to the base box obj, as we only want it to work on the input value
             if (args.on_click) {
                 on_click = args.on_click;
@@ -4293,7 +4299,6 @@ Changelog:
                 name = 'readonly';
             }
             readonly = om.bf.make.input.obj(owner, args);
-            readonly.$.toggleClass('om_input_readonly', true);
             readonly._extend('middle', 'om_input_value');
             readonly._type = 'readonly';
             readonly._name = name;
@@ -4301,6 +4306,7 @@ Changelog:
                 readonly.$.toggleClass(name, true);
             }
             readonly._value = readonly.$.find('div.om_input_value');
+            readonly._value.toggleClass('om_input_readonly', true);
             readonly._val = function (value) {
                 if (value === undefined) { // jquery 1.4.3 hack, QQ
                     return readonly._value.html();
@@ -4377,6 +4383,9 @@ Changelog:
                 'class': 'om_input_value',
                 value: args.default_val
             }));
+            if (name) {
+                password.$.toggleClass(name, true);
+            }
             password._name = name;
             password._type = 'password';
             password._value = password.$.children('input.om_input_value:first');
@@ -4412,6 +4421,9 @@ Changelog:
                 type: 'checkbox',
                 'class': 'om_input_value'
             }));
+            if (name) {
+                cb.$.toggleClass(name, true);
+            }
             cb._name = name;
             cb._type = 'checkbox';
             cb._value = cb.$.children('input.om_input_value:first');
@@ -4450,6 +4462,9 @@ Changelog:
                 type: 'radio',
                 'class': 'om_input_value'
             }));
+            if (name) {
+                rb.$.toggleClass(name, true);
+            }
             rb._name = name;
             rb._type = 'radio_button';
             rb._value = rb.$.children('input.om_input_value:first');
@@ -4488,6 +4503,9 @@ Changelog:
                 'class': 'om_input_value',
                 value: args.default_val
             }));
+            if (name) {
+                textarea.$.toggleClass(name, true);
+            }
             textarea._type = 'textarea';
             textarea._value = textarea.$.children('textarea.om_input_value:first');
             textarea._name = name;
@@ -4530,6 +4548,9 @@ Changelog:
                 select._value.prop('disabled', true);
             }
             select._type = 'select';
+            if (name) {
+                select.$.toggleClass(name, true);
+            }
             select._name = name;
             select._val = function (value) {
                 if (value === undefined) { // jquery 1.4.3 hack, QQ
@@ -4613,6 +4634,9 @@ Changelog:
                 }
             };
             file._name = name;
+            if (name) {
+                file.$.toggleClass(name, true);
+            }
             return file;
         }
     });
@@ -4637,6 +4661,9 @@ Changelog:
                 'class': 'om_input_value'
             }));
             json._name = name;
+            if (name) {
+                json.$.toggleClass(name, true);
+            }
             json._type = 'json';
             json._value = json.$.children('input.om_input_value:first');
             if (args.enabled === false) {
@@ -4827,24 +4854,22 @@ Changelog:
     om.BoxFactory.make.message = om.doc({
         desc: 'Basic pop-up box to show a message.',
         obj: function (owner, title, html, args) {
-            var message, func;
+            var message, func, dont_show;
             args = om.get_args({
                 classes: [],
                 'class': undefined,
                 constraint: $(window),
                 dont_show: false,
+                imbue: 'free',
                 modal: false // automatically cover owning object with a skirt obj
-            }, args);
+            }, args, true);
             if (owner === undefined) {
                 owner = $('body');
             }
+            dont_show = args.dont_show;
+            args.dont_show = true; // keep hidden on until rendered
             // create the box
-            message = om.bf.make.box(owner, {
-                imbue: 'free',
-                dont_show: true,
-                classes: args.classes,
-                insert: args.insert
-            });
+            message = om.bf.make.box(owner, args);
             if (args['class']) {
                 message.$.toggleClass(args['class'], true);
             }
@@ -4926,7 +4951,7 @@ Changelog:
             }
             message._center_top(0.2, message.$.parent());
             // and show it unless otherwise requested
-            if (args.dont_show !== true) {
+            if (dont_show !== true) {
                 message._show();
             }
             message._raise();

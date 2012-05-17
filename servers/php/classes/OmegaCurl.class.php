@@ -12,7 +12,8 @@ class OmegaCurl {
     private $return_output = true;
     private $return_binary = true;
     private $return_header = false;
-    private $timeout = 10; // request timeout, in seconds
+    private $connect_timeout = 10;
+    private $request_timeout = 300;
     public $num_requests;
 
     public function __construct($base_url = '', $port = null, $agent = 'cURL wrapper 0.2') {
@@ -92,6 +93,8 @@ class OmegaCurl {
         if ($this->curl_handle === false) {
             throw new Exception('Failed to initialize cURL handle.');
         }
+        curl_setopt($this->curl_handle, CURLOPT_CONNECTTIMEOUT, (int)$this->connect_timeout);
+        curl_setopt($this->curl_handle, CURLOPT_TIMEOUT, $this->request_timeout);
         curl_setopt($this->curl_handle, CURLOPT_SSL_VERIFYHOST, 0);
         curl_setopt($this->curl_handle, CURLOPT_SSL_VERIFYPEER, 0);
         curl_setopt($this->curl_handle, CURLOPT_RETURNTRANSFER, (int)$this->return_output);
@@ -182,7 +185,6 @@ class OmegaCurl {
         }
         curl_setopt($this->curl_handle, CURLOPT_URL, $url);
         curl_setopt($this->curl_handle, CURLOPT_PORT, $this->get_port());
-        curl_setopt($this->curl_handle, CURLOPT_TIMEOUT, $this->timeout);
         if ($content_length !== null) {
             $headers[] = 'Content-Length: ' . $content_length;
         }
