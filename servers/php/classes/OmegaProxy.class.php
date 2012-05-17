@@ -31,7 +31,7 @@ class OmegaProxy {
         } else {
             $headers[] = 'Content-Type: ' . $_SERVER['CONTENT_TYPE'];
             $params = ($method === 'GET'
-                ? $om->request->get_api_params()
+                ? array() // no params to send via GET, they are in the URL already
                 : $om->request->get_stdin()
             );
         }
