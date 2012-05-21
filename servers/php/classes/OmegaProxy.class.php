@@ -36,14 +36,15 @@ class OmegaProxy {
             );
         }
         // send the proxied request
-        $response = $this->curl->request(
+        $result = $this->curl->request(
             $_SERVER['REQUEST_URI'],
             $params,
             $method,
-            false,
+            true,
             $headers,
             $cookies
         );
+        $response = $result['response'];
         // parse headers and return the body
         $parts = explode("\r\n\r\n", $response, 2); 
         $headers = explode(chr(10), $parts[0]);

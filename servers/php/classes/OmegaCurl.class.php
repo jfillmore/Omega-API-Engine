@@ -12,8 +12,8 @@ class OmegaCurl {
     private $return_output = true;
     private $return_binary = true;
     private $return_header = false;
-    private $connect_timeout = 10;
-    private $request_timeout = 600;
+    public $connect_timeout = 10;
+    public $request_timeout = 600;
     public $num_requests;
 
     public function __construct($base_url = '', $port = null, $agent = 'cURL wrapper 0.2') {
@@ -178,6 +178,10 @@ class OmegaCurl {
             curl_setopt($this->curl_handle, CURLOPT_CUSTOMREQUEST, 'DELETE');
             curl_setopt($this->curl_handle, CURLOPT_POSTFIELDS, $params);
             $content_length = strlen($params);
+        } else if ($method === 'HEAD') {
+            curl_setopt($this->curl_handle, CURLOPT_CUSTOMREQUEST, $method);
+            curl_setopt($this->curl_handle, CURLOPT_NOBODY, true);
+            $content_length = 0;
         } else {
             curl_setopt($this->curl_handle, CURLOPT_CUSTOMREQUEST, $method);
             curl_setopt($this->curl_handle, CURLOPT_POSTFIELDS, $params);
@@ -199,7 +203,7 @@ class OmegaCurl {
         }
         $result = curl_exec($this->curl_handle);
         $meta = curl_getinfo($this->curl_handle);
-        if ($result == false || $meta['http_code'] === 0) {
+        if ($result === false || $meta['http_code'] === 0) {
             throw new Exception("Unable to request '$url'. Request timed-out or no reply was received.");
         }
         $this->num_requests++;
@@ -209,7 +213,6 @@ class OmegaCurl {
                 'meta' => $meta
             );
         } else {
-            return $result;
             if ($result === false ||
                 $meta['http_code'] < 200 || 
                 $meta['http_code'] >= 300) {
