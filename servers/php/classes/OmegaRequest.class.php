@@ -75,6 +75,10 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         if (substr($request_uri, -1) == '?') { // aka '?'
             $this->set_type('query');
         }
+        if (isset($_REQUEST['OMEGA_API_PARAMS']) || isset($_REQUEST['OMEGA_ENCODING'])) {
+            // if we're an old-style API call then replace periods with slashes
+            $request_uri = str_replace('.', '/', $request_uri);
+        }
         // compare where we're configured at against what was requested to determine the API
         $base_parts = explode('/', substr($base_uri, 1));
         $request_parts = explode('/', substr($request_uri, 1));
