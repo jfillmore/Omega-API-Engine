@@ -150,12 +150,10 @@ class OmegaLogger extends OmegaSubservice {
         $this->buffer_write("\n");
         // write out our log entries
         foreach ($this->log as $log) {
-            if ($log['verbosity'] >= $this->verbosity) {
-                if ($log['result']) {
-                    $this->buffer_write("\t* " . $log['entry'] . "\n");
-                } else {
-                    $this->buffer_write("\t! " . $log['entry'] . "\n");
-                }
+            if ($log['result']) {
+                $this->buffer_write("\t* " . $log['entry'] . "\n");
+            } else {
+                $this->buffer_write("\t! " . $log['entry'] . "\n");
             }
         }
         // aborted logs don't get data stored for privacy/security reasons

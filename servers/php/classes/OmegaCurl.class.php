@@ -200,7 +200,7 @@ class OmegaCurl {
         $result = curl_exec($this->curl_handle);
         $meta = curl_getinfo($this->curl_handle);
         if ($result == false || $meta['http_code'] === 0) {
-            throw new Exception("Unable to request '$url'. Request timed-out or no reply was received.");
+            throw new Exception("Request timed-out or no reply was received.");
         }
         $this->num_requests++;
         if ($extended) {
