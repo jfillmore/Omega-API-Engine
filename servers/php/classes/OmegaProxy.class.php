@@ -100,15 +100,27 @@ class OmegaProxy {
                 : $om->request->get_stdin()
             );
         }
+        // end output buffering if needed
+        if (count(ob_list_handlers())) {
+            $spillage = ob_get_contents();
+            if ($spillage) {
+                throw new Exception("Unable to proxy to $hostname; API spillage: $spillage");
+            }
+            ob_end_clean();
+        }
         // send the proxied request
+        if ($uri === null) {
+            $uri = $_SERVER['REQUEST_URI'];
+        }
         $result = $this->curl->request(
-            $_SERVER['REQUEST_URI'],
+            $uri,
             $params,
             $method,
             true,
             $headers,
             $cookies
         );
+        // cURL will return our response for us
         $response = $result['response'];
         // parse headers and return the body
         $parts = explode("\r\n\r\n", $response, 2); 
@@ -117,14 +129,6 @@ class OmegaProxy {
             $body = $parts[1];
         } else {
             $body = '';
-        }
-        // end output buffering if needed
-        if (count(ob_list_handlers())) {
-            $spillage = ob_get_contents();
-            if ($spillage) {
-                throw new Exception("Unable to proxy to $hostname; API spillage: $spillage");
-            }
-            ob_end_clean();
         }
         // print headers/response
         $hostname = gethostname();
