@@ -371,8 +371,12 @@ class Omega extends OmegaLib {
         }
         // set our status code (e.g. 200, 404, etc)
         header($this->response->get_status());
-        // and finally print the response
-        echo $response;
+        // and finally print/return the response
+        if (is_resource($response)) {
+            fpassthru($response);
+        } else {
+            echo $response;
+        }
     }
     
     public function _load_session() {

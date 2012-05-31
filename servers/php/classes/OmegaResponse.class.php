@@ -360,7 +360,7 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
                                 // assume this is a file descriptor and just pass it through
                                 $response = '';
                                 rewind($this->response['data']);
-                                fpassthru($this->response['data']);
+                                return $this->response['data'];
                             } else {
                                 // encode data anyway, so we don't just say 'Array'
                                 if (is_array($this->response['data']) || is_object($this->response['data'])) {
