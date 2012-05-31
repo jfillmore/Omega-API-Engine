@@ -33,7 +33,9 @@ class OmegaProxy {
         fputs($sock, "Accept-Encoding: chunked;q=1.0\n"); // somehow forcing identity does not work for nginx, so forcing chunked, but will test below
          // send our data
         if (strtoupper($_SERVER['REQUEST_METHOD']) != 'GET') {
-            $input = file_get_contents('php://input');
+            // $input = file_get_contents('php://input');
+            global $om;
+            $input = $om->request->get_stdin();
             // send with the same content type as we got our data as
             fputs($sock, "Content-Type: " . $_SERVER['CONTENT_TYPE'] . "\n");
             fputs($sock, "Content-Length: " . strlen($input) . "\n\n");
