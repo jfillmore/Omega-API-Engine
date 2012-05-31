@@ -3453,6 +3453,7 @@
         obj: function (owner, title, html, args) {
             var message, func, dont_show;
             args = om.get_args({
+                auto_center: true,
                 classes: [],
                 'class': undefined,
                 constraint: $(window),
@@ -3551,7 +3552,9 @@
                     });
                 }
             }
-            message._center_top(0.2, message.$.parent());
+            if (args.auto_center) {
+                message._center_top(0.2, message.$.parent());
+            }
             // and show it unless otherwise requested
             if (dont_show !== true) {
                 message._show();
