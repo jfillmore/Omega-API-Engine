@@ -10,6 +10,7 @@
 class OmegaException extends Exception {
     public $data = null;
     public $comment = null;
+    public $user_error = false;
     private $args;
 
     public function __construct($message, $data = null, $args = null) {
@@ -26,6 +27,10 @@ class OmegaException extends Exception {
             if (isset($args['email_bcc'])) {
                 mail($args['email_bcc'], $this->subject, $this->body);
             }
+        }
+        // user errors get flagged slightly differently in the response
+        if (isset($args['user_error']) && $args['user_error']) {
+            $this->user_error = $args['user_error'];
         }
         if (isset($args['alert']) && $args['alert']) {
             // TODO: change e-mail keys to something more predictable (e.g. omega.admin)
