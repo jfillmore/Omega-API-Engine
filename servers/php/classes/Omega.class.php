@@ -14,6 +14,7 @@ class Omega extends OmegaLib {
     private $restful; // whether or not the API is RESTful
     private $output_stream = null;
     private $save_service_state; // whether or not to save the state of the service after each request
+    private $production = true; // whether the API should be considered in producition mode for security purposes
 
     // service information
     public $api; // alias to $this->service
@@ -48,6 +49,13 @@ class Omega extends OmegaLib {
         } catch (Exception $e) {
             throw new Exception("Unknown service: '$service_name'.");
         }
+        // determine whether we are in production mode or not
+        $production = true;
+        try {
+            // if false we'll allow some debugging info in our responses
+            $production = (bool)$this->config->get('omega/production');
+        } catch (Exception $e) {};
+        $this->production = $production;
         // initialize our storage engine for sessions
         try {
             $engine = $this->config->get('omega/session/engine');
@@ -92,6 +100,16 @@ class Omega extends OmegaLib {
             'DELETE' => array(
             )
         );
+    }
+
+    public function in_production() {
+        return $this->production;
+    }
+
+    /** Method for testing proxy logic. */
+    private function proxy_test($domain, $port, $uri, $method = 'GET') {
+        $proxy = new OmegaProxy();
+        $proxy->passthru($domain, $port, array(), $uri, $method);
     }
 
     /** Returns a reference to an output stream that can be written to for providing an API response. */
@@ -274,6 +292,7 @@ class Omega extends OmegaLib {
             }
             $this->response->set_result(true);
         } else {
+            $user_error = false;
             try {
                 $answer = $this->request->_answer();
                 // check to see if we got the answer back in an output stream or if they just returned it
@@ -291,19 +310,21 @@ class Omega extends OmegaLib {
                 }
             } catch (OmegaException $e) {
                 // if we're picking up an omega exception include the data
-                $data = array(
-                    'data' => $e->data,
-                    'backtrace' => $this->_clean_trace($e->getTrace())
-                );
-                /* // API framework stuff?
-                array_pop($data['backtrace']);
-                array_pop($data['backtrace']);
-                array_pop($data['backtrace']);
-                */
+                $data = array();
+                $bt = $this->_clean_trace($e->getTrace());
+                // last 3 items are framework methods
+                array_pop($bt);
+                array_pop($bt);
+                array_pop($bt);
+                if (! $this->in_production()) {
+                    $data['backtrace'] = $bt;
+                    $data['error_data'] = $e->data;
+                }
+                $user_error = $e->user_error;
                 $this->response->set_result(false);
                 if ($this->subservice->is_enabled('logger')) {
                     $this->subservice->logger->log_data('api_error', $e->getMessage());
-                    $this->subservice->logger->log_data('api_trace', $data['backtrace']);
+                    $this->subservice->logger->log_data('api_trace', $bt);
                     if ($e->data !== null) {
                         $this->subservice->logger->log_data('data', $e->data);
                     }
@@ -312,19 +333,31 @@ class Omega extends OmegaLib {
                     }
                 }
             } catch (Exception $e) {
-                $data = array(
-                    'backtrace' => $this->_clean_trace($e->getTrace())
-                );
-                /* // API framework stuff?
-                array_pop($data['backtrace']);
-                array_pop($data['backtrace']);
-                array_pop($data['backtrace']);
-                */
+                $data = array();
+                // last 3 items are framework methods
+                $bt = $this->_clean_trace($e->getTrace());
+                array_pop($bt);
+                array_pop($bt);
+                array_pop($bt);
+                if (! $this->in_production()) {
+                    $data['backtrace'] = $bt;
+                }
                 $this->response->set_result(false);
             }
             if (! $this->response->get_result()) {
-                $this->response->set_reason($e->getMessage());
-                // pop off the last few items, as they are framework functions
+                // if it's a user error then don't show the real exception
+                if ($user_error) {
+                    // use a default error if not given
+                    if ($user_error === true) {
+                        $user_error = 'There was an error within the input.'; // hard to be better than that :/
+                    }
+                    $this->response->set_reason($user_error, true);
+                } else {
+                    $this->response->set_reason($e->getMessage());
+                }
+                if (! $this->in_production()) {
+                    $data['system_error'] = $e->getMessage();
+                }
                 $this->response->set_data($data);
                 if ($this->subservice->is_enabled('logger')) {
                     $this->subservice->logger->log($e->getMessage(), false);
@@ -339,7 +372,7 @@ class Omega extends OmegaLib {
         // see if we spilled anywhere... if so, pick it up to ensure we have a clean stream
         $spillage = ob_get_contents();
         ob_end_clean();
-        if (strlen($spillage) > 0) {
+        if (strlen($spillage) > 0 && ! $this->in_production()) {
             $this->response->set_spillage($spillage);
         }
         // encode the response that we'll send back
@@ -365,8 +398,12 @@ class Omega extends OmegaLib {
         }
         // set our status code (e.g. 200, 404, etc)
         header($this->response->get_status());
-        // and finally print the response
-        echo $response;
+        // and finally print/return the response
+        if (is_resource($response)) {
+            fpassthru($response);
+        } else {
+            echo $response;
+        }
     }
     
     public function _load_session() {

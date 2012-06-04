@@ -10,6 +10,7 @@ class OmegaCurl {
     private $port = null; // null = 80/443 by default
     private $base_url = null; // e.g. example.com/foo
     private $return_output = true;
+    private $return_file = null; // e.g. CURLOPT_FILE => stdout
     private $return_binary = true;
     private $return_header = false;
     public $connect_timeout = 10;
@@ -26,6 +27,11 @@ class OmegaCurl {
 
     public function set_agent($agent) {
         $this->agent = $agent;
+    }
+
+    public function set_return_file($fh) {
+        $this->return_file = $fh;
+        $this->return_output = true; // must be true for this to work
     }
 
     public function set_return_transfer($value) {
@@ -98,6 +104,9 @@ class OmegaCurl {
         curl_setopt($this->curl_handle, CURLOPT_SSL_VERIFYHOST, 0);
         curl_setopt($this->curl_handle, CURLOPT_SSL_VERIFYPEER, 0);
         curl_setopt($this->curl_handle, CURLOPT_RETURNTRANSFER, (int)$this->return_output);
+        if ($this->return_file) {
+            curl_setopt($this->curl_handle, CURLOPT_FILE, $this->return_file);
+        }
         curl_setopt($this->curl_handle, CURLOPT_BINARYTRANSFER, (int)$this->return_binary);
         curl_setopt($this->curl_handle, CURLOPT_HEADER, (int)$this->return_header);
         if ($this->agent !== null) {
@@ -204,7 +213,7 @@ class OmegaCurl {
         $result = curl_exec($this->curl_handle);
         $meta = curl_getinfo($this->curl_handle);
         if ($result === false || $meta['http_code'] === 0) {
-            throw new Exception("Unable to request '$url'. Request timed-out or no reply was received.");
+            throw new Exception("Request timed-out or no reply was received.");
         }
         $this->num_requests++;
         if ($extended) {

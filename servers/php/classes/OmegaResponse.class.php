@@ -274,11 +274,7 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
     /** Sets whether or not the request was successful.
         expects: successful=boolean */
     public function set_result($successful) {
-        if ($successful == true || $successful == false) {
-            $this->response['result'] = $successful;
-        } else {
-            throw new Exception("The value '$successful' is not a valid value for 'result'.");
-        }
+        $this->response['result'] = (bool)$successful;
     }
 
     /** Returns whether the response is currently successful or not.
@@ -303,11 +299,14 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
         }
     }
 
-    /** Set the reason why the request was not successful.
-        expects: reason=string */
-    public function set_reason($reason) {
+    /** Set the reason why the request was not successful. May also optionally note that the error is a user-caused error.
+        expects: reason=string, user_error=boolean */
+    public function set_reason($reason, $user_error = false) {
         // anything goes on the reason
         $this->response['reason'] = $reason;
+        if ($user_error) {
+            $this->response['user_error'] = true;
+        }
     }
 
     /** Clears out any data currently being sent in the response. */
@@ -335,47 +334,48 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
                 $encoding = 'raw';
             }
         }
+        $response = $this->response;
         // we won't return anything unless the result is at least set
-        if (isset($this->response['result'])) {
+        if (isset($response['result'])) {
             // return an encoded version of ourself
             switch ($encoding) {
                 case 'json':
-                    $response = json_encode($this->response);
+                    $response = json_encode($response);
                     if ($response === NULL) {
                         throw new Exception("Unable to encode response as '$encoding' data.");
                     }
                     break;
                 case 'php':
-                    $response = serialize($this->response);
+                    $response = serialize($response);
                     // PHP is lame and returns false for both errors and when the serialize value is a 'false' boolean
-                    if ($response === false && serialize(false) === $this->response) {
+                    if ($response === false && serialize(false) === $response) {
                         throw new Exception("Unable to decode response as '$encoding' data.");
                     }
                     break;
                 case 'raw':
                 case 'html':
-                    if (isset($this->response['result']) && $this->response['result']) {
-                        if (isset($this->response['data'])) {
-                            if (is_resource($this->response['data'])) {
+                    if (isset($response['result']) && $response['result']) {
+                        if (isset($response['data'])) {
+                            if (is_resource($response['data'])) {
                                 // assume this is a file descriptor and just pass it through
                                 $response = '';
-                                rewind($this->response['data']);
-                                fpassthru($this->response['data']);
+                                rewind($response['data']);
+                                return $response['data'];
                             } else {
                                 // encode data anyway, so we don't just say 'Array'
-                                if (is_array($this->response['data']) || is_object($this->response['data'])) {
+                                if (is_array($response['data']) || is_object($response['data'])) {
                                     $this->set_encoding('json');
-                                    $response = json_encode($this->response);
+                                    $response = json_encode($response);
                                 } else {
-                                    $response = (string)$this->response['data'];
+                                    $response = (string)$response['data'];
                                 }
                             }
                         } else {
                             $response = null;
                         }
                     } else {
-                        if (isset($this->response['reason'])) {
-                            $response = (string)$this->response['reason'];
+                        if (isset($response['reason'])) {
+                            $response = (string)$response['reason'];
                         } else {
                             $response = 'An unknown failure has occurred.';
                         }

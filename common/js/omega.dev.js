@@ -4055,7 +4055,7 @@ Changelog:
                 classes: undefined,
                 'class': undefined,
                 dont_show: false,
-                link_caption: true, // whether or not to link DOM events to thecaption to actual input object
+                link_caption: undefined, // whether or not to link DOM events to thecaption to actual input object
                 on_change: undefined, // what to do when the value changes
                 on_click: undefined, // what to do when the input is clicked
                 tooltip: undefined, // a tooltip to show on mouse-over
@@ -4112,9 +4112,6 @@ Changelog:
                     args.caption_orient === 'bottom' ||
                     args.caption_orient === 'left')) {
                     throw new Error("Invalid caption orientation: '" + args.caption_orient + "'.");
-                }
-                if (args.link_caption === undefined) {
-                    args.link_caption = true;
                 }
                 // add the caption based on the orientation
                 obj._caption = obj._extend(args.caption_orient, 'om_input_caption');
@@ -4293,7 +4290,8 @@ Changelog:
         obj: function (owner, name, args) {
             var readonly;
             args = om.get_args({
-                default_val: undefined
+                default_val: undefined,
+                desc: undefined // description of the object
             }, args, true);
             if (name === undefined) {
                 name = 'readonly';
@@ -4317,6 +4315,11 @@ Changelog:
             if (args.default_val) {
                 readonly._val(args.default_val);
             }
+            if (args.desc) {
+                readonly._desc = readonly._add_box('om_input_desc', {
+                    html: om.get(args.desc, readonly)
+                });
+            }
             return readonly;
         }
     });
@@ -4327,6 +4330,7 @@ Changelog:
             var text;
             args = om.get_args({
                 default_val: '',
+                desc: undefined, // description of the object
                 enabled: true,
                 hint: undefined
             }, args, true);
@@ -4361,6 +4365,11 @@ Changelog:
                     default_val: args.default_val
                 });
             }
+            if (args.desc) {
+                text._desc = text._add_box('om_input_desc', {
+                    html: om.get(args.desc, text)
+                });
+            }
             return text;
         }
     });
@@ -4371,6 +4380,7 @@ Changelog:
             var password;
             args = om.get_args({
                 default_val: '',
+                desc: undefined, // description of the object
                 enabled: true
             }, args, true);
             if (name === undefined) {
@@ -4399,6 +4409,11 @@ Changelog:
                     return password._value.val(value);
                 }
             };
+            if (args.desc) {
+                password._desc = password._add_box('om_input_desc', {
+                    html: om.get(args.desc, password)
+                });
+            }
             return password;
         }
     });
@@ -4409,6 +4424,7 @@ Changelog:
             var cb;
             args = om.get_args({
                 default_val: false,
+                desc: undefined, // description of the object
                 name: name,
                 enabled: true
             }, args, true);
@@ -4440,6 +4456,11 @@ Changelog:
             if (args.default_val) {
                 cb._val(true);
             }
+            if (args.desc) {
+                cb._desc = cb._add_box('om_input_desc', {
+                    html: om.get(args.desc, cb)
+                });
+            }
             return cb;
         }
     });
@@ -4453,6 +4474,7 @@ Changelog:
             }
             args = om.get_args({
                 default_val: false,
+                desc: undefined, // description of the object
                 name: name, // confusing, I know, but the RB name needs to be the same for multiple objs
                 enabled: true
             }, args, true);
@@ -4481,6 +4503,11 @@ Changelog:
             if (args.default_val) {
                 rb._val(true);
             }
+            if (args.desc) {
+                rb._desc = rb._add_box('om_input_desc', {
+                    html: om.get(args.desc, rb)
+                });
+            }
             return rb;
         }
     });
@@ -4491,6 +4518,7 @@ Changelog:
             var textarea;
             args = om.get_args({
                 default_val: '',
+                desc: undefined, // description of the object
                 enabled: true,
                 hint: undefined
             }, args, true);
@@ -4522,6 +4550,11 @@ Changelog:
             if (args.hint) {
                 om.bf.make.input._hint(textarea, args.hint, {default_val: args.default_val});
             }
+            if (args.desc) {
+                textarea._desc = textarea._add_box('om_input_desc', {
+                    html: om.get(args.desc, textarea)
+                });
+            }
             return textarea;
         }
     });
@@ -4532,6 +4565,7 @@ Changelog:
             var select;
             args = om.get_args({
                 default_val: undefined, // e.g. value2
+                desc: undefined, // description of the object
                 enabled: true,
                 options: {} // {value: "Option Name", value2: "Name 2"}
             }, args, true);
@@ -4601,6 +4635,11 @@ Changelog:
             if (args.default_val !== null) {
                 select._val(args.default_val);
             }
+            if (args.desc) {
+                select._desc = select._add_box('om_input_desc', {
+                    html: om.get(args.desc, select)
+                });
+            }
             return select;
         }
     });
@@ -4610,6 +4649,7 @@ Changelog:
         obj: function (owner, name, args) {
             var file;
             args = om.get_args({
+                desc: undefined, // description of the object
                 enabled: true
             }, args, true);
             if (name === undefined) {
@@ -4637,6 +4677,11 @@ Changelog:
             if (name) {
                 file.$.toggleClass(name, true);
             }
+            if (args.desc) {
+                file._desc = file._add_box('om_input_desc', {
+                    html: om.get(args.desc, file)
+                });
+            }
             return file;
         }
     });
@@ -4647,9 +4692,10 @@ Changelog:
         obj: function (owner, name, args) {
             var json;
             args = om.get_args({
-                help: true,
                 default_val: '',
-                enabled: true
+                desc: undefined, // description of the object
+                enabled: true,
+                help: true
             }, args, true);
             if (name === undefined) {
                 name = 'json';
@@ -4737,6 +4783,11 @@ Changelog:
                     } else {
                         throw new Error("Invalid focus event type: '" + event.type + "'.");
                     }
+                });
+            }
+            if (args.desc) {
+                json._desc = json._add_box('om_input_desc', {
+                    html: om.get(args.desc, json)
                 });
             }
             return json;
@@ -4856,10 +4907,12 @@ Changelog:
         obj: function (owner, title, html, args) {
             var message, func, dont_show;
             args = om.get_args({
+                auto_center: true,
                 classes: [],
                 'class': undefined,
                 constraint: $(window),
                 dont_show: false,
+                draggable: true,
                 imbue: 'free',
                 modal: false // automatically cover owning object with a skirt obj
             }, args, true);
@@ -4940,16 +4993,22 @@ Changelog:
                 message._extend('top', 'om_message_title');
                 message._box_top.$.html(title);
                 // default to dragging by the title
-                message._draggable(message._box_top.$, {
-                    constraint: args.constraint
-                });
+                if (args.draggable) {
+                    message._draggable(message._box_top.$, {
+                        constraint: args.constraint
+                    });
+                }
             } else {
                 // no title? make the entire message draggable
-                message._draggable(message.$, {
-                    constraint: args.constraint
-                });
+                if (args.draggable) {
+                    message._draggable(message.$, {
+                        constraint: args.constraint
+                    });
+                }
             }
-            message._center_top(0.2, message.$.parent());
+            if (args.auto_center) {
+                message._center_top(0.2, message.$.parent());
+            }
             // and show it unless otherwise requested
             if (dont_show !== true) {
                 message._show();
@@ -4965,16 +5024,15 @@ Changelog:
             var loading;
             args = om.get_args({
                 depth: 1, // each time _remove is called the depth is lowered by one; the loading box is removed when it hits 0
+                dont_show: false,
+                imbue: 'free',
                 on_complete: undefined, // callback on completion; args: loading obj
                 resize: false // auto resize to fit owner using supplied arguments
-            }, args);
-            loading= om.bf.make.box(
-                owner, {
-                    imbue: 'free',
-                    dont_show: true,
-                    'class': 'om_loading'
-                }
-            );
+            }, args, true);
+            loading = om.bf.make.box(owner, $.extend({
+                dont_show: true
+            }, args));
+            loading.$.toggleClass('om_loading', true);
             loading._args = args;
             if (args.options !== undefined) {
                 loading._opacity(args.opacity);
