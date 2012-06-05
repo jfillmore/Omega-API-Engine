@@ -357,8 +357,10 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
                     if (isset($response['result']) && $response['result']) {
                         if (isset($response['data'])) {
                             if (is_resource($response['data'])) {
-                                // assume this is a file descriptor and just pass it through
-                                rewind($response['data']);
+                                if (get_resource_type($response['data']) !== 'stream') {
+                                    rewind($response['data']);
+                                }
+                                // assume this is a file descriptor or stream and pass it through
                                 return $response['data'];
                             } else {
                                 // encode data anyway, so we don't just say 'Array'

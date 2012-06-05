@@ -137,10 +137,11 @@ class Omega extends OmegaLib {
         }
     }
 
-    public function popen_test() {
+    public function test_popen() {
         $this->response->set_encoding('raw');
-        $this->response->header('Content-Type', 'application/gzip');
-        $fh = popen('tar -czf - /var/www/comcure/README', 'r');
+        $this->response->header('Content-Type', 'application/gzip', true);
+        $this->response->header('Content-Disposition', 'attachment; filename="test.tar.gz"', true);
+        $fh = popen('cd /var/www/comcure && tar -czf - README', 'r');
         return $fh;
     }
 
