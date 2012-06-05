@@ -137,6 +137,13 @@ class Omega extends OmegaLib {
         }
     }
 
+    public function popen_test() {
+        $this->response->set_encoding('raw');
+        $this->response->header('Content-Type', 'application/gzip');
+        $fh = popen('tar -czf - /var/www/comcure/README', 'r');
+        return $fh;
+    }
+
     /** Rewrites the arguments from associative to positional to work for the class constructor. */
     private function _get_construct_args($r_class, $args) {
         global $om;
