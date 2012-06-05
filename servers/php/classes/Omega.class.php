@@ -157,7 +157,7 @@ class Omega extends OmegaLib {
             // is this in our args?
             if (isset($args[$param_name])) {
                 $params[$param_count] = $args[$param_name];
-            } else {
+            } else if (! $r_param->isOptional()) {
                 // damn, you missed!
                 $missing_params[] = $param_name;
             }

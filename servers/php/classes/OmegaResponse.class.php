@@ -358,7 +358,6 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
                         if (isset($response['data'])) {
                             if (is_resource($response['data'])) {
                                 // assume this is a file descriptor and just pass it through
-                                $response = '';
                                 rewind($response['data']);
                                 return $response['data'];
                             } else {
