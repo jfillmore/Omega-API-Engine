@@ -186,7 +186,10 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                 return 'json';
             }
         } else if ($param === 'OMEGA_API_PARAMS') {
-            if ($this->get_encoding() === 'json' && $this->is_restful()) {
+            if ($_SERVER['REQUEST_METHOD'] == 'GET') {
+                // we'll always find our params here, but we need to fake decode them for now
+                return json_encode($_GET);
+            } else if ($this->get_encoding() === 'json' && $this->is_restful()) {
                 $stdin = file_get_contents('php://input');
                 $this->stdin = $stdin;
                 return $stdin;
