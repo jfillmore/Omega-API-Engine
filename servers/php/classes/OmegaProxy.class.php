@@ -22,7 +22,11 @@ class OmegaProxy {
             $context
         );
         // start the request and main headers
-        fputs($sock, "$_SERVER[REQUEST_METHOD] $_SERVER[REQUEST_URI] HTTP/1.1\n");
+        fputs($sock, join(' ', array(
+            $_SERVER['REQUEST_METHOD'],
+            $_SERVER['REQUEST_URI'],
+            "HTTP/1.1\n")
+        ));
         fputs($sock, "Host: $hostname\n");
         $cookies = array();
         foreach ($_COOKIE as $name => $value) {
@@ -40,21 +44,27 @@ class OmegaProxy {
             fputs($sock, "Content-Type: " . $_SERVER['CONTENT_TYPE'] . "\n");
             fputs($sock, "Content-Length: " . strlen($input) . "\n\n");
             fputs($sock, $input . "\n");
+        } else {
+            fputs($sock, "Content-Type: " . $_SERVER['CONTENT_TYPE'] . "\n");
         }
         fputs($sock, "\n");
         
         // write out the response headers
         $chunked = false;
         while (($hdr = trim(fgets($sock))) > '') {
+            header($hdr);
+            /* // this works, but is problematic
             // take note of chunked encoding, as it requires special handling
             if (preg_match('~^Transfer-Encoding: .*chunked~i', $hdr)) {
                 $chunked = true;
             } else {
                 header($hdr);
             }
+            */
         }
-        header('X-Relayed-From: ' . $hostname);
-        // return the response
+        header('X-Relayed-Via: ' . gethostname());
+        header('X-Relayed-To: ' . $hostname);
+        /* // this works, but is problematic
         if ($chunked) {
             $block_size = 1000000; // ~ 1 MB
             while ($l = trim(fgets($sock))) {
@@ -73,6 +83,9 @@ class OmegaProxy {
         } else {
             fpassthru($sock);
         }
+        */
+        // return the response
+        fpassthru($sock);
         exit;
     }
 
