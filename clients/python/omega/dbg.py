@@ -190,7 +190,12 @@ def obj2str(obj, depth = 0, color = True, indent_char = ' ', indent_size = 4, in
 
 def pretty_print(obj, depth = 0, color = True, indent_char = ' ', indent_size = 4):
     """Pretty-prints the contents of the list, tupple, sequence, etc."""
-    sys.stdout.write(obj2str(obj, depth, color, indent_char, indent_size, True).encode(sys.stdout.encoding, 'replace'))
+    str = obj2str(obj, depth, color, indent_char, indent_size, True)
+    try:
+        str = str.encode(sys.stdout.encoding, 'replace')
+    except:
+        pass;
+    sys.stdout.write(str)
 
 pp = pretty_print
 

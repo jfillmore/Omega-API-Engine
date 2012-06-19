@@ -403,6 +403,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
             'server' => $_SERVER,
             'cookies' => $_COOKIE,
             'encoding' => $this->get_encoding(),
+            'production' => $om->in_production(),
             'api' => $this->get_api(),
             'api_params' => $this->get_api_params(),
             'foo' => $foo,

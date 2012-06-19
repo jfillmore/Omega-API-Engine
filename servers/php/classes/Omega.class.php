@@ -369,6 +369,7 @@ class Omega extends OmegaLib {
                 $this->response->set_data($data);
                 if ($this->subservice->is_enabled('logger')) {
                     $this->subservice->logger->log($e->getMessage(), false);
+                    $this->subservice->logger->log_data('api_trace', $bt);
                     $this->subservice->logger->commit_log(false);
                 }
             }
@@ -591,7 +592,11 @@ class Omega extends OmegaLib {
                 $line .= ' ' . $trace['class'] . $trace['type'];
             }
             // don't return the actual args by default for security reasons
-            $line .= $trace['function'] . '(' . count($trace['args']) . ' ' . (count($trace['args']) === 1 ? 'arg' : 'args') . ')';
+            if ($this->in_production()) {
+                $line .= $trace['function'] . '(' . count($trace['args']) . ' ' . (count($trace['args']) === 1 ? 'arg' : 'args') . ')';
+            } else {
+                $line .= $trace['function'] . '(' . json_encode($trace['args']) . ')';
+            }
             $stack[] = $line;
         }
         return $stack;
