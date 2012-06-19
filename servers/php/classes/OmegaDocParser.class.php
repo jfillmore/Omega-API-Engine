@@ -161,14 +161,20 @@ class OmegaDocParser {
     */
     private function parseParam($string) {
         $pos = strpos($string, ' ');
-
+        if ($pos === false) {
+            throw new Exception("Invalid parameter formatting; missing param type from: '$string'.");
+        }
         $type = substr($string, 0, $pos);
         // trim out the type and name
         $trimmed = substr($string, $pos + 1);
         $pos = strpos($trimmed, ' ');
+        if ($pos === false) {
+            // no description given is all
+            $pos = strlen($trimmed);
+        }
         $name = substr($trimmed, 0, $pos);
         if (substr($name, 0, 1) != '$') {
-            throw new Exception("Invalid parameter formatting; missing param name from: '$string'.");
+            throw new Exception("Invalid parameter formatting; param name missing '$' in: '$string'.");
         }
         $name = ltrim($name, '$');
         $trimmed = substr($trimmed, $pos + 1);
