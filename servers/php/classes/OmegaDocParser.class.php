@@ -3,7 +3,7 @@
 //namespace Doqumentor;
 
 /**
-	This file is part of Doqumentor.
+    This file is part of Doqumentor.
 
     https://github.com/murraypicton/Doqumentor/blob/master/parser.php
 
@@ -35,128 +35,137 @@
 * @copyright 2010 Murray Picton
 */
 class OmegaDocParser {
-	/**
-	* The string that we want to parse
-	*/
-	private $string;
-	/**
-	* Storge for the short description
-	*/
-	private $shortDesc;
-	/**
-	* Storge for the long description
-	*/
-	private $longDesc;
-	/**
-	* Storge for all the PHPDoc tokens
-	*/
-	private $tokens;
-	/**
-	* Method parameters
-	*/
-	private $params = array();
+    /**
+    * The string that we want to parse
+    */
+    private $string;
+    /**
+    * Storge for the short description
+    */
+    private $shortDesc;
+    /**
+    * Storge for the long description
+    */
+    private $longDesc;
+    /**
+    * Storge for all the PHPDoc tokens
+    */
+    private $tokens;
+    /**
+    * Method parameters
+    */
+    private $params = array();
 
-	/**
-	* Parse each line
-	*
-	* Takes an array containing all the lines in the string and stores
-	* the parsed information in the object properties
-	* 
-	* @param array $lines An array of strings to be parsed
-	*/
-	private function parseLines($lines) {
+    /**
+    * Parse each line
+    *
+    * Takes an array containing all the lines in the string and stores
+    * the parsed information in the object properties
+    * 
+    * @param array $lines An array of strings to be parsed
+    */
+    private function parseLines($lines) {
         $desc = array();
-		foreach ($lines as $line) {
-			$parsedLine = $this->parseLine($line); //Parse the line
-			if ($parsedLine === false && empty($this->shortDesc)) {
-				$this->shortDesc = trim($parsedLine);
+        foreach ($lines as $line) {
+            $parsedLine = $this->parseLine($line); //Parse the line
+            if ($parsedLine === false && empty($this->shortDesc)) {
+                $this->shortDesc = trim($parsedLine);
                 $desc[] = $this->shortDesc;
-			} elseif ($parsedLine !== false) {
+            } elseif ($parsedLine !== false) {
                 $desc[] = $parsedLine;
-			}
-		}
-		$this->longDesc = trim(implode(PHP_EOL, $desc));
-	}
+            }
+        }
+        $this->longDesc = trim(implode(PHP_EOL, $desc));
+    }
 
-	/**
-	* Parse the line
-	*
-	* Takes a string and parses it as a PHPDoc comment
-	* 
-	* @param string $line The line to be parsed
-	* @return mixed False if the line contains no tokens
-	* that aren't valid otherwise, the line that was passed in.
-	*/
-	private function parseLine($line) {
+    /**
+    * Parse the line
+    *
+    * Takes a string and parses it as a PHPDoc comment
+    * 
+    * @param string $line The line to be parsed
+    * @return mixed False if the line contains no tokens
+    * that aren't valid otherwise, the line that was passed in.
+    */
+    private function parseLine($line) {
 
-		//Trim the whitespace from the line
-		$line = trim($line);
+        //Trim the whitespace from the line
+        $line = trim($line);
 
-		if (empty($line)) return false; //Empty line
+        if (empty($line)) return false; //Empty line
 
-		if (strpos($line, '@') === 0) {
-			$token = substr($line, 1, strpos($line, ' ') - 1); //Get the parameter name
-			$value = substr($line, strlen($token) + 2); //Get the value
-			if ($this->setToken($token, $value)) return false; //Parse the line and return false if the parameter is valid
-		}
+        if (strpos($line, '@') === 0) {
+            $token = substr($line, 1, strpos($line, ' ') - 1); //Get the parameter name
+            $value = substr($line, strlen($token) + 2); //Get the value
+            if ($this->setToken($token, $value)) return false; //Parse the line and return false if the parameter is valid
+        }
 
-		return $line;
-	}
+        return $line;
+    }
 
-	/**
-	* Setup the valid tokens
-	* 
-	* @param string $type NOT USED
-	*/
-	private function setupTokens($type = "") {
-		$tokens = array(
-			"access"	=>	'',
-			"author"	=>	'',
-			"copyright"	=>	'',
-			"deprecated"=>	'',
-			"example"	=>	'',
-			"ignore"	=>	'',
-			"internal"	=>	'',
-			"link"		=>	'',
-			"param"		=>	'',
-			"return"	=> 	'',
-			"see"		=>	'',
-			"since"		=>	'',
-			"tutorial"	=>	'',
-			"version"	=>	''
-		);
+    /**
+    * Setup the valid tokens
+    */
+    private function setupTokens() {
+        $tokens = array(
+            'abstract' => '',
+            'access' => '',
+            'author' => '',
+            'copyright' => '',
+            'deprecated' => '',
+            'deprec' => '',
+            'example' => '',
+            'exception' => '',
+            'global' => '',
+            'ignore' => '',
+            'internal' => '',
+            'link' => '',
+            'name' => '',
+            'magic' => '',
+            'package' => '',
+            'param' => '',
+            'return' => '',
+            'see' => '',
+            'since' => '',
+            'static' => '',
+            'staticvar' => '',
+            'subpackage' => '',
+            'throws' => '',
+            'todo' => '',
+            'var' => '',
+            'version' => ''
+        );
+        $this->tokens = $tokens;
+    }
 
-		$this->tokens = $tokens;
-	}
-
-	/**
-	* Parse a parameter or string to display in simple typecast display
-	*
-	* @param string $string The string to parse
-	* @return string Formatted string with typecast
-	*/
-	private function parseReturn($string) {
-		$pos = strpos($string, ' ');
-		$type = substr($string, 0, $pos);
-		return array(
+    /**
+    * Parse a parameter or string to display in simple typecast display
+    *
+    * @param string $string The string to parse
+    * @return string Formatted string with typecast
+    */
+    private function parseReturn($string) {
+        $pos = strpos($string, ' ');
+        $type = substr($string, 0, $pos);
+        return array(
             'type' => $type,
             'desc' => substr($string, $pos + 1)
         );
-	}
+    }
 
-	/**
-	* Parse parameters from docstring line.
-	*
-	* @param string $string The string to parse
-	* @return string Formatted string with typecast
-	*/
-	private function parseParam($string) {
-		$pos = strpos($string, ' ');
+    /**
+    * Parse parameters from docstring line.
+    *
+    * @param string $string The string to parse
+    * @return string Formatted string with typecast
+    */
+    private function parseParam($string) {
+        $pos = strpos($string, ' ');
 
-		$type = substr($string, 0, $pos);
+        $type = substr($string, 0, $pos);
         // trim out the type and name
         $trimmed = substr($string, $pos + 1);
-		$pos = strpos($trimmed, ' ');
+        $pos = strpos($trimmed, ' ');
         $name = substr($trimmed, 0, $pos);
         if (substr($name, 0, 1) != '$') {
             throw new Exception("Invalid parameter formatting; missing param name from: '$string'.");
@@ -168,18 +177,18 @@ class OmegaDocParser {
             'desc' => $trimmed
         );
         return '(' . $type . ') ' . $trimmed;
-	}
+    }
 
-	/**
-	* Set a parameter.
-	* 
-	* @param string $param The parameter name to store
-	* @param string $value The value to set
-	* @return bool True = the parameter has been set, false = the parameter was invalid
-	*/
-	private function setToken($param, $value) {
-		if (! array_key_exists($param, $this->tokens)) return false;
-		if ($param == 'param') {
+    /**
+    * Set a parameter.
+    * 
+    * @param string $param The parameter name to store
+    * @param string $value The value to set
+    * @return bool True = the parameter has been set, false = the parameter was invalid
+    */
+    private function setToken($param, $value) {
+        if (! array_key_exists($param, $this->tokens)) return false;
+        if ($param == 'param') {
             $value = $this->parseParam($value);
         } else if ($param == 'return') {
             $value = $this->parseReturn($value);
@@ -200,51 +209,51 @@ class OmegaDocParser {
                 $this->tokens[$param] = $arr;
             }
         }
-		return true;
-	}
+        return true;
+    }
 
-	/**
-	* Setup the initial object
-	* 
-	* @param string $string The string we want to parse
-	*/
-	public function __construct($string) {
-		$this->string = $string;
-		$this->setupTokens();
+    /**
+    * Setup the initial object
+    * 
+    * @param string $string The string we want to parse
+    */
+    public function __construct($string) {
+        $this->string = $string;
+        $this->setupTokens();
         $this->parse();
-	}
+    }
 
-	/**
-	* Parse the string
-	*/
-	public function parse() {
-		//Get the comment
-		if (preg_match('#^/\*\*(.*)\*/#s', $this->string, $comment) === false)
-			die("Error");
-		$comment = trim($comment[1]);
-		//Get all the lines and left-trim any * characters
-		if (preg_match_all('#^\s*\**(.*)#m', $comment, $lines) === false)
-			die('Error');
-		$this->parseLines($lines[1]);
-	}
+    /**
+    * Parse the string
+    */
+    public function parse() {
+        //Get the comment
+        if (preg_match('#^/\*\*(.*)\*/#s', $this->string, $comment) === false)
+            die("Error");
+        $comment = trim($comment[1]);
+        //Get all the lines and left-trim any * characters
+        if (preg_match_all('#^\s*\**(.*)#m', $comment, $lines) === false)
+            die('Error');
+        $this->parseLines($lines[1]);
+    }
 
-	/**
-	* Get the short description
-	*
-	* @return string The short description
-	*/
-	public function getShortDesc() {
-		return $this->shortDesc;
-	}
+    /**
+    * Get the short description
+    *
+    * @return string The short description
+    */
+    public function getShortDesc() {
+        return $this->shortDesc;
+    }
 
-	/**
-	* Get the long description
-	*
-	* @return string The long description
-	*/
-	public function getDesc() {
-		return $this->longDesc;
-	}
+    /**
+    * Get the long description
+    *
+    * @return string The long description
+    */
+    public function getDesc() {
+        return $this->longDesc;
+    }
 
     /**
     * Get method parameters
@@ -254,13 +263,13 @@ class OmegaDocParser {
         return $this->params;
     }
 
-	/**
-	* Get the tokens
-	*
+    /**
+    * Get the tokens
+    *
     * @param empty Whether or not to return empty tokens
-	* @return array The tokens
-	*/
-	public function getTokens($empty = false) {
+    * @return array The tokens
+    */
+    public function getTokens($empty = false) {
         if ($empty) {
             return $this->tokens;
         } else {
@@ -272,7 +281,7 @@ class OmegaDocParser {
             }
             return $tokens;
         }
-	}
+    }
 }
 
 ?>
