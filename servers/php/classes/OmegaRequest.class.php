@@ -596,6 +596,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                 // good ol' RESTful
                 // use the routes to figure out what class file and method to call
                 // the first part is $om or $om->service, which we already figured out
+                $branches = $api_parts;
                 array_shift($api_parts);
                 $route = $service->_route($api_parts);
                 $api_branch = $route['api_branch'];
@@ -693,88 +694,107 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         returns: object */
     public function _parse_doc_string($r_method) {
         $doc_string = $r_method->getDocComment();
-        if ($doc_string !== false ) {
-            $types = array('object', 'number', 'string', 'boolean', 'array', 'null', 'undefined');
-            // first split it up by line, omitting the /** and */ parts
-            $lines = preg_split("/(\n\r|\n|\r)/", substr($doc_string, 3, strlen($doc_string)-5));
-            $desc = '';
-            $values = array(
-                'expects' => array(),
-                'returns' => null
-                );
-            $indent = null;
-            $current_section = 'description';
-            foreach ($lines as $line) {
-                // check to see if we're changing to a new section
-                if (preg_match('/^\s*(expects|returns):(.*)/i', $line, $matches)) {
-                    $current_section = $matches[1];
-                    // and make the line be the rest of the data
-                    $line = $matches[2];
-                }
-                // if the line isn't all space, skip it
-                if (! preg_match('/\S/', $line)) {
-                    continue;
-                } else {
-                    // trim out any extra spaces around the rest of the line
-                    $line = trim($line);
-                    if ($current_section == 'description') {
-                        if ($desc != '') {
-                            $desc = ' '; // add padding if needed
-                        }
-                        $desc .= $line; // minus any padding spacing
-                    } else if ($current_section == 'returns') {
-                        if ($values['returns'] == null) { // because there can be only one
-                            $return_type = $line;
-                            if (! in_array($return_type, $types)) {
-                                throw new Exception("Invalid return type of '$return_type' in doc string for method " . $r_method->getName() . '.');
-                            } else {
-                                $values['returns'] = $return_type;
-                            }
-                        } else {
-                            throw new Exception("The return type '" . $matches[2] . "' has already previously been defined as '" . $values['returns'] . "' in doc string for " . $r_method->getName() . "." );
-                        }
-                    } else if ($current_section == 'expects') {
-                        $pairs = preg_split('/(\s*[,;]\s*)/', $line);
-                        foreach ($pairs as $pair) {
-                            $parts = preg_split('/(\s*=\s*)/', $pair);
-                            if (count($parts) != 2) {
-                                throw new Exception("Invalid pair format for '$pair' in method '" . $r_method->getName() . "'.");
-                            }
-                            // make sure this method is actually expecting the parameter named
-                            $is_valid_param = false;
-                            foreach ($r_method->getParameters() as $r_param) {
-                                if ($parts[0] == $r_param->getName()) {
-                                    $is_valid_param = true;
-                                }
-                            }
-                            if (! $is_valid_param) {
-                                throw new Exception("Parameter '" . $parts[0] . "' does not exist as valid parameter for the method '" . $r_method->getName() . "'.");
-                            }
-                            // and verify this is a recognized type
-                            if (! in_array($parts[1], $types)) {
-                                throw new Exception("Invalid return type of '" . $parts[1] . "' in doc string for method " . $r_method->getName() . '.');
-                            }
-                            $values['expects'][$parts[0]] = $parts[1];
-                        }
-                    } else {    
-                        // ugh, never should get here
-                        throw new Exception("Invalid section '$current_section'.");
-                    }
-                }
-            }
-            $doc = array(
-                'description' => $desc,
-                'expects' => $values['expects'],
-                'returns' => $values['returns']
-            );
-            return $doc;
-        } else {
+        $doc = array(
+            'description' => '',
+            'expects' => array(),
+            'type' => null,
+            'returns' => ''
+        );
+        if ($doc_string !== false) {
+            $doc = $this->_parse_doc_omega($r_method, $doc_string);
+        }
+        return $doc;
+    }
+
+    public function _parse_doc_omega($r_method, $doc_string) {
+        $types = array('object', 'number', 'string', 'boolean', 'array', 'null', 'undefined');
+        // first see if we're a PHP style docstring
+        if (preg_match("/\n\s*\**\s*@\w+/", $doc_string)) {
+            $parser = new OmegaDocParser($doc_string);
+            $params = $parser->getParams();
+            $tokens = $parser->getTokens();
             return array(
-                'description' => '',
-                'expects' => array(),
-                'returns' => ''
+                'description' => $parser->getDesc(),
+                'expects' => $params,
+                'tokens' => $tokens,
+                'returns' => $tokens['return'],
+                'type' => 'phpdoc'
             );
         }
+        // first split it up by line, omitting the /** and */ parts
+        $lines = preg_split("/(\n\r|\n|\r)/", substr($doc_string, 3, strlen($doc_string) - 5));
+        $desc = '';
+        $values = array(
+            'expects' => array(),
+            'returns' => null
+        );
+        $indent = null;
+        $current_section = 'description';
+        foreach ($lines as $line) {
+            // check to see if we're changing to a new section
+            if (preg_match('/^\s*(expects|returns):(.*)/i', $line, $matches)) {
+                $current_section = $matches[1];
+                // and make the line be the rest of the data
+                $line = $matches[2];
+            }
+            // if the line isn't all space, skip it
+            if (! preg_match('/\S/', $line)) {
+                continue;
+            } else {
+                // trim out any extra spaces around the rest of the line
+                $line = trim($line);
+                if ($current_section == 'description') {
+                    if ($desc != '') {
+                        $desc = ' '; // add padding if needed
+                    }
+                    $desc .= $line; // minus any padding spacing
+                } else if ($current_section == 'returns') {
+                    if ($values['returns'] == null) { // because there can be only one
+                        $return_type = $line;
+                        if (! in_array($return_type, $types)) {
+                            throw new Exception("Invalid return type of '$return_type' in doc string for method " . $r_method->getName() . '.');
+                        } else {
+                            $values['returns'] = $return_type;
+                        }
+                    } else {
+                        throw new Exception("The return type '" . $matches[2] . "' has already previously been defined as '" . $values['returns'] . "' in doc string for " . $r_method->getName() . "." );
+                    }
+                } else if ($current_section == 'expects') {
+                    $pairs = preg_split('/(\s*[,;]\s*)/', $line);
+                    foreach ($pairs as $pair) {
+                        $parts = preg_split('/(\s*=\s*)/', $pair);
+                        if (count($parts) != 2) {
+                            throw new Exception("Invalid pair format for '$pair' in method '" . $r_method->getName() . "'.");
+                        }
+                        // make sure this method is actually expecting the parameter named
+                        $is_valid_param = false;
+                        foreach ($r_method->getParameters() as $r_param) {
+                            if ($parts[0] == $r_param->getName()) {
+                                $is_valid_param = true;
+                            }
+                        }
+                        if (! $is_valid_param) {
+                            throw new Exception("Parameter '" . $parts[0] . "' does not exist as valid parameter for the method '" . $r_method->getName() . "'.");
+                        }
+                        // and verify this is a recognized type
+                        if (! in_array($parts[1], $types)) {
+                            throw new Exception("Invalid return type of '" . $parts[1] . "' in doc string for method " . $r_method->getName() . '.');
+                        }
+                        $values['expects'][$parts[0]] = $parts[1];
+                    }
+                } else {    
+                    // ugh, never should get here
+                    throw new Exception("Invalid section '$current_section'.");
+                }
+            }
+        }
+        $doc = array(
+            'description' => $desc,
+            'expects' => $values['expects'],
+            'returns' => $values['returns'],
+            'type' => 'omdoc'
+        );
+        return $doc;
     }
 
     /** Returns information (branches, methods, etc.) about a branch.
@@ -978,8 +998,15 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         $name = $r_method->getName();
         $doc = $this->_parse_doc_string($r_method);
         $declaring_class = $r_method->getDeclaringClass();
-        $stats = array('name' => $name, 'doc' => $doc);
-        $stats['branch'] = $declaring_class->getName();
+        $stats = array(
+            'name' => $name,
+            'description' => $doc['description'],
+            'returns' => $doc['returns']
+        );
+        if ($doc['type'] == 'phpdoc') {
+            $stats['tokens'] = $doc['tokens'];
+        }
+        // not really needed: $stats['branch'] = $declaring_class->getName();
         // if there is an authority then include accessibility information
         if ($om->subservice->is_enabled('authority')) {
             $api = $om->request->get_api();
@@ -993,11 +1020,13 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         } else {
             $stats['accessible'] = true;
         }
-        // inlude stats on each parameter, if requested
-        if ($verbose) {
-            $stats['params'] = array();
-            foreach ($r_method->getParameters() as $param_pos => $r_param) {
-                $param_name = $r_param->getName();
+        $stats['params'] = array();
+        foreach ($r_method->getParameters() as $param_pos => $r_param) {
+            $param_name = $r_param->getName();
+            // inlude stats on each parameter, if requested
+            if (! $verbose) {
+                $stats['params'][] = $param_name;
+            } else {
                 //$param_pos = $r_param->getPosition(); // getPosition() only in php 5.2.3+
                 $stats['params'][$param_pos] = array(
                     'name' => $param_name,
@@ -1012,6 +1041,18 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                     $stats['params'][$param_pos]['type'] = 'Array';
                 } else if ($r_param->getClass() != null) {
                     $stats['params'][$param_pos]['type'] = 'Object [' . $r_param->getClass()->getName() . ']';
+                }
+                // is type info available in the doc string?
+                if (isset($doc['expects'][$param_name])) {
+                    // merge in docstring info on the param
+                    if ($doc['type'] == 'phpdoc') {
+                        $stats['params'][$param_pos] = array_merge(
+                            $stats['params'][$param_pos],
+                            $doc['expects'][$param_name]
+                        );
+                    } else {
+                        $stats['params'][$param_pos]['type'] = $doc['expects'][$param_name];
+                    }
                 }
                 // if there is a default value set by the programmer, retrieve it
                 if ($r_param->isDefaultValueAvailable()) {

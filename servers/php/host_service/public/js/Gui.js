@@ -41,7 +41,7 @@ $(document).ready(function () {
                 'service_config',
                 service_name,
                 'os.config.get',
-                service_name,
+                {service: service_name},
                 function (config) {
                     var diviner, menu_depth, ratio, win, colors, gen_color;
                     gen_colors = function (name) {

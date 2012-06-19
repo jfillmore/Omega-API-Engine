@@ -925,13 +925,11 @@
                 api_runner._raise();
                 // load the API description
                 html = '';
-                if (method_info.doc !== undefined) {
-                    if (method_info.doc.description !== undefined) {
-                        html += '<div class="description">' + method_info.doc.description + '</div>';
-                    }
-                    if (method_info.doc.returns !== undefined) {
-                        html += '<div class="return">Returns: ' + method_info.doc.returns + '</div>';
-                    }
+                if (method_info.description) {
+                    html += '<div class="description">' + method_info.description + '</div>';
+                }
+                if (method_info.returns) {
+                    html += '<div class="return">Returns: ' + method_info.returns + '</div>';
                 }
                 api_runner.api_info.$.html(html);
                 api_runner.$.animate({
@@ -1273,7 +1271,7 @@
                 if (typeof(node.info) === 'string') {
                     node.description.$.html(node.info);
                 } else {
-                    node.description.$.html(node.info.doc.description);
+                    node.description.$.html(node.info.description);
                 }
             };
             /* init */
