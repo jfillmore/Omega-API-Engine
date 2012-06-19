@@ -562,7 +562,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
             }
             $data = array();
             $data['name'] = $om->service_nickname;
-            $data['description'] = trim(substr($doc_string, 3, strlen($doc_string)-5));
+            $data['desc'] = trim(substr($doc_string, 3, strlen($doc_string)-5));
             // and constructor information too
             $data['info'] = $this->_get_method_info($r_service->getMethod('__construct'), true);
             // show enabled subservices
@@ -696,10 +696,13 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
     public function _parse_doc_string($r_method) {
         $doc_string = $r_method->getDocComment();
         $doc = array(
-            'description' => '',
+            'desc' => '',
             'expects' => array(),
             'type' => null,
-            'returns' => ''
+            'returns' => array(
+                'type' => '',
+                'desc' => ''
+            )
         );
         if ($doc_string !== false) {
             $doc = $this->_parse_doc_omega($r_method, $doc_string);
@@ -715,7 +718,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
             $params = $parser->getParams();
             $tokens = $parser->getTokens();
             return array(
-                'description' => $parser->getDesc(),
+                'desc' => $parser->getDesc(),
                 'expects' => $params,
                 'tokens' => $tokens,
                 'returns' => $tokens['return'],
@@ -727,7 +730,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         $desc = '';
         $values = array(
             'expects' => array(),
-            'returns' => null
+            'returns' => array('type' => null, 'desc' => null)
         );
         $indent = null;
         $current_section = 'description';
@@ -750,12 +753,18 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                     }
                     $desc .= $line; // minus any padding spacing
                 } else if ($current_section == 'returns') {
-                    if ($values['returns'] == null) { // because there can be only one
-                        $return_type = $line;
+                    if ($values['returns']['type'] === null) { // because there can be only one
+                        $parts = explode(' ', $line, 2);
+                        if (count($parts)) {
+                            $return_type = $parts[0];
+                            $values['returns']['desc'] = $parts[1];
+                        } else {
+                            $return_type = $parts[0];
+                        }
                         if (! in_array($return_type, $types)) {
                             throw new Exception("Invalid return type of '$return_type' in doc string for method " . $r_method->getName() . '.');
                         } else {
-                            $values['returns'] = $return_type;
+                            $values['returns']['type'] = $return_type;
                         }
                     } else {
                         throw new Exception("The return type '" . $matches[2] . "' has already previously been defined as '" . $values['returns'] . "' in doc string for " . $r_method->getName() . "." );
@@ -790,7 +799,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
             }
         }
         $doc = array(
-            'description' => $desc,
+            'desc' => $desc,
             'expects' => $values['expects'],
             'returns' => $values['returns'],
             'type' => 'omdoc'
@@ -822,7 +831,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                 substr($doc_string, 3, strlen($doc_string) - 5)
             );
         }
-        $data['description'] = $doc_string;
+        $data['desc'] = $doc_string;
         // include branch/route information unless requested otherwise
         if (! $this->query_options['hide_flags']['branches']) {
             if ($this->is_restful() && $om->is_restful()) {
@@ -956,7 +965,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                         if ($verbose) {
                             $data['methods'][$method][$route] = $method_info;
                         } else {
-                            $data['methods'][$method][$route] = $method_info['doc']['description'];
+                            $data['methods'][$method][$route] = $method_info['doc']['desc'];
                         }
                     }
                 }
@@ -970,7 +979,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                             if ($verbose) {
                                 $data['methods'][$method_name] = $method_info;
                             } else {
-                                $data['methods'][$method_name] = $method_info['doc']['description'];
+                                $data['methods'][$method_name] = $method_info['doc']['desc'];
                             }
                         }
                     }
@@ -983,7 +992,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                     if ($verbose) {
                         $data['methods']['*'] = $method_info;
                     } else {
-                        $data['methods']['*'] = $method_info['doc']['description'];
+                        $data['methods']['*'] = $method_info['doc']['desc'];
                     }
                 }
             }
@@ -991,7 +1000,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         return $data;
     }
 
-    /** Returns information (name, description, accessibility, parameter info, etc) about a method.
+    /** Returns information (name, desc, accessibility, parameter info, etc) about a method.
         expects: r_method=object, verbose=false
         returns: object */
     public function _get_method_info($r_method, $verbose = false) {
@@ -1001,11 +1010,17 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         $declaring_class = $r_method->getDeclaringClass();
         $stats = array(
             'name' => $name,
-            'description' => $doc['description'],
+            'desc' => $doc['desc'],
             'returns' => $doc['returns']
         );
-        if ($doc['type'] == 'phpdoc') {
+        if ($doc['type'] == 'phpdoc' && $verbose) {
             $stats['tokens'] = $doc['tokens'];
+            // hide param/return info, as it's duplicated
+            if (isset($stats['tokens']['return'])) unset($stats['tokens']['return']);
+            if (isset($stats['tokens']['param'])) unset($stats['tokens']['param']);
+            if (! count($stats['tokens'])) {
+                unset($stats['tokens']);
+            }
         }
         // not really needed: $stats['branch'] = $declaring_class->getName();
         // if there is an authority then include accessibility information

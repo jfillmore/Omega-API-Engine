@@ -902,7 +902,7 @@
             };
 
             api_runner.init = function () {
-                var fields, html;
+                var fields, html, returns = [];
                 // make sure we have information about this method if not given
                 if (api_runner.method_info === undefined) {
                     diviner.client.exec(
@@ -925,11 +925,17 @@
                 api_runner._raise();
                 // load the API description
                 html = '';
-                if (method_info.description) {
-                    html += '<div class="description">' + method_info.description + '</div>';
+                if (method_info.desc) {
+                    html += '<div class="description">' + method_info.desc + '</div>';
                 }
-                if (method_info.returns) {
-                    html += '<div class="return">Returns: ' + method_info.returns + '</div>';
+                if (method_info.returns.type) {
+                    returns.push('(' + method_info.returns.type + ')');
+                }
+                if (method_info.returns.desc) {
+                    returns.push(method_info.returns.desc);
+                }
+                if (returns) {
+                    html += '<div class="return">Returns: ' + returns.join(' ') + '</div>';
                 }
                 api_runner.api_info.$.html(html);
                 api_runner.$.animate({
@@ -1271,7 +1277,7 @@
                 if (typeof(node.info) === 'string') {
                     node.description.$.html(node.info);
                 } else {
-                    node.description.$.html(node.info.description);
+                    node.description.$.html(node.info.desc);
                 }
             };
             /* init */
@@ -1853,7 +1859,7 @@
                         collect = om.bf.make.collect(
                             diviner.$,
                             'Initialize ' + service.name,
-                            service.description,
+                            service.desc,
                             fields,
                             {
                                 modal: true,

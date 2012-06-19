@@ -135,11 +135,13 @@ class OmegaDocParser {
 	* @param string $string The string to parse
 	* @return string Formatted string with typecast
 	*/
-	private function formatReturn($string) {
+	private function parseReturn($string) {
 		$pos = strpos($string, ' ');
-
 		$type = substr($string, 0, $pos);
-		return '(' . $type . ') ' . substr($string, $pos+1);
+		return array(
+            'type' => $type,
+            'desc' => substr($string, $pos + 1)
+        );
 	}
 
 	/**
@@ -180,7 +182,7 @@ class OmegaDocParser {
 		if ($param == 'param') {
             $value = $this->parseParam($value);
         } else if ($param == 'return') {
-            $value = $this->formatReturn($value);
+            $value = $this->parseReturn($value);
         }
         if ($param == 'param') {
             $this->tokens[$param][] = $value;
@@ -220,8 +222,8 @@ class OmegaDocParser {
 		if (preg_match('#^/\*\*(.*)\*/#s', $this->string, $comment) === false)
 			die("Error");
 		$comment = trim($comment[1]);
-		//Get all the lines and strip the * from the first character
-		if (preg_match_all('#^\s*\*(.*)#m', $comment, $lines) === false)
+		//Get all the lines and left-trim any * characters
+		if (preg_match_all('#^\s*\**(.*)#m', $comment, $lines) === false)
 			die('Error');
 		$this->parseLines($lines[1]);
 	}

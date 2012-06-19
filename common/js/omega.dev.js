@@ -5340,7 +5340,8 @@ Changelog:
                         } else if (param_type === 'string') {
                             input_type = 'text';
                         } else {
-                            throw new Error("Unrecognized parameter type: '" + param_type + "'.");
+                            input_type = 'text';
+                            //throw new Error("Unrecognized parameter type: '" + param_type + "'.");
                         }
                     }
                     // check for null values-- force those types to JSON
@@ -5388,7 +5389,7 @@ Changelog:
                             args.title = 'Initialize ' + service_info.name;
                         }
                         if (args.message === undefined) {
-                            args.message = service_info.description;
+                            args.message = service_info.desc;
                         }
                         // does the constructor require parameters? snag 'em, if so
                         if (has_params) {
@@ -5882,7 +5883,7 @@ Changelog:
                     '?',
                     {},
                     function (service_info) {
-                        om_client.service_desc = service_info.description;
+                        om_client.service_desc = service_info.desc;
                         om_client.service_params = service_info.params;
                     },
                     function () {} // do nothing on failure
