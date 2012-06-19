@@ -25,10 +25,6 @@ class OmegaServer extends OmegaRESTful implements OmegaApi {
         // make sure the authority and logger are enabled for the host service
         $fixed_setup = false;
         foreach (array('logger', 'authority') as $subservice) {
-            if (! $om->subservice->is_active($subservice)) {
-                $om->subservice->activate($subservice);
-                $fixed_setup = true;
-            }
             if ($om->subservice->is_disabled($subservice)) {
                 $om->subservice->enable($subservice);
                 $fixed_setup = true;

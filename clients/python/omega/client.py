@@ -256,7 +256,13 @@ class OmegaClient:
         url = '/'.join(('', self._folder, api))
         if get:
             url = '?'.join((url, get))
-        data = self.encode(params)
+        if method == 'GET':
+            url = '?'.join((url, '&'.join([
+                '='.join((urllib.quote(name), urllib.quote(str(params[name])))) for name in params
+            ])))
+            data = None
+        else:
+            data = self.encode(params)
         # fire away
         if verbose:
             if self._use_https:

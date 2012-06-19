@@ -423,7 +423,7 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
                     if len(param_parts) == 1:
                         if not api.startswith('/'):
                             if param_parts[0] == '?':
-                                params['?'] = '?'
+                                params['?'] = True;
                             else:
                                 if param_parts[0].startswith('!'):
                                     params[param_parts[0]] = False
