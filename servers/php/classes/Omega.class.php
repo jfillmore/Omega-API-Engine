@@ -390,8 +390,8 @@ class Omega extends OmegaLib {
         foreach ($this->response->headers as $header_name => $header_value) {
             header($header_name . ': ' . $header_value);
         }
-        // if we have a session ID respond with that cookie
-        if ($this->get_session_id() !== null) {
+        // if we have a session ID respond with that cookie - except when ending our session
+        if ($this->get_session_id() !== null && isset($this->service)) {
             $cookie_path = $this->response->get_cookie_path();
             setcookie(
                 $this->response->get_cookie_name(),
