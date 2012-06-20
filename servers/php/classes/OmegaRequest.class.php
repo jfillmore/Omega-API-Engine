@@ -965,7 +965,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                         if ($verbose) {
                             $data['methods'][$method][$route] = $method_info;
                         } else {
-                            $data['methods'][$method][$route] = $method_info['doc']['desc'];
+                            $data['methods'][$method][$route] = $method_info['desc'];
                         }
                     }
                 }
@@ -979,7 +979,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                             if ($verbose) {
                                 $data['methods'][$method_name] = $method_info;
                             } else {
-                                $data['methods'][$method_name] = $method_info['doc']['desc'];
+                                $data['methods'][$method_name] = $method_info['desc'];
                             }
                         }
                     }
@@ -992,7 +992,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                     if ($verbose) {
                         $data['methods']['*'] = $method_info;
                     } else {
-                        $data['methods']['*'] = $method_info['doc']['desc'];
+                        $data['methods']['*'] = $method_info['desc'];
                     }
                 }
             }
