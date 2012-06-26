@@ -5099,6 +5099,22 @@ Changelog:
         }
     });
 
+    om.BoxFactory.make.prompt = function (owner, html, on_ok, on_cancel) {
+        // simple wrapper for replacing window.prompt()
+        return om.bf.make.query(owner, undefined, html, {
+            form_fields: {
+                val: {
+                    type: 'text'
+                }
+            },
+            modal: true,
+            on_ok: function (click_ev, input, query) {
+                om.get(on_ok, input.val);
+            },
+            on_cancel: on_cancel
+        });
+    };
+
     om.BoxFactory.make.query = om.doc({
         desc: 'Data/form query pop-up object.',
         obj: function (owner, title, html, args) {
