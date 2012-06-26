@@ -3655,7 +3655,9 @@
             },
             modal: true,
             on_ok: function (click_ev, input, query) {
-                om.get(on_ok, input.val);
+                if (om.get(on_ok, input.val) === false) {
+                    click_ev.preventDefault();
+                }
             },
             on_cancel: on_cancel
         });
