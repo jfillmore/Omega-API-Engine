@@ -659,7 +659,6 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         );
     }
 
-
     /** Ensures that we have the parameters necessary to execute the specified method. */
     public function _get_method_params($r_method) {
         global $om;
