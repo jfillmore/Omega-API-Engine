@@ -513,6 +513,17 @@ It also comtains various useful, generic functions. */
         }
     });
 
+    om.pretty_path = function (path) {
+        if (! path) {
+            path = '/';
+        }
+        path = path.replace(/\/+/g, '/');
+        if (path.substring(0, 1) != '/') {
+            path = '/' + path;
+        }
+        return path;
+    };
+
     om.round = om.doc({
         desc: 'Round numbers to some arbitrary precision or interval.',
         params: {

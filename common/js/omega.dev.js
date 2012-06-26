@@ -513,6 +513,17 @@ It also comtains various useful, generic functions. */
         }
     });
 
+    om.pretty_path = function (path) {
+        if (! path) {
+            path = '/';
+        }
+        path = path.replace(/\/+/g, '/');
+        if (path.substring(0, 1) != '/') {
+            path = '/' + path;
+        }
+        return path;
+    };
+
     om.round = om.doc({
         desc: 'Round numbers to some arbitrary precision or interval.',
         params: {
@@ -4601,7 +4612,7 @@ Changelog:
             select._add_option = function (name, value) {
                 if (value === undefined) {
                     select._value.append(
-                        '<option>' + name + '</option>'
+                        '<option value="' + name + '">' + name + '</option>'
                     );
                 } else {
                     select._value.append(
@@ -5337,18 +5348,14 @@ Changelog:
             om_client.get = om_client.shed.get;
 
             om_client.get_fields = function (method_info) {
-                var i, fields, param, param_type, input_type, args;
+                var i, fields, param, info, input_type, args;
                 fields = {};
                 for (i = 0; i < method_info.params.length; i += 1) {
-                    param = method_info.params[i].name;
+                    info = method_info.params[i];
+                    param = info.name;
                     // initialize the args
                     args = {};
-                    // get the type
-                    if (param in method_info.doc.expects) {
-                        param_type = method_info.doc.expects[param];
-                    } else {
-                        param_type = 'undefined';
-                    }
+                    param_type = info.type ? info.type : 'undefined';
                     args.caption = param.replace(/_/, ' ');
                     if (param_type === 'boolean') {
                         input_type = 'checkbox';
@@ -5360,7 +5367,8 @@ Changelog:
                         } else if (param_type === 'string') {
                             input_type = 'text';
                         } else {
-                            throw new Error("Unrecognized parameter type: '" + param_type + "'.");
+                            input_type = 'text';
+                            //throw new Error("Unrecognized parameter type: '" + param_type + "'.");
                         }
                     }
                     // check for null values-- force those types to JSON
@@ -5408,7 +5416,7 @@ Changelog:
                             args.title = 'Initialize ' + service_info.name;
                         }
                         if (args.message === undefined) {
-                            args.message = service_info.description;
+                            args.message = service_info.desc;
                         }
                         // does the constructor require parameters? snag 'em, if so
                         if (has_params) {
@@ -5902,7 +5910,7 @@ Changelog:
                     '?',
                     {},
                     function (service_info) {
-                        om_client.service_desc = service_info.description;
+                        om_client.service_desc = service_info.desc;
                         om_client.service_params = service_info.params;
                     },
                     function () {} // do nothing on failure

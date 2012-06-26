@@ -3147,7 +3147,7 @@
             select._add_option = function (name, value) {
                 if (value === undefined) {
                     select._value.append(
-                        '<option>' + name + '</option>'
+                        '<option value="' + name + '">' + name + '</option>'
                     );
                 } else {
                     select._value.append(
