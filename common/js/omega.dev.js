@@ -2005,14 +2005,14 @@ Changelog:
                                 on_move = function (move_event) {
                                     // calculate where we should move the box to
                                     var new_pos = {
-                                            left: move_event.clientX - delta.left,
-                                            top: move_event.clientY - delta.top
-                                        },
+                                        left: move_event.clientX - delta.left,
+                                        top: move_event.clientY - delta.top
+                                    },
                                     // and move ourselves accordingly... but only if we've moved at least 2 pixels from the start
-                                        diff = {
-                                            x: Math.abs(move_event.clientX - last.left),
-                                            y: Math.abs(move_event.clientY - last.top)
-                                        };
+                                    diff = {
+                                        x: Math.abs(move_event.clientX - last.left),
+                                        y: Math.abs(move_event.clientY - last.top)
+                                    };
                                     // if we moved by a huge amount then discard the input (e.g. mouse improperly recorded at 0, 0)
                                     if (diff.x + diff.y > args.tether) {
                                         return;
@@ -5112,7 +5112,7 @@ Changelog:
 
     om.BoxFactory.make.prompt = function (owner, html, on_ok, on_cancel) {
         // simple wrapper for replacing window.prompt()
-        return om.bf.make.query(owner, undefined, html, {
+        var query = om.bf.make.query(owner, undefined, html, {
             form_fields: {
                 val: {
                     type: 'text'
@@ -5126,6 +5126,11 @@ Changelog:
             },
             on_cancel: on_cancel
         });
+        // since we have no title the box is draggable, preventing form elements from being clicked
+        query._form._fields.val._value.bind('mousedown', function (ev) {
+            ev.stopPropagation();
+        });
+        return query;
     };
 
     om.BoxFactory.make.query = om.doc({
