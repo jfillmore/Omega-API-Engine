@@ -5130,6 +5130,7 @@ Changelog:
         query._form._fields.val._value.bind('mousedown', function (ev) {
             ev.stopPropagation();
         });
+        query.$.toggleClass('om_prompt', true);
         return query;
     };
 
