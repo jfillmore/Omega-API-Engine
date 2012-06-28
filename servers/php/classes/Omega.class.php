@@ -298,6 +298,11 @@ class Omega extends OmegaLib {
                     );
                 }
             }
+            if ($this->response->is_forced()) {
+                // constructors can provide a response value this way
+                // additionally, APIs can override the response value via '$om->response->force(...);'
+                $this->response->set_data($this->response->get_forced_response());
+            }
             $this->response->set_result(true);
         } else {
             $user_error = false;
@@ -306,6 +311,10 @@ class Omega extends OmegaLib {
                 // check to see if we got the answer back in an output stream or if they just returned it
                 if ($this->_has_output_stream()) {
                     $this->response->set_data($this->output_stream);
+                } else if ($this->response->is_forced()) {
+                    // constructors can provide a response value this way
+                    // additionally, APIs can override the response value via '$om->response->force(...);'
+                    $this->response->set_data($this->response->get_forced_response());
                 } else {
                     $this->response->set_data($answer);
                 }

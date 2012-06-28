@@ -20,6 +20,8 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
     private $cookie_path;
     private $cookie_name;
     private $cookie_prefix = '';
+    private $force_val;
+    private $force_response = false; // whether to override API end-point responses with force_val
 
     public $headers;
     public $default_headers;
@@ -387,6 +389,24 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
         } else {
             throw new Exception("Can't encode the response until at least the return result has been set.");
         }
+    }
+
+    /** Override the response data to return, regardless of what the API end-point may return. */
+    public function force($data) {
+        $this->force_response = true;
+        $this->force_val = $data;
+    }
+
+    public function get_forced_response() {
+        if ($this->force_response) {
+            return $this->force_val;
+        } else {
+            throw new Exception("The response value has not been forced.");
+        }
+    }
+
+    public function is_forced() {
+        return $this->force_response;
     }
 }
 
