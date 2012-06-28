@@ -972,13 +972,6 @@ abstract class OmegaTest {
                 'calling_code' => '853',
                 'iso_code' => 'ISO 3166-2:MO'
             ),
-            'Macedonia' => array( // alias o the one below
-                'alpha_2' => 'MK',
-                'alpha_3' => 'MKD',
-                'num_code' => '807',
-                'calling_code' => '389',
-                'iso_code' => 'ISO 3166-2:MK'
-            ),
             'Macedonia, the former Yugoslav Republic of' => array(
                 'alpha_2' => 'MK',
                 'alpha_3' => 'MKD',
