@@ -180,7 +180,14 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
     private function get_omega_param($param) {
         global $om;
         $param = 'OMEGA_' . strtoupper($param);
-        // HTTP headers are preferred, and take priority
+        // if we find what we're looking for here it's ghetto and old school (aka non-restful)
+        if (isset($_POST[$param])) {
+            $this->restful = false;
+            return $_POST[$param];
+        } else if (isset($_GET[$param])) {
+            $this->restful = false;
+            return $_GET[$param];
+        }
         if ($param === 'OMEGA_ENCODING') {
             if (strpos($_SERVER['CONTENT_TYPE'], 'application/json') === 0) {
                 return 'json';
@@ -209,18 +216,9 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                     return json_encode($om->session['creds']);
                 }
             }
-            // not provie
         }
-        // otherwise, fall back to ghetto get/post vars, which means we're probably not restful
-        if (isset($_POST[$param])) {
-            $this->restful = false;
-            return $_POST[$param];
-        } else if (isset($_GET[$param])) {
-            $this->restful = false;
-            return $_GET[$param];
-        } else {
-            throw new Exception("The value '$param' is not present in the GET or POST data.");
-        }
+        // we shouldn't ever get here... but just in case
+        throw new Exception("Unable to determine value of '$param'.");
     }
 
     private function decode($data, $encoding = 'json') {
