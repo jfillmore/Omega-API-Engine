@@ -178,7 +178,7 @@ class OmegaClient:
         if http_code < 200 or http_code >= 300:
             # see if we got json data back
             try:
-                if content_type == "application/json":
+                if content_type.startswith("application/json"):
                     decoded = self.decode(response)
                     if 'reason' in decoded:
                         error = decoded['reason']
@@ -197,7 +197,7 @@ class OmegaClient:
             # decode the response and check whether or not it was successful
             # TODO: check response encoding in header
             try:
-                if content_type == "application/json":
+                if content_type.startswith("application/json"):
                     response = self.decode(response)
                 else:
                     return response
@@ -295,40 +295,44 @@ class OmegaClient:
                 '+ Status [%d], Reason [%s], headers [%s]\n' %
                 (response.status, response.reason, response.msg)
             )
-        if raw_response:
-            return response.read()
-        else:
-            # decode the response and check whether or not it was successful
-            # TODO: check response encoding in header
-            content_type = response.getheader('Content-Type');
-            try:
-                response_data = response.read();
-                if content_type == "application/json":
-                    result = self.decode(response_data)
-                else:
-                    result = response_data;
-            except:
-                raise Exception('Failed to decode API result:\n' + response_data)
-            # check to see if our API call was successful
-            # the http status code and result should always be in sync, but if either are off call it a failure
-            if (response.status < 200 or response.status >= 300) or \
-                ('result' in result and result['result'] == False):
+        content_type = response.getheader('Content-Type');
+        response_data = response.read();
+        # handle any errors based on status code
+        if response.status < 200 or response.status >= 300:
+            if content_type.startswith("application/json"):
+                result = self.decode(response_data)
                 if 'reason' in result:
-                    if full_response:
-                        raise Exception('"%s" failed (%d %s):\n%s' %
-                            (urllib.unquote(api), response.status, response.reason, dbg.obj2str(result)))
-                    else:
-                        raise Exception(result['reason'])
+                    error = result['reason']
                 else:
-                    raise Exception('API "%s" failed: %s' % (api, result))
-            else:         
-                if full_response or content_type != "application/json":
-                    return result
+                    error = 'An unknown error has occurred.'
+            else:
+                error = response_data
+            raise Exception('API "%s" failed: %s', (api, error))
+        # return a raw response if needed; otherwise decode if JSON
+        if raw_response or not content_type.startswith("application/json"):
+            return response_data
+        try:
+            result = self.decode(response_data)
+        except:
+            raise Exception('Failed to decode API result:\n' + response_data)
+        # check to see if our API call was successful
+        if 'result' in result and result['result'] == False:
+            if 'reason' in result:
+                if full_response:
+                    raise Exception('"%s" failed (%d %s):\n%s' %
+                        (urllib.unquote(api), response.status, response.reason, dbg.obj2str(result)))
                 else:
-                    if 'data' in result:
-                        return result['data']
-                    else:
-                        return None
+                    raise Exception(result['reason'])
+            else:
+                raise Exception('API "%s" failed: %s' % (api, result))
+        else:         
+            if full_response:
+                return result
+            else:
+                if 'data' in result:
+                    return result['data']
+                else:
+                    return None
 
 if __name__ == '__main__':
     import dbg
