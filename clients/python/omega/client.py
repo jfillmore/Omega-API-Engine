@@ -88,7 +88,7 @@ class OmegaClient:
             self._http = httplib.HTTPSConnection(self._hostname, self._port)
         else:
             self._http = httplib.HTTPConnection(self._hostname, self._port)
-        self._http.cookie = False
+        self._http.cookies = False
         
     def get_url(self):
         return self._url
@@ -174,12 +174,16 @@ class OmegaClient:
         curl.perform()
         response = response.getvalue()
         http_code = curl.getinfo(curl.HTTP_CODE)
+        content_type = curl.getinfo(curl.CONTENT_TYPE);
         if http_code < 200 or http_code >= 300:
             # see if we got json data back
             try:
-                decoded = self.decode(response)
-                if 'reason' in decoded:
-                    error = decoded['reason']
+                if content_type == "application/json":
+                    decoded = self.decode(response)
+                    if 'reason' in decoded:
+                        error = decoded['reason']
+                    else:
+                        error = response
                 else:
                     error = response
             except:
@@ -193,7 +197,10 @@ class OmegaClient:
             # decode the response and check whether or not it was successful
             # TODO: check response encoding in header
             try:
-                response = self.decode(response)
+                if content_type == "application/json":
+                    response = self.decode(response)
+                else:
+                    return response
             except:
                 raise Exception('Failed to decode API response.', response)
             # check to see if our API call was successful
@@ -250,8 +257,8 @@ class OmegaClient:
         url = self._url
         headers['Content-type'] = 'application/json'
         headers['Accept'] = 'application/json'
-        if http.cookie:
-            headers['Cookie'] = http.cookie;
+        if http.cookies:
+            headers['Cookie'] = http.cookies;
 
         url = '/'.join(('', self._folder, api))
         if get:
@@ -276,13 +283,13 @@ class OmegaClient:
         response = http.getresponse()
         # see if we get a cookie back
         response_headers = str(response.msg).split('\n');
-        cookie = [c.split(': ')[1].split('; ')[0] for c in response_headers if c.startswith('Set-Cookie: ')]
-        if cookie:
+        cookies = [c.split(': ')[1].split('; ')[0] for c in response_headers if c.startswith('Set-Cookie: ')]
+        if cookies:
             # note that we ignore the path
-            cookie = cookie[0]
             if verbose:
-                sys.stdout.write('+ Cookie [%s]\n' % (cookie))
-            http.cookie = cookie
+                for cookie in cookies:
+                    sys.stdout.write('+ Cookie [%s]\n' % (cookie))
+            http.cookies = cookies
         if verbose:
             sys.stdout.write(
                 '+ Status [%d], Reason [%s], headers [%s]\n' %
@@ -293,15 +300,19 @@ class OmegaClient:
         else:
             # decode the response and check whether or not it was successful
             # TODO: check response encoding in header
+            content_type = response.getheader('Content-Type');
             try:
                 response_data = response.read();
-                result = self.decode(response_data)
+                if content_type == "application/json":
+                    result = self.decode(response_data)
+                else:
+                    result = response_data;
             except:
                 raise Exception('Failed to decode API result:\n' + response_data)
             # check to see if our API call was successful
             # the http status code and result should always be in sync, but if either are off call it a failure
-            if ('result' in result and result['result'] == False) or \
-                (response.status < 200 or response.status >= 300):
+            if (response.status < 200 or response.status >= 300) or \
+                ('result' in result and result['result'] == False):
                 if 'reason' in result:
                     if full_response:
                         raise Exception('"%s" failed (%d %s):\n%s' %
@@ -309,9 +320,9 @@ class OmegaClient:
                     else:
                         raise Exception(result['reason'])
                 else:
-                    raise Exception('API "%s" failed, but did not provide an explanation. Response: %s' % (api, result))
+                    raise Exception('API "%s" failed: %s' % (api, result))
             else:         
-                if full_response:
+                if full_response or content_type != "application/json":
                     return result
                 else:
                     if 'data' in result:
