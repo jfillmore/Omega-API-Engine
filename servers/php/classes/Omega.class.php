@@ -15,6 +15,7 @@ class Omega extends OmegaLib {
     private $output_stream = null;
     private $save_service_state; // whether or not to save the state of the service after each request
     private $production = true; // whether the API should be considered in producition mode for security purposes
+    private $wrote_headers = false; // have we written response headers already?
 
     // service information
     public $api; // alias to $this->service
@@ -93,7 +94,9 @@ class Omega extends OmegaLib {
             'GET' => array(
             ),
             'POST' => array(
-                'restart_service' => 'restart_service'
+                'restart_service' => 'restart_service',
+                'test_popen' => 'test_popen',
+                'test_output_stream' => 'test_output_stream'
             ),
             'PUT' => array(
             ),
@@ -115,8 +118,13 @@ class Omega extends OmegaLib {
     /** Returns a reference to an output stream that can be written to for providing an API response. */
     public function _get_output_stream() {
         global $om;
-        // not returning JSON data if we use this
-        $result = fopen('php://temp/maxmemory:128', 'rw');
+        // end output buffering, since we're taking over
+        $spillage = $this->_flush_ob(false);
+        // take note of anything that slipped out prematurely (e.g. warnings)
+        if (strlen($spillage) > 0 && ! $this->in_production()) {
+            $this->response->set_spillage($spillage);
+        }
+        $result = fopen('php://output', 'w');
         if ($result === false || $result === null) {
             throw new Exception("Failed to create output stream.");
         }
@@ -125,13 +133,37 @@ class Omega extends OmegaLib {
     }
 
     /** Simple method to test get_output_stream functionality. */
-    private function test_output_stream($file) {
+    public function test_output_stream($file) {
         if (file_exists($file)) {
-            $os = $this->_get_output_stream();
+            $chunk_size = 32000;
+            $size = filesize($file);
+            $fh = fopen($file, 'r');
+            if ($fh === false ) {
+                throw new Exception("Failed to open '$file' to read.");
+            }
+            $chunks = floor($size / $chunk_size);
+            $remainder = $size % $chunk_size;
+            // send headers before getting the output stream
             $this->response->set_encoding('raw');
             $this->response->header('Content-Type', mime_content_type($file));
-            $fh = fopen($file, 'r');
-            fwrite($os, fread($fh, filesize($file)));
+            $this->_write_headers();
+            // write chunks
+            $os = $this->_get_output_stream();
+            $offset = 0;
+            for ($i = 0; $i < $chunks; $i++) {
+                //$written = fwrite($os, fread($fh, $chunk_size), $chunk_size); // works, but below seems cleaner
+                $written = stream_copy_to_stream($fh, $os, $chunk_size, $offset);
+                if ($written === false) {
+                    throw new Exception("Failed to write $chunk_size (offset $i) bytes to stdout.");
+                }
+                $offset += $written;
+            }
+            // write leftovers
+            //$written = fwrite($os, fread($fh, $remainder), $remainder); // works, but below seems cleaner
+            $written = stream_copy_to_stream($fh, $os, $remainder, $offset);
+            if ($written === false) {
+                throw new Exception("Failed to write $chunk_size (offset $i) bytes to stdout.");
+            }
         } else {
             throw new Exception("File not found: $file.");
         }
@@ -139,9 +171,9 @@ class Omega extends OmegaLib {
 
     public function test_popen() {
         $this->response->set_encoding('raw');
-        $this->response->header('Content-Type', 'application/gzip', true);
-        $this->response->header('Content-Disposition', 'attachment; filename="test.tar.gz"', true);
-        $fh = popen('cd /var/www/comcure && tar -czf - README', 'r');
+        $this->response->header('Content-Type', 'text/plain', true);
+        $this->response->header('Content-Disposition', 'attachment; filename="README"', true);
+        $fh = popen('cat /var/www/comcure/README', 'r');
         return $fh;
     }
 
@@ -250,9 +282,10 @@ class Omega extends OmegaLib {
                 $data = array(
                     'backtrace' => $this->_clean_trace($e->getTrace())
                 );
-                $spillage = ob_get_contents();
-                ob_end_clean();
-                $this->response->set_spillage($spillage);
+                $spillage = $this->_flush_ob(false);
+                if (strlen($spillage) > 0 && ! $this->in_production()) {
+                    $this->response->set_spillage($spillage);
+                }
                 $this->response->set_data($data);
                 $this->subservice->logger->log($data);
                 $this->subservice->logger->commit_log(false);
@@ -388,14 +421,31 @@ class Omega extends OmegaLib {
             $this->_save_session(false);
         }
         // see if we spilled anywhere... if so, pick it up to ensure we have a clean stream
-        $spillage = ob_get_contents();
-        ob_end_clean();
+        $spillage = $this->_flush_ob(false);
         if (strlen($spillage) > 0 && ! $this->in_production()) {
             $this->response->set_spillage($spillage);
         }
         // encode the response that we'll send back
         $response = $this->response->encode($this->response->get_encoding());
-        // print out the request headers
+        // print out the request headers, unless they were sent already
+        if (! $this->wrote_headers) {
+            $this->_write_headers();
+        }
+        // and finally print/return the response, unless the output stream was hijacked
+        if (! $this->_has_output_stream()) {
+            if (is_resource($response)) {
+                fpassthru($response);
+            } else {
+                echo $response;
+            }
+        }
+    }
+
+    public function _write_headers() {
+        if ($this->wrote_headers) {
+            throw new Exception("Headers already sent; unable to write headers twice.");
+        }
+        $this->wrote_headers = true;
         foreach ($this->response->headers as $header_name => $header_value) {
             header($header_name . ': ' . $header_value);
         }
@@ -416,12 +466,19 @@ class Omega extends OmegaLib {
         }
         // set our status code (e.g. 200, 404, etc)
         header($this->response->get_status());
-        // and finally print/return the response
-        if (is_resource($response)) {
-            fpassthru($response);
-        } else {
-            echo $response;
+    }
+
+    public function _flush_ob($passthru = true) {
+        $output = '';
+        while (ob_list_handlers()) {
+            if ($passthru) {
+                ob_flush();
+            } else {
+                $output .= ob_get_contents();
+                ob_end_clean();
+            }
         }
+        return $output;
     }
     
     public function _load_session() {
