@@ -174,7 +174,7 @@ class OmegaClient:
         curl.perform()
         response = response.getvalue()
         http_code = curl.getinfo(curl.HTTP_CODE)
-        content_type = curl.getinfo(curl.CONTENT_TYPE);
+        content_type = curl.getinfo(curl.CONTENT_TYPE) or "";
         if http_code < 200 or http_code >= 300:
             # see if we got json data back
             try:
@@ -276,7 +276,7 @@ class OmegaClient:
                 proto = 'https'
             else:
                 proto = 'http'
-            sys.stdout.write(
+            sys.stderr.write(
                 '+ %s %s://%s:%d/%s, params: "%s", headers: "%s"\n' %
                 ((method, proto, self._hostname, self._port, url, data, str(headers))))
         http.request(method, url, data, headers)
@@ -288,14 +288,14 @@ class OmegaClient:
             # note that we ignore the path
             if verbose:
                 for cookie in cookies:
-                    sys.stdout.write('+ Cookie [%s]\n' % (cookie))
+                    sys.stderr.write('+ Cookie [%s]\n' % (cookie))
             http.cookies = cookies
         if verbose:
-            sys.stdout.write(
+            sys.stderr.write(
                 '+ Status [%d], Reason [%s], headers [%s]\n' %
                 (response.status, response.reason, response.msg)
             )
-        content_type = response.getheader('Content-Type');
+        content_type = response.getheader('Content-Type') or '';
         response_data = response.read();
         # handle any errors based on status code
         if response.status < 200 or response.status >= 300:

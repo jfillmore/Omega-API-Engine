@@ -38,7 +38,7 @@ def get_obj_info(obj, include_private = False):
     obj_info = {
         'type': type(obj).__name__,
         'callable': callable(obj),
-        'value': unicode(obj),
+        'value': str(obj),
         'repr': repr(obj),
         'description': unicode(getattr(obj, '__doc__', '')).strip()
     }
@@ -84,9 +84,9 @@ def obj2str(obj, depth = 0, color = True, indent_char = ' ', indent_size = 4, in
     """Returns a formatted string, optionally with color coding"""
     def shell_color(obj, obj_color):
         if color:
-            return '\033[%sm%s\033[0;0m' % (obj_color, unicode(obj))
+            return '\033[%sm%s\033[0;0m' % (obj_color, str(obj))
         else:
-            return unicode(obj)
+            return str(obj)
 
     def rdump(obj, depth = 0, indent_size = 4, inline = False, short_form = False):
         if short_form:
@@ -188,14 +188,14 @@ def obj2str(obj, depth = 0, color = True, indent_char = ' ', indent_size = 4, in
         return dump # hack hack hack!
     return rdump(obj, depth, indent_size, inline, short_form)
 
-def pretty_print(obj, depth = 0, color = True, indent_char = ' ', indent_size = 4):
+def pretty_print(obj, depth = 0, color = True, indent_char = ' ', indent_size = 4, stream = sys.stdout):
     """Pretty-prints the contents of the list, tupple, sequence, etc."""
     str = obj2str(obj, depth, color, indent_char, indent_size, True)
     try:
         str = str.encode(sys.stdout.encoding, 'replace')
     except:
         pass;
-    sys.stdout.write(str)
+    stream.write(str)
 
 pp = pretty_print
 

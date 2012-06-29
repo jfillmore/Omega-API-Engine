@@ -100,7 +100,6 @@ class Shell:
             pass
         except EOFError, e:
             pass
-        sys.stdout.write('\n')
         self.stop()
     
     def stop(self):
@@ -139,7 +138,7 @@ class Shell:
             raise Exception(''.join(['Invalid editing mode: ', mode, ' Supported modes are: ', ', '.join(modes), '.']))
     
     def print_help(self):
-        sys.stdout.write(
+        sys.stderr.write(
 '''EXTRA DATA OPTIONS (each may be specified multiple times)
    -F, --file             File to add to request.
    -G, --get GET_DATA     GET data to include (e.g. foo=bar&food=yummy).
@@ -148,7 +147,7 @@ class Shell:
 RETURN DATA OPTIONS (may also be set via '*set' command)
    -f, --full             Return full response instead of just data.
    -r, --raw              Print response data in raw form.
-   -v, --verbose          Print verbose debugging info to stdout.
+   -v, --verbose          Print verbose debugging info to stderr.
    -c, --color            Colorize return output (unless returning raw data).
 
 COMMANDS
@@ -452,7 +451,7 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
             try:
                 file = open(stdout_redir, redir_type)
             except IOException, e:
-                sys.stdout.write('! ' + error + '\n')
+                sys.stderr.write('! ' + error + '\n')
                 return False
         else:
             file = None
@@ -477,7 +476,7 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
         else:
             # run an API
             if args['verbose']:
-                sys.stdout.write('+ API=%s, PARAMS=%s, OPTIONS=%s\n' % (api, self.client.encode(params), self.client.encode(args)))
+                sys.stderr.write('+ API=%s, PARAMS=%s, OPTIONS=%s\n' % (api, self.client.encode(params), self.client.encode(args)))
             try: 
                 if method == 'EXEC':
                     response = self.client.run(
@@ -538,17 +537,17 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
                             dbg.pretty_print(response, color = False)
                         #sys.stdout.write('\n')
         else:
-            sys.stdout.write('! ' + response + '\n')
+            sys.stderr.write('! ' + response + '\n')
             if 'data' in args:
                 if 'color' in args:
-                    dbg.pretty_print(args['data'], color = args['color'])
+                    dbg.pretty_print(args['data'], color = args['color'], stream = sys.stderr)
                 else:
-                    dbg.pretty_print(args['data'], color = False)
+                    dbg.pretty_print(args['data'], color = False, stream = sys.stderr)
 
     def run(self, method, api, params = {}, args = {}):
         args = util.get_args(self.args, args, True)
         if args['verbose']:
-            sys.stdout.write('+ API=%s, PARAMS=%s, OPTIONS=%s\n' % (api, self.client.encode(params), self.client.encode(args)))
+            sys.stderr.write('+ API=%s, PARAMS=%s, OPTIONS=%s\n' % (api, self.client.encode(params), self.client.encode(args)))
         retval = {}
         try: 
             get = None
