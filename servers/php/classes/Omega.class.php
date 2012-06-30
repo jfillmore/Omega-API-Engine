@@ -96,7 +96,8 @@ class Omega extends OmegaLib {
             'POST' => array(
                 'restart_service' => 'restart_service',
                 'test_popen' => 'test_popen',
-                'test_output_stream' => 'test_output_stream'
+                'test_output_stream' => 'test_output_stream',
+                'test_proxy' => 'test_proxy'
             ),
             'PUT' => array(
             ),
@@ -110,9 +111,9 @@ class Omega extends OmegaLib {
     }
 
     /** Method for testing proxy logic. */
-    private function proxy_test($domain, $port, $uri, $method = 'GET') {
+    public function test_proxy($host, $port = null, $method = null, $uri = null, $data = null, $content_type = null) {
         $proxy = new OmegaProxy();
-        $proxy->passthru($domain, $port, array(), $uri, $method);
+        $proxy->passthru($host, $port, $method, $uri, $data, $content_type);
     }
 
     /** Returns a reference to an output stream that can be written to for providing an API response. */

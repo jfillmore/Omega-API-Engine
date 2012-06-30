@@ -8,7 +8,8 @@ class OmegaProxy {
         $this->curl->set_return_header(true);
     }
 
-    public function passthru($hostname, $port = null) {
+    public function passthru($hostname, $port = null, $method = null, $uri = null, $data = null, $content_type = null) {
+        global $om;
         $port = ($port === null ? $_SERVER['SERVER_PORT'] : $port);
         // init SSL socket
         $context = stream_context_create();
@@ -21,31 +22,44 @@ class OmegaProxy {
             STREAM_CLIENT_CONNECT,
             $context
         );
+        if ($sock === false ) {
+            throw new Exception("Failed to initialize SSL socket to $hostname.");
+        }
+        $spillage = $om->_flush_ob(false);
+        if ($spillage) {
+            throw new Exception("Unable to proxy to $hostname; API spillage: $spillage");
+        }
         // start the request and main headers
         fputs($sock, join(' ', array(
-            $_SERVER['REQUEST_METHOD'],
-            $_SERVER['REQUEST_URI'],
+            $method ? $method : $_SERVER['REQUEST_METHOD'],
+            $uri ? $uri : $_SERVER['REQUEST_URI'],
             "HTTP/1.1\n")
         ));
         fputs($sock, "Host: $hostname\n");
+        // pass on any cookies
         $cookies = array();
         foreach ($_COOKIE as $name => $value) {
             $cookies[] = "$name=$value";
         }
         fputs($sock, "Cookie: " . join('; ', $cookies) . "\n");
+        // any auth header too
+        if ($_SERVER['HTTP_AUTHENTICATION']) {
+            fputs($sock, "Authentication: " . $_SERVER['HTTP_AUTHENTICATION']);
+        }
+        // other headers to ease things along
         fputs($sock, "Connection: close\n");
         fputs($sock, "Accept-Encoding: chunked;q=1.0\n"); // somehow forcing identity does not work for nginx, so forcing chunked, but will test below
-         // send our data
+        // send our data
+        $content_type = $content_type ? $content_type : $_SERVER['CONTENT_TYPE'];
         if (strtoupper($_SERVER['REQUEST_METHOD']) != 'GET') {
-            // $input = file_get_contents('php://input');
-            global $om;
-            $input = $om->request->get_stdin();
+            // $input = $data ? $data : file_get_contents('php://input');
+            $input = $data ? $data : $om->request->get_stdin();
             // send with the same content type as we got our data as
-            fputs($sock, "Content-Type: " . $_SERVER['CONTENT_TYPE'] . "\n");
+            fputs($sock, "Content-Type: " . $content_type . "\n");
             fputs($sock, "Content-Length: " . strlen($input) . "\n\n");
             fputs($sock, $input . "\n");
         } else {
-            fputs($sock, "Content-Type: " . $_SERVER['CONTENT_TYPE'] . "\n");
+            fputs($sock, "Content-Type: " . $content_type . "\n");
         }
         fputs($sock, "\n");
         
@@ -116,12 +130,9 @@ class OmegaProxy {
             );
         }
         // end output buffering if needed
-        if (count(ob_list_handlers())) {
-            $spillage = ob_get_contents();
-            if ($spillage) {
-                throw new Exception("Unable to proxy to $hostname; API spillage: $spillage");
-            }
-            ob_end_clean();
+        $spillage = $om->_flush_ob(false);
+        if ($spillage) {
+            throw new Exception("Unable to proxy to $hostname; API spillage: $spillage");
         }
         // send the proxied request
         if ($uri === null) {
