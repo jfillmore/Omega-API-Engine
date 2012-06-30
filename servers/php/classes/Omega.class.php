@@ -165,6 +165,7 @@ class Omega extends OmegaLib {
             if ($written === false) {
                 throw new Exception("Failed to write $chunk_size (offset $i) bytes to stdout.");
             }
+            return $os;
         } else {
             throw new Exception("File not found: $file.");
         }
@@ -342,6 +343,7 @@ class Omega extends OmegaLib {
             $user_error = false;
             try {
                 $answer = $this->request->_answer();
+                $this->response->set_result(true);
                 // check to see if we got the answer back in an output stream or if they just returned it
                 if ($this->_has_output_stream()) {
                     $this->response->set_data($this->output_stream);
@@ -352,7 +354,6 @@ class Omega extends OmegaLib {
                 } else {
                     $this->response->set_data($answer);
                 }
-                $this->response->set_result(true);
                 if ($this->subservice->is_enabled('logger') && isset($this->subservice->logger)) { // gotta also be sure the subservice is initialized too, otherwise an error on enabling will happen
                     // don't log boring things like queries or APIs about logging
                     if (! $this->request->is_query() && strpos($this->request->get_api(), 'omega.subservice.logger') === false) {
@@ -447,6 +448,10 @@ class Omega extends OmegaLib {
             throw new Exception("Headers already sent; unable to write headers twice.");
         }
         $this->wrote_headers = true;
+        if ($this->response->get_result() === null) {
+            // we were called by the API, so assume true for now
+            $this->response->set_result(true);
+        }
         foreach ($this->response->headers as $header_name => $header_value) {
             header($header_name . ': ' . $header_value);
         }
