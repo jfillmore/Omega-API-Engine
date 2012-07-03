@@ -92,7 +92,7 @@ class OmegaProxy {
 
         // handle the response body
         if ($chunked) {
-            $out = $om->_get_output_stream();
+            $out = $om->_get_output_stream(false);
             // gotta dechunk the response ourselves
             $block_size = 32000;
             while ($l = trim(fgets($sock))) {
