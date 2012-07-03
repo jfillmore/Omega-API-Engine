@@ -111,9 +111,9 @@ class Omega extends OmegaLib {
     }
 
     /** Method for testing proxy logic. */
-    public function test_proxy($host, $port = null, $method = null, $uri = null, $data = null, $content_type = null) {
+    public function test_proxy($host, $port = null, $ssl = true, $method = null, $uri = null, $data = null, $content_type = null) {
         $proxy = new OmegaProxy();
-        $proxy->passthru($host, $port, $method, $uri, $data, $content_type);
+        $proxy->passthru($host, $port, $ssl, $method, $uri, $data, $content_type);
     }
 
     /** Returns a reference to an output stream that can be written to for providing an API response. */
