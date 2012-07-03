@@ -3645,9 +3645,13 @@
         }
     });
 
-    om.BoxFactory.make.prompt = function (owner, html, on_ok, on_cancel) {
+    om.BoxFactory.make.prompt = function (owner, html, on_ok, on_cancel, args) {
         // simple wrapper for replacing window.prompt()
-        var query = om.bf.make.query(owner, undefined, html, {
+        var query, args;
+        args = om.get_args({
+            title: undefined
+        }, args);
+        query = om.bf.make.query(owner, args.title, html, {
             form_fields: {
                 val: {
                     type: 'text'
