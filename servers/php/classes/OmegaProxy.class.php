@@ -56,7 +56,7 @@ class OmegaProxy {
             $req[] = "Cookie: " . join('; ', $cookies);
         }
         // any auth header too
-        if ($_SERVER['HTTP_AUTHENTICATION']) {
+        if (isset($_SERVER['HTTP_AUTHENTICATION'])) {
             $req[] = "Authentication: " . $_SERVER['HTTP_AUTHENTICATION'];
         }
         // other headers to ease things along
