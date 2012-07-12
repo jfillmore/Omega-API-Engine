@@ -77,7 +77,7 @@ class OmegaProxy {
         fputs($sock, join("\n", $req));
         
         // write out the response headers
-        //$chunked = false;
+        $chunked = false;
         while (($hdr = trim(fgets($sock))) > '') {
             if (stripos($hdr, 'Connection:') === 0) {
                 header($hdr);
