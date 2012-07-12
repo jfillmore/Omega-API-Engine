@@ -326,7 +326,7 @@ class OmegaDatabase {
             255 => "GEOMETRY",
         );
         $type = $types[$type];
-        if (in_array($type, array('DATE', 'TIME', 'DATETIME', 'VHARCHAR', 'CHAR', 'TIMESTAMP'))) {
+        if (in_array($type, array('DATE', 'TIME', 'DATETIME', 'VARCHAR', 'CHAR', 'TIMESTAMP'))) {
             return $value;
         } else if (in_array($type, array('DECIMAL', 'FLOAT', 'DOUBLE'))) {
             return $value === null ? $value : (double)$value;
