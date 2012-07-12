@@ -15,9 +15,9 @@ class OmegaProxy {
         $om->_flush_ob(false);
         // init SSL socket
         if ($ssl) {
-            $context = stream_context_create();
-            stream_context_set_option($context, 'ssl', 'verify_host', false);
-            $sock = stream_socket_client(
+            $context = @stream_context_create();
+            @stream_context_set_option($context, 'ssl', 'verify_host', false);
+            $sock = @stream_socket_client(
                 "ssl://$hostname:$port",
                 $err,
                 $errstr,
@@ -26,7 +26,7 @@ class OmegaProxy {
                 $context
             );
         } else {
-            $sock = stream_socket_client(
+            $sock = @stream_socket_client(
                 "tcp://$hostname:$port",
                 $err,
                 $errstr,

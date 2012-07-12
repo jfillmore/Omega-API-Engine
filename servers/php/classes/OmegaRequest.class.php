@@ -708,6 +708,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
     }
 
     public function _parse_doc_omega($r_method, $doc_string) {
+        global $om;
         $types = array('object', 'number', 'string', 'boolean', 'array', 'null', 'undefined');
         // first see if we're a PHP style docstring
         if (preg_match("/\n\s*\**\s*@\w+/", $doc_string)) {
@@ -718,7 +719,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                 'desc' => $parser->getDesc(),
                 'expects' => $params,
                 'tokens' => $tokens,
-                'returns' => $tokens['return'],
+                'returns' => @$tokens['return'],
                 'type' => 'phpdoc'
             );
         }
@@ -754,7 +755,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                         $parts = explode(' ', $line, 2);
                         if (count($parts)) {
                             $return_type = $parts[0];
-                            $values['returns']['desc'] = $parts[1];
+                            $values['returns']['desc'] = @$parts[1];
                         } else {
                             $return_type = $parts[0];
                         }
