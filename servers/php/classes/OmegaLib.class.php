@@ -121,7 +121,7 @@ class OmegaLib extends OmegaRESTful implements OmegaApi {
                 }
             }
         } else {
-            throw new Expeception('Either default arguments or given arguments are not an array or null.');
+            throw new Exception('Either default arguments or given arguments are not an array or null.');
         }
         return $my_args;
     }
