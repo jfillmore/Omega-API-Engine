@@ -257,9 +257,6 @@ class OmegaClient:
         url = self._url
         headers['Content-type'] = 'application/json'
         headers['Accept'] = 'application/json'
-        if http.cookies:
-            headers['Cookie'] = http.cookies;
-
         url = '/'.join(('', self._folder, api))
         if get:
             url = '?'.join((url, get))
@@ -277,9 +274,28 @@ class OmegaClient:
             else:
                 proto = 'http'
             sys.stderr.write(
-                '+ %s %s://%s:%d/%s, params: "%s", headers: "%s"\n' %
-                ((method, proto, self._hostname, self._port, url, data, str(headers))))
-        http.request(method, url, data, headers)
+                '+ %s %s://%s:%d/%s, params: "%s", headers: "%s", cookies: "%s"\n' %
+                ((method, proto, self._hostname, self._port, url, data, str(headers), str(http.cookies)))
+            )
+        #http.request(method, url, data, headers)
+        # start the request
+        http.putrequest(method, url)
+        # send our headers
+        for hdr, value in headers.iteritems():
+            http.putheader(hdr, value);
+        # and our cookies too!
+        if http.cookies:
+            [http.putheader('Cookie', value) for value in http.cookies]
+        # write the body
+        header_names = headers.fromkeys([k.lower() for k in headers])
+        if params:
+            body_len = len(data)
+            if body_len:
+                http.putheader('Content-Length', str(body_len))
+        http.endheaders()
+        if data:
+            http.send(data)
+        # get our response back from the server and parse
         response = http.getresponse()
         # see if we get a cookie back
         response_headers = str(response.msg).split('\n');
