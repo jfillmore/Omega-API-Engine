@@ -961,6 +961,15 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                         }
                         $method_info = $this->_get_method_info($r_method, $verbose);
                         if ($verbose) {
+                            // take note of whether or not this param is within the route (e.g. :domain)
+                            if (preg_match('/[:\*](\w+)/', $route, $matches)) {
+                                array_shift($matches); // first part is just the route
+                                foreach ($method_info['params'] as &$param) {
+                                    if (in_array($param['name'], $matches)) {
+                                        $param['url_parsed'] = true;
+                                    }
+                                }
+                            }
                             $data['methods'][$method][$route] = $method_info;
                         } else {
                             $data['methods'][$method][$route] = $method_info['desc'];
