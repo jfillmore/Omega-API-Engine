@@ -288,7 +288,7 @@ class OmegaClient:
             [http.putheader('Cookie', value) for value in http.cookies]
         # write the body
         header_names = headers.fromkeys([k.lower() for k in headers])
-        if params:
+        if data:
             body_len = len(data)
             if body_len:
                 http.putheader('Content-Length', str(body_len))
