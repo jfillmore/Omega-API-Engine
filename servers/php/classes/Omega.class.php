@@ -79,6 +79,12 @@ class Omega extends OmegaLib {
         }
     }
 
+    /** Returns the global $om var without restoring to using a global variable by the caller. */
+    public static function get() {
+        global $om;
+        return $om;
+    }
+
     public function _get_routes() {
         return  array(
             'api' => 'api',
