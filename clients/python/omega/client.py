@@ -307,7 +307,11 @@ class OmegaClient:
                     error = 'An unknown error has occurred.'
             else:
                 error = response_data
-            raise Exception('API "%s" failed: %s' % (api, error))
+            if full_response:
+                raise Exception('API "%s" failed (%d %s):\n%s' %
+                    (urllib.unquote(api), response.status, response.reason, dbg.obj2str(result)))
+            else:
+                raise Exception('API "%s" failed: %s' % (api, error))
         # return a raw response if needed; otherwise decode if JSON
         if raw_response or not content_type.startswith("application/json"):
             return response_data
