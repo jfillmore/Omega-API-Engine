@@ -243,6 +243,17 @@ class Omega extends OmegaLib {
         }
     }
 
+    /** Shorthand for logging. */
+    public function log($msg) {
+        if (isset($om->subservice->logger)) {
+            if (is_string($msg)) {
+                $om->subservice->logger->log($msg);
+            } else {
+                $om->subservice->logger->log_data($msg);
+            }
+        }
+    }
+
     /** Just another day in the life of an omega server. */
     public function _do_the_right_thing() {
         // capture any crap that PHP leaks through (e.g. warnings on functions) or that the user intentionally leaks
