@@ -33,13 +33,30 @@ class OmegaException extends Exception {
             $this->user_error = $args['user_error'];
         }
         if (isset($args['alert']) && $args['alert']) {
-            // TODO: change e-mail keys to something more predictable (e.g. omega.admin)
-            $admin_email = $om->config->get('admin.email');
-            mail($admin_email, $this->subject, $this->body);
-            $babysitter_email = $om->config->get('admin.babysitter_email');
-            if ($babysitter_email != $admin_email) {
-                mail($babysitter_email, $this->subject, $this->body);
+            $admin_email = null;
+            try {
+                $admin_email = $om->config->get('omega/admin/email');
+            } catch (Exception $e) {
+                // old school location
+                try {
+                    $admin_email = $om->config->get('admin/email');
+                } catch (Exception $e) {throw $e;}
             }
+            if ($admin_email) {
+                if (! is_array($admin_email)) {
+                    $admin_email = array($admin_email);
+                }
+                foreach ($admin_email as $email) {
+                    mail($email, $this->subject, $this->body);
+                }
+            }
+            try {
+                // old school backup
+                $babysitter_email = $om->config->get('admin.babysitter_email');
+                if ($babysitter_email != $admin_email) {
+                    mail($babysitter_email, $this->subject, $this->body);
+                }
+            } catch (Exception $e) {}
         }
         if (isset($args['comment'])) {
             $this->comment = $args['comment'];
