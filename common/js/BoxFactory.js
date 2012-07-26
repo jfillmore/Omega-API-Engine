@@ -1794,7 +1794,7 @@
 
             // return a list of any errors found based on auto validation
             form._get_errors = function (revalidate) {
-                var name, errors, caption;
+                var name, errors, caption, err_msg;
                 errors = [];
                 if (revalidate === undefined) {
                     revalidate = false;
@@ -1810,10 +1810,12 @@
                             } else {
                                 caption = form._fields[name]._args.caption;
                             }
-                            errors.push(
-                                caption + ': ' +
-                                form._fields[name]._error_tooltip._message
-                            );
+                            if (form._fields[name]._error_tooltip) {
+                                err_msg = form._fields[name]._error_tooltip._message;
+                            } else {
+                                err_msg = "Invalid value.";
+                            }
+                            errors.push(caption + ': ' + err_msg);
                         }
                     }
                 }
@@ -3645,9 +3647,13 @@
         }
     });
 
-    om.BoxFactory.make.prompt = function (owner, html, on_ok, on_cancel) {
+    om.BoxFactory.make.prompt = function (owner, html, on_ok, on_cancel, args) {
         // simple wrapper for replacing window.prompt()
-        var query = om.bf.make.query(owner, undefined, html, {
+        var query, args;
+        args = om.get_args({
+            title: undefined
+        }, args);
+        query = om.bf.make.query(owner, args.title, html, {
             form_fields: {
                 val: {
                     type: 'text'

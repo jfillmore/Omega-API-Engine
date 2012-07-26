@@ -8,79 +8,93 @@ class OmegaProxy {
         $this->curl->set_return_header(true);
     }
 
-    public function passthru($hostname, $port = null, $method = null, $uri = null, $data = null, $content_type = null) {
+    public function passthru($hostname, $port = null, $ssl = true, $method = null, $uri = null, $data = null, $content_type = null) {
         global $om;
         $port = ($port === null ? $_SERVER['SERVER_PORT'] : $port);
+        $timeout = 5;
+        $om->_flush_ob(false);
         // init SSL socket
-        $context = stream_context_create();
-        stream_context_set_option($context, 'ssl', 'verify_host', false);
-        $sock = stream_socket_client(
-            "ssl://$hostname:$port",
-            $err,
-            $errstr,
-            5,
-            STREAM_CLIENT_CONNECT,
-            $context
-        );
-        if ($sock === false ) {
-            throw new Exception("Failed to initialize SSL socket to $hostname.");
+        if ($ssl) {
+            $context = @stream_context_create();
+            @stream_context_set_option($context, 'ssl', 'verify_host', false);
+            $sock = @stream_socket_client(
+                "ssl://$hostname:$port",
+                $err,
+                $errstr,
+                $timeout,
+                STREAM_CLIENT_CONNECT,
+                $context
+            );
+        } else {
+            $sock = @stream_socket_client(
+                "tcp://$hostname:$port",
+                $err,
+                $errstr,
+                $timeout
+            );
         }
-        $spillage = $om->_flush_ob(false);
-        if ($spillage) {
-            throw new Exception("Unable to proxy to $hostname; API spillage: $spillage");
+        if ($sock === false ) {
+            throw new Exception("Failed to initialize socket to $hostname.");
         }
         // start the request and main headers
-        fputs($sock, join(' ', array(
-            $method ? $method : $_SERVER['REQUEST_METHOD'],
-            $uri ? $uri : $_SERVER['REQUEST_URI'],
-            "HTTP/1.1\n")
+        $method = $method ? $method : $_SERVER['REQUEST_METHOD'];
+        $uri = $uri ? $uri : $_SERVER['REQUEST_URI'];
+        $content_type = $content_type ? $content_type : $_SERVER['CONTENT_TYPE'];
+        $req = array();
+        $req[] = join(' ', array(
+            $method,
+            $uri,
+            "HTTP/1.1"
         ));
-        fputs($sock, "Host: $hostname\n");
+        $req[] = "Host: $hostname";
         // pass on any cookies
         $cookies = array();
         foreach ($_COOKIE as $name => $value) {
             $cookies[] = "$name=$value";
         }
-        fputs($sock, "Cookie: " . join('; ', $cookies) . "\n");
+        if ($cookies) {
+            $req[] = "Cookie: " . join('; ', $cookies);
+        }
         // any auth header too
-        if ($_SERVER['HTTP_AUTHENTICATION']) {
-            fputs($sock, "Authentication: " . $_SERVER['HTTP_AUTHENTICATION']);
+        if (isset($_SERVER['HTTP_AUTHENTICATION'])) {
+            $req[] = "Authentication: " . $_SERVER['HTTP_AUTHENTICATION'];
         }
         // other headers to ease things along
-        fputs($sock, "Connection: close\n");
-        fputs($sock, "Accept-Encoding: chunked;q=1.0\n"); // somehow forcing identity does not work for nginx, so forcing chunked, but will test below
+        $req[] = "Connection: close";
+        $req[] = "Accept-Encoding: chunked;q=1.0"; // somehow forcing identity does not work for nginx, so forcing chunked, but will test below
         // send our data
-        $content_type = $content_type ? $content_type : $_SERVER['CONTENT_TYPE'];
-        if (strtoupper($_SERVER['REQUEST_METHOD']) != 'GET') {
+        if (strtoupper($method) != 'GET') {
             // $input = $data ? $data : file_get_contents('php://input');
             $input = $data ? $data : $om->request->get_stdin();
             // send with the same content type as we got our data as
-            fputs($sock, "Content-Type: " . $content_type . "\n");
-            fputs($sock, "Content-Length: " . strlen($input) . "\n\n");
-            fputs($sock, $input . "\n");
+            $req[] = "Content-Type: " . $content_type;
+            $req[] = "Content-Length: " . strlen($input) . "\n";
+            $req[] = $input;
         } else {
-            fputs($sock, "Content-Type: " . $content_type . "\n");
+            $req[] = "Content-Type: " . $content_type;
         }
-        fputs($sock, "\n");
+        $req[] = "\n";
+        fputs($sock, join("\n", $req));
         
         // write out the response headers
         $chunked = false;
         while (($hdr = trim(fgets($sock))) > '') {
-            header($hdr);
-            /* // this works, but is problematic
-            // take note of chunked encoding, as it requires special handling
-            if (preg_match('~^Transfer-Encoding: .*chunked~i', $hdr)) {
+            if (stripos($hdr, 'Connection:') === 0) {
+                header($hdr);
+            } else if (preg_match('~^Transfer-Encoding: .*chunked~i', $hdr)) {
                 $chunked = true;
             } else {
                 header($hdr);
             }
-            */
         }
         header('X-Relayed-Via: ' . gethostname());
         header('X-Relayed-To: ' . $hostname);
-        /* // this works, but is problematic
+
+        // handle the response body
         if ($chunked) {
-            $block_size = 1000000; // ~ 1 MB
+            $out = $om->_get_output_stream(false);
+            // gotta dechunk the response ourselves
+            $block_size = 32000;
             while ($l = trim(fgets($sock))) {
                 $l = base_convert(trim($l), 16, 10);
                 if ($l == 0) {
@@ -89,17 +103,28 @@ class OmegaProxy {
                 $numChunks = floor($l / $block_size);
                 $remainder = $l % $block_size;
                 for ($i = 0; $i < $numChunks; $i++) {
+                    /*
                     echo fread($sock, $block_size);    
+                    */
+                    $copied = stream_copy_to_stream($sock, $out, $block_size);
+                    if ($copied === false) {
+                        throw new Exception("Failed to copy proxy stream data.");
+                    }
                 }  
-                echo fread($sock, $remainder);
+                if ($remainder) {
+                    /*
+                    echo fread($sock, $remainder);
+                    */
+                    $copied = stream_copy_to_stream($sock, $out, $remainder);
+                    if ($copied === false) {
+                        throw new Exception("Failed to copy proxy stream data.");
+                    }
+                }
                 fread($sock, 2); // to skip the chunk-terminating \r\n
             }
         } else {
             fpassthru($sock);
         }
-        */
-        // return the response
-        fpassthru($sock);
         exit;
     }
 

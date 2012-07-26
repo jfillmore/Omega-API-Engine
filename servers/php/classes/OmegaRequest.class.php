@@ -646,7 +646,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         }
         // asking about this method? return that info
         if ($this->query_arg) {
-            return $this->_get_method_info($r_method, $this->query_options['verbose']);
+            return $this->_get_method_info($r_method, $this->query_options['verbose'], $route['route']);
         }
 
         // make sure we have all the parameters we need to execute the API call
@@ -708,6 +708,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
     }
 
     public function _parse_doc_omega($r_method, $doc_string) {
+        global $om;
         $types = array('object', 'number', 'string', 'boolean', 'array', 'null', 'undefined');
         // first see if we're a PHP style docstring
         if (preg_match("/\n\s*\**\s*@\w+/", $doc_string)) {
@@ -718,7 +719,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                 'desc' => $parser->getDesc(),
                 'expects' => $params,
                 'tokens' => $tokens,
-                'returns' => $tokens['return'],
+                'returns' => @$tokens['return'],
                 'type' => 'phpdoc'
             );
         }
@@ -754,7 +755,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                         $parts = explode(' ', $line, 2);
                         if (count($parts)) {
                             $return_type = $parts[0];
-                            $values['returns']['desc'] = $parts[1];
+                            $values['returns']['desc'] = @$parts[1];
                         } else {
                             $return_type = $parts[0];
                         }
@@ -958,7 +959,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                         } catch (Exception $e) {
                             throw new Exception("Unable to locate method '$target' on class '" . $r_class->getName() . "': " . $e->getMessage());
                         }
-                        $method_info = $this->_get_method_info($r_method, $verbose);
+                        $method_info = $this->_get_method_info($r_method, $verbose, $route);
                         if ($verbose) {
                             $data['methods'][$method][$route] = $method_info;
                         } else {
@@ -998,9 +999,9 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
     }
 
     /** Returns information (name, desc, accessibility, parameter info, etc) about a method.
-        expects: r_method=object, verbose=false
+        expects: r_method=object, verbose=false, route=object
         returns: object */
-    public function _get_method_info($r_method, $verbose = false) {
+    public function _get_method_info($r_method, $verbose = false, $route = null) {
         global $om;
         $name = $r_method->getName();
         $doc = $this->_parse_doc_string($r_method);
@@ -1054,6 +1055,13 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                     $stats['params'][$param_pos]['type'] = 'Array';
                 } else if ($r_param->getClass() != null) {
                     $stats['params'][$param_pos]['type'] = 'Object [' . $r_param->getClass()->getName() . ']';
+                }
+                // take note of whether or not this param is within the route (e.g. :domain)
+                if ($route !== null) {
+                    if (preg_match('/[:\*](\w+)/', $route, $matches)) {
+                        array_shift($matches); // first part is just the route
+                        $stats['params'][$param_pos]['url_parsed'] = (in_array($param_name, $matches));
+                    }
                 }
                 // is type info available in the doc string?
                 if (isset($doc['expects'][$param_name])) {

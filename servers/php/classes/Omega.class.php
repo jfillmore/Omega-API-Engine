@@ -79,6 +79,12 @@ class Omega extends OmegaLib {
         }
     }
 
+    /** Returns the global $om var without restoring to using a global variable by the caller. */
+    public static function get() {
+        global $om;
+        return $om;
+    }
+
     public function _get_routes() {
         return  array(
             'api' => 'api',
@@ -111,16 +117,20 @@ class Omega extends OmegaLib {
     }
 
     /** Method for testing proxy logic. */
-    public function test_proxy($host, $port = null, $method = null, $uri = null, $data = null, $content_type = null) {
+    public function test_proxy($host, $port = null, $ssl = true, $method = null, $uri = null, $data = null, $content_type = null) {
         $proxy = new OmegaProxy();
-        $proxy->passthru($host, $port, $method, $uri, $data, $content_type);
+        $proxy->passthru($host, $port, $ssl, $method, $uri, $data, $content_type);
     }
 
     /** Returns a reference to an output stream that can be written to for providing an API response. */
-    public function _get_output_stream() {
+    public function _get_output_stream($write_headers = true) {
         global $om;
         // end output buffering, since we're taking over
         $spillage = $this->_flush_ob(false);
+        // note that headers MUST be sent before writing to the output stream, but you could concievably want to delay just a bit longer
+        if ($write_headers) {
+            $this->_write_headers();
+        }
         // take note of anything that slipped out prematurely (e.g. warnings)
         if (strlen($spillage) > 0 && ! $this->in_production()) {
             $this->response->set_spillage($spillage);
@@ -147,7 +157,6 @@ class Omega extends OmegaLib {
             // send headers before getting the output stream
             $this->response->set_encoding('raw');
             $this->response->header('Content-Type', mime_content_type($file));
-            $this->_write_headers();
             // write chunks
             $os = $this->_get_output_stream();
             $offset = 0;
