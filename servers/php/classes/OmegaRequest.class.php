@@ -29,8 +29,8 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         try {
             $this->set_encoding($this->get_omega_param('ENCODING'));
         } catch (Exception $e) {
-            // default to 'raw'
-            $this->set_encoding('raw');
+            // default to 'json', unless we specify otherwise in our API
+            $this->set_encoding('json');
         }
 
         // and collect up the parameters
