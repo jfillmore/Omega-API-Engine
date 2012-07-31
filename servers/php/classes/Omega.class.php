@@ -258,17 +258,21 @@ class Omega extends OmegaLib {
         }
     }
 
-    /** Shorthand for logging and optional alerting. */
-    public function log($msg, $alert = false) {
-        if (isset($this->subservice->logger)) {
-            if (is_string($msg)) {
-                $this->subservice->logger->log($msg);
-            } else {
-                $this->subservice->logger->log_data('Log Alert', $msg);
-            }
-            if ($alert) {
-                $oe = new OmegaException("Log Alert", $msg, array('alert' => true));
-            }
+    /** Shorthand for logging and optional aborting/alerting. */
+    public function log($msg, $alert = false, $abort = false) {
+        if (is_string($msg)) {
+            $this->subservice->logger->log($msg);
+        } else {
+            $this->subservice->logger->log_data('Log Alert', $msg);
+        }
+        if ($alert) {
+            $oe = new OmegaException("Log Alert", $msg, array('alert' => true));
+        } else {
+            $oe = new OmegaException("Log Alert", $msg);
+        }
+        if ($abort) {
+            throw $oe;
+        } else {
             return $msg;
         }
     }
