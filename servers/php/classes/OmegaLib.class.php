@@ -108,10 +108,15 @@ class OmegaLib extends OmegaRESTful implements OmegaApi {
     }
 
     /** Return the default arg if set, otherwise use corresponding value in args. */
-    public function _get_args($defaults, $args) {
+    public function _get_args($defaults, $args, $merge = false) {
         if ($args === null) {
             $my_args = $defaults;
         } else if (is_array($defaults) && is_array($args)) {
+            if ($merge) {
+                // merging? overwrite all of our defaults with the args and we're done
+                return array_merge($defaults, $args);
+            }
+            // otherwise only accept values named within our defaults
             $my_args = array();
             foreach ($defaults as $name => $default) {
                 if (isset($args[$name])) {

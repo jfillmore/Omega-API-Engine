@@ -68,21 +68,24 @@ class OmegaConfig extends OmegaRESTful implements OmegaApi {
         if ($path == '') {
             return $this->config;
         } else {
+            $org_path = $path;
             $path = preg_split('/[\.\/]/', $path);
             $last = array_pop($path);
             $obj = $this->config;
             // walk through the parts of the path, and check that each part exists
+            $walked = array();
             foreach ($path as $item) {
                 if (isset($obj[$item])) {
-                    $obj = $obj[$item];
+                    $obj = &$obj[$item];
+                    $walked[] = $item;
                 } else {
-                    throw new Exception("Invalid config path: '$item' not found.");
+                    throw new Exception("Invalid config path: '$item' not found in $org_path (paths differ at \"" . join('/', $walked) . "\").");
                 }
             }
             if (isset($obj[$last])) {
                 return $obj[$last];
             } else {
-                throw new Exception("Invalid config path: '$last' not found.");
+                throw new Exception("Invalid config path: '$last' not found in $org_path.");
             }
         }
     }

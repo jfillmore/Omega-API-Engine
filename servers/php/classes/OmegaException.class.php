@@ -37,10 +37,14 @@ class OmegaException extends Exception {
             try {
                 $admin_email = $om->config->get('omega/admin/email');
             } catch (Exception $e) {
-                // old school location
+                // QQ
                 try {
-                    $admin_email = $om->config->get('admin/email');
-                } catch (Exception $e) {throw $e;}
+                    $admin_email = $om->config->get('omega/admin_email');
+                } catch (Exception $e) {
+                    try {
+                        $admin_email = $om->config->get('admin/email');
+                    } catch (Exception $e) {}
+                }
             }
             if ($admin_email) {
                 if (! is_array($admin_email)) {
@@ -49,6 +53,12 @@ class OmegaException extends Exception {
                 foreach ($admin_email as $email) {
                     mail($email, $this->subject, $this->body);
                 }
+            } else {
+                $om->log("Unable to e-mail exception, no admin e-mail address defined.");
+                $om->log(array(
+                    "subject" => $this->subject,
+                    "body" => $this->body
+                ));
             }
             try {
                 // old school backup

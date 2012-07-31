@@ -103,7 +103,8 @@ class Omega extends OmegaLib {
                 'restart_service' => 'restart_service',
                 'test_popen' => 'test_popen',
                 'test_output_stream' => 'test_output_stream',
-                'test_proxy' => 'test_proxy'
+                'test_proxy' => 'test_proxy',
+                'test_log' => 'test_log'
             ),
             'PUT' => array(
             ),
@@ -141,6 +142,11 @@ class Omega extends OmegaLib {
         }
         $this->output_stream = $result;
         return $this->output_stream;
+    }
+
+    public function test_log($msg, $alert = false) {
+        global $om;
+        return $this->log($msg, $alert);
     }
 
     /** Simple method to test get_output_stream functionality. */
@@ -252,14 +258,18 @@ class Omega extends OmegaLib {
         }
     }
 
-    /** Shorthand for logging. */
-    public function log($msg) {
-        if (isset($om->subservice->logger)) {
+    /** Shorthand for logging and optional alerting. */
+    public function log($msg, $alert = false) {
+        if (isset($this->subservice->logger)) {
             if (is_string($msg)) {
-                $om->subservice->logger->log($msg);
+                $this->subservice->logger->log($msg);
             } else {
-                $om->subservice->logger->log_data($msg);
+                $this->subservice->logger->log_data('Log Alert', $msg);
             }
+            if ($alert) {
+                $oe = new OmegaException("Log Alert", $msg, array('alert' => true));
+            }
+            return $msg;
         }
     }
 
@@ -307,6 +317,7 @@ class Omega extends OmegaLib {
                 $spillage = $this->_flush_ob(false);
                 if (strlen($spillage) > 0 && ! $this->in_production()) {
                     $this->response->set_spillage($spillage);
+                    $this->log($spillage);
                 }
                 $this->response->set_data($data);
                 $this->subservice->logger->log($data);
@@ -446,6 +457,7 @@ class Omega extends OmegaLib {
         $spillage = $this->_flush_ob(false);
         if (strlen($spillage) > 0 && ! $this->in_production()) {
             $this->response->set_spillage($spillage);
+            $this->log($spillage);
         }
         // encode the response that we'll send back
         $response = $this->response->encode($this->response->get_encoding());
