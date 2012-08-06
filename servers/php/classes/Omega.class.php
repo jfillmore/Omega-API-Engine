@@ -214,7 +214,9 @@ class Omega extends OmegaLib {
             $param_count++;
         }
         if (count($missing_params) > 0) {
-            throw new Exception("Constructor for '" . $r_class->getShortName() . "' is missing the following parameters: " . implode(', ', $missing_params) . '.');
+            $this->response->header_num(403);
+            throw new Exception('Not authenticated.');
+            // throw new Exception("Constructor for '" . $r_class->getShortName() . "' is missing the following parameters: " . implode(', ', $missing_params) . '.');
         }
         return $params;
     }
@@ -311,13 +313,14 @@ class Omega extends OmegaLib {
                 // restore our header back to OK
                 $this->response->header_num(200);
             } else {
-                $data = array(
-                    'backtrace' => $this->_clean_trace($e->getTrace())
-                );
                 $spillage = $this->_flush_ob(false);
+                $data = array();
                 if (strlen($spillage) > 0 && ! $this->in_production()) {
                     $this->response->set_spillage($spillage);
                     $this->log($spillage);
+                }
+                if (! $this->in_production()) {
+                    $data['backtrace'] = $this->_clean_trace($e->getTrace());
                 }
                 $this->response->set_data($data);
                 $this->subservice->logger->log($data);
