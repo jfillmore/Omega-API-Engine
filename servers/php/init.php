@@ -37,17 +37,19 @@ function _clean_trace($st) {
     return $stack;
 }
 
-function _fail($ex, $spillage = null) {
+function _fail($ex, $spillage = null, $prodution = true) {
     header('Content-Type: application/json; charset=utf-8');
     $answer = array(
         'result' => false,
-        'reason' => $ex->getMessage(),
-        'data' => array(
-            'backtrace' => _clean_trace($ex->getTrace())
-        )
+        'reason' => $ex->getMessage()
     );
-    if ($spillage !== null) {
-        $answer['spillage'] = $spillage;
+    if (! $prodution) {
+        if ($spillage !== null) {
+            $answer['spillage'] = $spillage;
+        }
+        $answer['data'] = array(
+            'backtrace' => _clean_trace($ex->getTrace())
+        );
     }
     echo json_encode($answer);
     exit(1);
@@ -81,12 +83,6 @@ function __autoload($class_name) {
     throw new Exception( "Unable to locate class object '$class_name'." );
 }
 
-/* // removed due to being too problematic for now
-function _fatal_error($error_code, $message, $error_file, $error_line, $error_context) {
-    _fail(new Exception("$message ($error_code) @ $error_file:$error_line."));
-}
-*/
-
 // figure out who we're talking to
 $service_name = getenv('OMEGA_SERVICE');
 if ($service_name == '' || $service_name === false) {
@@ -97,16 +93,18 @@ if ($service_name == '' || $service_name === false) {
 
 // capture any crap that PHP leaks through (e.g. warnings on functions) or that the user intentionally leaks
 ob_start();
+$prodution = true; // always assume we're in production by default
 try {
     // start Omega up
     $omega = new Omega($service_name);
     $om = $omega; // alias it to its short name too
+    $prodution = $om->in_production();
 } catch (Exception $e) {
     $spillage = ob_get_contents();
     // encode the response that we'll send back
     ob_end_clean();
     // no dice? This should never happen
-    _fail($e, $spillage);
+    _fail($e, $spillage, $prodution);
 }
 // see if we spilled anywhere on start up... we really never should
 $spillage = ob_get_contents();
@@ -114,7 +112,7 @@ ob_end_clean();
 if ($spillage) {
     // be paranoid and die if we have any warnings or errors
     $om->response->header_num(500);
-    _fail(new Exception('API Spillage'), $spillage);
+    _fail(new Exception('API Spillage'), $spillage, $prodution);
 }
 
 // and let it loose
@@ -127,7 +125,7 @@ try {
     } else {
         header($om->response->get_status());
     }
-    _fail($e, $om->response->get_spillage());
+    _fail($e, $om->response->get_spillage(), $prodution);
 }
 
 ?>
