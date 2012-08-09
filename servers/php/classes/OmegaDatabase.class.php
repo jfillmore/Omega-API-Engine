@@ -239,10 +239,27 @@ class OmegaDatabase {
                     while ($row = $db_result->fetch_object()) {
                         $fields = array();
                         $i = 0;
+                        // gotta track which meta we've used, as our query might request a row by the same name twice during joins (e.g. "id")
+                        $seen_names = array();
                         // format and typecast return data
                         foreach ($row as $name => $field) {
                             $meta = $row_meta[$i++];
+                            while (isset($seen_names[$meta->name])) {
+                                // if we've already seen this name we can skip this row of meta info -- it means we've got some rows with the same name
+                                $meta = $row_meta[$i++];
+                            }
+                            $seen_names[$name] = true;
                             // type cast each bit of data to it's proper format (e.g. so 1 => 1, not "1")
+                            if ($name != $meta->name) {
+                                throw new OmegaException("Invalid meta data for field '$name'.", array(
+                                    'cur_meta' => $meta,
+                                    'row_meta' => $row_meta,
+                                    'i' => $i - 1,
+                                    'row' => $row,
+                                    'name' => $name,
+                                    'field' => $field
+                                ));
+                            }
                             $value = $this->typecast($field, $meta->type);
                             if (($this->split_joins() || $auto_split)
                                 && in_array($meta->orgtable, $joins)) {
