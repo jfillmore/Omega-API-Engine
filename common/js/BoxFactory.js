@@ -1806,9 +1806,9 @@
                         }
                         if (form._fields[name]._value.is('.om_input_error')) {
                             if ('caption' in form._fields[name]._args) {
-                                caption = name;
-                            } else {
                                 caption = form._fields[name]._args.caption;
+                            } else {
+                                caption = name;
                             }
                             if (form._fields[name]._error_tooltip) {
                                 err_msg = form._fields[name]._error_tooltip._message;

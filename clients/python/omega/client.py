@@ -324,17 +324,26 @@ class OmegaClient:
             else:
                 error = response_data
             if full_response:
-                raise Exception('API "%s" failed (%d %s):\n%s' %
-                    (urllib.unquote(api), response.status, response.reason, dbg.obj2str(result)))
+                if raw_response:
+                    msg = response_data
+                else:
+                    msg = db.obj2str(result)
+                raise Exception('API "%s" failed (%d %s)\n%s' %
+                    (urllib.unquote(api), response.status, response.reason, msg))
             else:
-                raise Exception('API "%s" failed: %s' % (api, error))
+                if raw_response:
+                    msg = response_data
+                else:
+                    msg = error
+                raise Exception('API "%s" failed (%d %s)\n%s' %
+                     (api, response.status, response.reason, msg))
         # return a raw response if needed; otherwise decode if JSON
         if raw_response or not content_type.startswith("application/json"):
             return response_data
         try:
             result = self.decode(response_data)
         except:
-            raise Exception('Failed to decode API result:\n' + response_data)
+            raise Exception('Failed to decode API result\n' + response_data)
         # check to see if our API call was successful
         if 'result' in result and result['result'] == False:
             if 'reason' in result:
@@ -344,7 +353,7 @@ class OmegaClient:
                 else:
                     raise Exception(result['reason'])
             else:
-                raise Exception('API "%s" failed: %s' % (api, result))
+                raise Exception('API "%s" failed\n%s' % (api, result))
         else:         
             if full_response:
                 return result

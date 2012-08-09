@@ -54,7 +54,7 @@ class OmegaException extends Exception {
                     mail($email, $this->subject, $this->body);
                 }
             } else {
-                $om->log("Unable to e-mail exception, no admin e-mail address defined.");
+                $om->log("Unable to send e-mail exception; no admin e-mail address defined.");
                 $om->log(array(
                     "subject" => $this->subject,
                     "body" => $this->body
