@@ -322,12 +322,12 @@ class OmegaClient:
                 else:
                     error = 'An unknown error has occurred.'
             else:
-                error = response_data
+                result = response_data
             if full_response:
                 if raw_response:
                     msg = response_data
                 else:
-                    msg = db.obj2str(result)
+                    msg = dbg.obj2str(result)
                 raise Exception('API "%s" failed (%d %s)\n%s' %
                     (urllib.unquote(api), response.status, response.reason, msg))
             else:
