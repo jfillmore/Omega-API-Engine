@@ -5766,7 +5766,8 @@ Changelog:
             om_client.request = function (method, api, params, callback, fail_callback, args) {
                 var ajax, ajax_args;
                 args = om.get_args({
-                    async: true
+                    async: true,
+                    context: {}
                 }, args);
                 ajax_args = arguments;
                 ajax = {
@@ -5795,7 +5796,7 @@ Changelog:
                         if (response.result !== undefined) {
                             if (response.result === true) {
                                 if (typeof(callback) === 'function') {
-                                    return callback(response.data);
+                                    return callback(response.data, args.context);
                                 }
                             } else {
                                 if (response.reason === undefined) {
