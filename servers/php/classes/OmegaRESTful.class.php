@@ -57,8 +57,11 @@ abstract class OmegaRESTful {
     /** Sorts routes so those containing variables (e.g. '/:var/') are processed last. */
     public function _sorted_routes($routes = null) {
         global $om;
-        $literals = array();
-        $vars = array();
+        $debug = false;
+        try {
+            $debug = $om->config->get('omega/debug');
+        } catch (Exception $e) {}
+        $mixed = array();
         if ($routes === null) {
             $routes = $this->_get_routes();
         }
@@ -67,13 +70,40 @@ abstract class OmegaRESTful {
             $start = substr($om->_pretty_path($route, true), 0, 2);
             if ($route == '@pre_route') {
                 $pre_proc[$route] = $target;
-            } else if ($start == '/:') {
-                $vars[$route] = $target;
             } else {
-                $literals[$route] = $target;
+                // we start with a literal, but we may contain a var (e.g. '/foo/:bar')
+                $var_depth = 0;
+                $route_depth = 0;
+                foreach (explode('/', trim($route, '/')) as $route_part) {
+                    $route_depth += 1;
+                    $part_start = substr($route_part, 0, 1);
+                    if ($part_start == ':' || $part_start == '*') {
+                        // found a var, so see how deep it was
+                        $var_depth = $route_depth;
+                        break;
+                    }
+                }
+                // store routes that start with a literal string by how deep the first (if any) var is
+                if (! isset($mixed[$var_depth])) {
+                    $mixed[$var_depth] = array();
+                }
+                $mixed[$var_depth][$route] = $target;
             }
         }
-        return array_merge($pre_proc, $literals, $vars);
+        // recombine our mixed into a single, sorted array by how far in the first var is
+        $sorted = $pre_proc;
+        ksort($mixed);
+        foreach ($mixed as $depth => $routes) {
+            $sorted = array_merge($sorted, $routes);
+        }
+        if ($debug) {
+            echo "Sorted: " . var_export(array(
+                'pre_proc' => $pre_proc,
+                'mixed' => $mixed,
+                'sorted' => $sorted
+            ), true);
+        }
+        return $sorted;
     }
 
     public function _sorted_handlers($handlers = null) {
@@ -93,6 +123,9 @@ abstract class OmegaRESTful {
     public function _route($path, $params = array()) {
         global $om;
         $debug = false;
+        try {
+            $debug = $om->config->get('omega/debug');
+        } catch (Exception $e) {}
         // if the path is an array, join it up on '/'
         if (is_array($path)) {
             $path = implode('/', $path);
@@ -148,10 +181,10 @@ abstract class OmegaRESTful {
                 }
             }
         }
-        if ($debug) echo "Path not found; checking handlers for $path\n";
         // resolve path against our own handlers if we're still here
         $method = $_SERVER['REQUEST_METHOD'];
         $handlers = $this->_sorted_handlers();
+        if ($debug) echo "Path not found; checking handlers for $path. (" . var_export($handlers, true) . ")\n";
         $query = (substr($path, -2) === '/?');
         if ($query && ($method == 'GET' || $method == 'POST')) {
             return array(
@@ -204,6 +237,9 @@ abstract class OmegaRESTful {
     private function _parse_path($path, $route, $partial_route = false) {
         global $om;
         $debug = false;
+        try {
+            $debug = $om->config->get('omega/debug');
+        } catch (Exception $e) {}
         /* e.g. paths:
             /service,
             /service/37,
