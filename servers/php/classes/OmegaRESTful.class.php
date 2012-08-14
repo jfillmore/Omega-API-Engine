@@ -61,6 +61,7 @@ abstract class OmegaRESTful {
         try {
             $debug = $om->config->get('omega/debug');
         } catch (Exception $e) {}
+        $literals = array();
         $mixed = array();
         if ($routes === null) {
             $routes = $this->_get_routes();
@@ -72,7 +73,7 @@ abstract class OmegaRESTful {
                 $pre_proc[$route] = $target;
             } else {
                 // we start with a literal, but we may contain a var (e.g. '/foo/:bar')
-                $var_depth = 0;
+                $var_depth = null;
                 $route_depth = 0;
                 foreach (explode('/', trim($route, '/')) as $route_part) {
                     $route_depth += 1;
@@ -83,16 +84,20 @@ abstract class OmegaRESTful {
                         break;
                     }
                 }
-                // store routes that start with a literal string by how deep the first (if any) var is
-                if (! isset($mixed[$var_depth])) {
-                    $mixed[$var_depth] = array();
+                if ($var_depth === null) {
+                    $literals[$route] = $target;
+                } else {
+                    // store route by how deep the first var is
+                    if (! isset($mixed[$var_depth])) {
+                        $mixed[$var_depth] = array();
+                    }
+                    $mixed[$var_depth][$route] = $target;
                 }
-                $mixed[$var_depth][$route] = $target;
             }
         }
         // recombine our mixed into a single, sorted array by how far in the first var is
-        $sorted = $pre_proc;
-        ksort($mixed);
+        $sorted = array_merge($pre_proc, $literals);
+        krsort($mixed);
         foreach ($mixed as $depth => $routes) {
             $sorted = array_merge($sorted, $routes);
         }
