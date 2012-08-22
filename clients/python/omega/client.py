@@ -338,7 +338,7 @@ class OmegaClient:
                 raise Exception('API "%s" failed (%d %s)\n%s' %
                      (api, response.status, response.reason, msg))
         # return a raw response if needed; otherwise decode if JSON
-        if raw_response or not content_type.startswith("application/json"):
+        if not content_type.startswith("application/json"):
             return response_data
         try:
             result = self.decode(response_data)
@@ -355,13 +355,24 @@ class OmegaClient:
             else:
                 raise Exception('API "%s" failed\n%s' % (api, result))
         else:         
+            # all is well, return the data portion of the response (unless everything is requested)
             if full_response:
-                return result
-            else:
-                if 'data' in result:
-                    return result['data']
+                if raw_response:
+                    result = json.dumps(result, sort_keys = True, indent = 4)
                 else:
-                    return None
+                    result = result['data']
+            else:
+                if raw_response:
+                    if 'data' in result:
+                        result = json.dumps(result['data'], sort_keys = True, indent = 4)
+                    else:
+                        result = '{}'
+                else:
+                    if 'data' in result:
+                        result = result['data']
+                    else:
+                        result = None
+            return result
 
 if __name__ == '__main__':
     import dbg
