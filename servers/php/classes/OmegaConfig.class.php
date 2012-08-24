@@ -107,7 +107,7 @@ class OmegaConfig extends OmegaRESTful implements OmegaApi {
         // make sure we don't create a new value unless requested    
         if (! $this->exists($path)) {
             if (! $new) {
-                throw new Exception("Unable to set new configuration item '$path' without force.");
+                throw new Exception("Unable to set create configuration item '" . join('/', $path) . "' without force.");
             }
         }
         // finally set it, and save ourself
