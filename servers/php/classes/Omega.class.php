@@ -300,12 +300,8 @@ class Omega extends OmegaLib {
                 'OMEGA_SESSION_ID'
             );
         }
-        if (strpos($_SERVER['CONTENT_TYPE'], 'application/json') === 0) {
-            $this->response->set_encoding('json');
-        } else {
-            // default our response encoding to be the same as what we used with the request
-            $this->response->set_encoding($this->request->get_encoding());
-        }
+        // always default to JSON responses, regardless of how we got our data; APIs can override this
+        $this->response->set_encoding('json');
 
         try {
             $this->subservice->authority->authenticate(
