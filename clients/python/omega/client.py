@@ -359,8 +359,6 @@ class OmegaClient:
             if full_response:
                 if raw_response:
                     result = json.dumps(result, sort_keys = True, indent = 4)
-                else:
-                    result = result['data']
             else:
                 if raw_response:
                     if 'data' in result:
