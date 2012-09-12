@@ -230,7 +230,7 @@ class OmegaCurl {
                     'response' => $result
                 );
                 throw new OmegaException(
-                    "'$url' - HTTP " . $meta['http_code'] . '. ' . $reason,
+                    "'$url' - HTTP " . $meta['http_code'] . '. ' . $result,
                     $data
                 );
             }
