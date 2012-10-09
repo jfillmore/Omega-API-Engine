@@ -209,7 +209,6 @@ class OmegaDatabase {
         expects: query=string, parser=string, key_col=string, auto_split=boolean, max_tries=number
         returns: object */
     public function query($query, $parser = 'array', $key_col = null, $auto_split = false, $max_tries = 2, $retry_delay = 1) {
-        $om = Omega::get();
         $tries = 0;
         $errors = array();
         while ($tries < $max_tries) {
