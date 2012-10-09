@@ -14,6 +14,7 @@ class OmegaDatabase {
     public $password;
     public $dbname;
     public $type; // 'psql', 'mysql', 'mysqli'
+    public $alert_errors = false;
     private $conn;
     private $tr_depth; // transaction depth marker
     private $tr_rolling_back; // whether or not the transaction has started rolling back
@@ -194,11 +195,39 @@ class OmegaDatabase {
             $this->tr_rolling_back = false;
         }
     }
-
+    
     /** Execute an SQL query and return the result through a specific parser. Available parsers are 'array' and 'raw'. If 'key_col' is set, the 'array' parser will use the value of $key_col for each row's array index, returning an associative array.
+        expects: query=string, parser=string, key_col=string, auto_split=boolean, max_tries=number
+        returns: object */
+    public function query($query, $parser = 'array', $key_col = null, $auto_split = false, $max_tries = 2, $retry_delay = 1) {
+        $om = Omega::get();
+        $tries = 0;
+        $errors = array();
+        while ($tries < $max_tries) {
+            $tries++;
+            try {
+                return $this->_query($query, $parser, $key_col, $auto_split);
+            } catch (Exception $e) {
+                $errors[] = $e;
+                sleep($retry_delay);
+            }
+        }
+        // didn't work? that's not good! log and throw an error
+        throw new OmegaException(
+            "Database error: " . $errors[0]->getMessage(),
+            array(
+                'query' => $query,
+                'tries' => $tries,
+                'max_tries' => $max_tries
+            ),
+            array('alert' => $this->alert_errors)
+        );
+    }
+
+    /** Execute an SQL query and return the result through a specific parser. Available parsers are 'array' and 'raw'. If 'key_col' is set, the 'array' parser will use the value of $key_col for each row's array index, returning an associative array. Queries that fail will be automatically retried a set number of times, delaying a one second between attempts.
         expects: query=string, parser=string, key_col=string, auto_split=boolean
         returns: object */
-    public function query($query, $parser = 'array', $key_col = null, $auto_split = false) {
+    private function _query($query, $parser = 'array', $key_col = null, $auto_split = false) {
         if ($this->type == 'psql') {
             $db_result = @pg_query($this->conn, $query);
             if ($db_result === false) {
