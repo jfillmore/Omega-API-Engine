@@ -14,14 +14,14 @@ class OmegaDatabase {
     public $password;
     public $dbname;
     public $type; // 'psql', 'mysql', 'mysqli'
-    public $alert_errors = false;
+    private $error_log = null; // log file to track SQL errors
     private $conn;
     private $tr_depth; // transaction depth marker
     private $tr_rolling_back; // whether or not the transaction has started rolling back
 
     private $split_joins = false; // whether or not to auto-split sql JOIN table data into their own array
 
-    public function __construct($hostname, $username, $password, $dbname, $type) {
+    public function __construct($hostname, $username, $password, $dbname, $type, $error_log = null) {
         $this->hostname = $hostname;
         $this->username = $username;
         $this->password = $password;
@@ -29,6 +29,7 @@ class OmegaDatabase {
         $this->type = $type;
         $this->tr_depth = 0;
         $this->tr_rolling_back = false;
+        $this->set_error_log($error_log);
         try {
             $this->connect();
         } catch (Exception $e) {
@@ -40,7 +41,7 @@ class OmegaDatabase {
         if ($this->tr_depth) {
             $this->tr_ditch();
         }
-        return array('hostname', 'username', 'password', 'dbname', 'type');
+        return array('hostname', 'username', 'password', 'dbname', 'type', 'error_log');
     }
 
     public function __wakeup() {
@@ -52,6 +53,14 @@ class OmegaDatabase {
         // don't leave hanging transactions
         if ($this->tr_depth) {
             $this->tr_ditch();
+        }
+    }
+
+    public function set_error_log($log_file) {
+        if ($log_file) {
+            $this->error_log = $log_file;
+        } else {
+            $this->error_log = null;
         }
     }
 
@@ -212,16 +221,38 @@ class OmegaDatabase {
                 sleep($retry_delay);
             }
         }
-        // didn't work? that's not good! log and throw an error
-        throw new OmegaException(
-            "Database error: " . $errors[0]->getMessage(),
-            array(
+        $error = array_shift($errors);
+        // didn't work? that's not good! log and throw the first error
+        if ($this->error_log) {
+            $message = '[' . date('r') . '] ' . $errors[0]->getMessage();
+            $data = array(
                 'query' => $query,
                 'tries' => $tries,
                 'max_tries' => $max_tries
-            ),
-            array('alert' => $this->alert_errors)
-        );
+            );
+            foreach ($data as $name => $val) {
+                $message .= "\n  $name: $val";
+            }
+            $i = 0;
+            foreach ($error->getTrace() as $trace) {
+                $line = "\n  #$i. ";
+                if (isset($trace['file'])) {
+                    $line .= $trace['file'] . ' ';
+                }
+                if (isset($trace['line'])) {
+                    $line .= $trace['line'] . ' ';
+                }
+                if (isset($trace['class'])) {
+                    $line .= ' ' . $trace['class'] . $trace['type'];
+                }
+                // don't return the actual args for security/brevity
+                $line .= $trace['function'] . '(' . count($trace['args']) . ' ' . (count($trace['args']) === 1 ? 'arg' : 'args') . ')';
+                $message .= $line;
+                $i++;
+            }
+            @file_put_contents($this->error_log, $message . "\n", FILE_APPEND);
+        }
+        throw $error;
     }
 
     /** Execute an SQL query and return the result through a specific parser. Available parsers are 'array' and 'raw'. If 'key_col' is set, the 'array' parser will use the value of $key_col for each row's array index, returning an associative array. Queries that fail will be automatically retried a set number of times, delaying a one second between attempts.
