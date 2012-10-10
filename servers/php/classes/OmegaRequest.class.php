@@ -672,7 +672,8 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
             } else {
                 // wasn't there either? maybe it is optional...
                 if ($r_param->isOptional()) {
-                    $params[$param_count] = $r_param->getDefaultValue();
+                    // let PHP supply the default value for us
+                    //$params[$param_count] = $r_param->getDefaultValue();
                 } else {
                     // damn, you missed!
                     $missing_params[] = $param_name;

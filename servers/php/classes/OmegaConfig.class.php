@@ -58,10 +58,10 @@ class OmegaConfig extends OmegaRESTful implements OmegaApi {
         }
     }
 
-    /** Gets a specific service configuration item (e.g. 'omega.key').
-        expects: path=string
+    /** Gets a specific service configuration item (e.g. 'omega.key'). If the item isn't found the 'else' parameter will be returned instead, if provided.
+        expects: path=string, else=undefined
         returns: undefined */
-    public function get($path = '') {
+    public function get($path = '', $else = null) {
         if (is_array($path)) {
             $path = implode('/', $path);
         }
@@ -74,18 +74,27 @@ class OmegaConfig extends OmegaRESTful implements OmegaApi {
             $obj = $this->config;
             // walk through the parts of the path, and check that each part exists
             $walked = array();
+            $not_found = false; // assume we'll find it
             foreach ($path as $item) {
                 if (isset($obj[$item])) {
                     $obj = &$obj[$item];
                     $walked[] = $item;
                 } else {
-                    throw new Exception("Invalid config path: '$item' not found in $org_path (paths differ at \"" . join('/', $walked) . "\").");
+                    $not_found = true;
+                    break;
+                    //throw new Exception("Invalid config path: '$item' not found in $org_path (paths differ at \"" . join('/', $walked) . "\").");
                 }
             }
-            if (isset($obj[$last])) {
-                return $obj[$last];
+            if ($not_found || ! isset($obj[$last])) {
+                // 'else' may have been given as null on purpose...
+                $args = func_get_args();
+                if (count($args) > 1) {
+                    return $args[1];
+                } else {
+                    throw new Exception("Invalid config path: '$org_path'.");
+                }
             } else {
-                throw new Exception("Invalid config path: '$last' not found in $org_path.");
+                return $obj[$last];
             }
         }
     }
