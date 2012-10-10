@@ -14,7 +14,7 @@ class OmegaDatabase {
     public $password;
     public $dbname;
     public $type; // 'psql', 'mysql', 'mysqli'
-    private $error_log = null; // log file to track SQL errors
+    public $error_log = null; // log file to track SQL errors
     private $conn;
     private $tr_depth; // transaction depth marker
     private $tr_rolling_back; // whether or not the transaction has started rolling back
