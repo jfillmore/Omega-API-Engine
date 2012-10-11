@@ -1722,7 +1722,7 @@ Changelog:
                     };
                     box.$.bind('select.om', box._focus);
                     box.$.bind('unselect.om', box._focus_out);
-                    box.$.bind('click dblclick', function (click_event) {
+                    box.$.bind('click', function (click_event) {
                         box.$.triggerHandler('select.om');
                     });
                     // if we're the first free sibling, auto-focus ourself
@@ -2772,7 +2772,7 @@ Changelog:
                                 }
                             );
                             win._toolbar._controls._min.bind(
-                                'click dblclick',
+                                'click',
                                 function (click_event) {
                                     win.$.trigger('win_minimize.om');
                                     click_event.stopPropagation();
@@ -2800,7 +2800,7 @@ Changelog:
                                 }
                             );
                             win._toolbar._controls._max.bind(
-                                'click dblclick',
+                                'click',
                                 function (click_event) {
                                     win.$.trigger('win_maximize.om');
                                     click_event.stopPropagation();
@@ -2826,7 +2826,7 @@ Changelog:
                                 }
                             );
                             win._toolbar._controls._close.bind(
-                                'click dblclick',
+                                'click',
                                 function (click_event) {
                                     win.$.trigger('win_close.om');
                                     click_event.stopPropagation();
@@ -3115,7 +3115,7 @@ Changelog:
                     }
                 };
                 // make our option clickable
-                option.$.bind('click dblclick', option._select);
+                option.$.bind('click', option._select);
                 // fall inline, if needed
                 if (menu._args.options_inline) {
                     option.$.css('display', 'inline');
@@ -4132,7 +4132,7 @@ Changelog:
                 // and link it with the value if requested
                 if (args.link_caption) {
                     obj._caption.$.css('cursor', 'pointer');
-                    obj._caption.$.bind('click dblclick', function (click_event) {
+                    obj._caption.$.bind('click', function (click_event) {
                         var value;
                         obj._value.trigger('click');
                         obj._value.trigger('change');
@@ -4145,7 +4145,7 @@ Changelog:
                 }
             }
             // add in a click event if supplied
-            obj.$.delegate('.om_input_value', 'click dblclick', function (click_event) {
+            obj.$.delegate('.om_input_value', 'click', function (click_event) {
                 if (typeof(obj._on_click) === 'function') {
                     return obj._on_click(click_event, obj);
                 }
@@ -4217,25 +4217,27 @@ Changelog:
             if (args.on_click !== undefined) {
                 // try disable ourselves right away to prevent double clicks
                 if (args.multi_click) {
-                    button._value.one('click dblclick', function (click_event) {
+                    button._value.one('click', function (click_event) {
                         button._value.prop('enabled', false);
                         args.on_click(click_event, button);
                         // after having done our work we can re-bind/activate ourself
-                        button._value.one('click dblclick', arguments.callee);
+                        button._value.one('click', arguments.callee);
                         button._value.prop('enabled', true);
                         click_event.preventDefault();
                         click_event.stopPropagation();
+                        return false;
                     });
                 } else {
-                    button._value.one('click dblclick', function (click_event) {
+                    button._value.one('click', function (click_event) {
                         button._value.prop('enabled', false);
                         args.on_click(click_event, button);
                         if (click_event.isDefaultPrevented()) {
                             // re-bind our click
-                            button._value.one('click dblclick', arguments.callee);
+                            button._value.one('click', arguments.callee);
                         }
                         click_event.preventDefault();
                         click_event.stopPropagation();
+                        return false;
                     });
                 }
             }
@@ -5092,7 +5094,7 @@ Changelog:
                     om.get(args.on_close, click_event, conf);
                     // if we did prevent the default then rebind ourselves if default is disabled too
                     if (click_event.isDefaultPrevented()) {
-                        conf._box_bottom.$.find('.om_confirm_close').one('click dblclick', arguments.callee);
+                        conf._box_bottom.$.find('.om_confirm_close').one('click', arguments.callee);
                     } else {
                         // remove ourselves from the DOM
                         conf._remove();
