@@ -323,6 +323,7 @@ class OmegaClient:
                     error = 'An unknown error has occurred.'
             else:
                 result = response_data
+                error = response_data
             if full_response:
                 if raw_response:
                     msg = response_data
