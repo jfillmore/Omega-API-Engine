@@ -2682,7 +2682,7 @@
             // add in a click event if supplied
             obj.$.delegate('.om_input_value', 'click dblclick', function (click_event) {
                 if (typeof(obj._on_click) === 'function') {
-                    obj._on_click(click_event, obj);
+                    return obj._on_click(click_event, obj);
                 }
             });
             // run our on_change method when the value is changed
@@ -2692,7 +2692,7 @@
                     obj._validate(change_event);
                 }
                 if (typeof(obj._args.on_change) === 'function') {
-                    obj._args.on_change(change_event, obj);
+                    return obj._args.on_change(change_event, obj);
                 }
             });
             // add a tooltip if needed
