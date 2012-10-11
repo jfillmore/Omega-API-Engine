@@ -5489,14 +5489,15 @@ Changelog:
         };
 
         om_client._parse_response = function (xml_http_response, response) {
-            var i, handlers;
+            var i, handlers, result = true;
             if (xml_http_response.status in om_client.handlers) {
                 handlers = om_client.handlers[xml_http_response.status];
                 for (i = 0; i < handlers.length; i++) {
                     // call each event handler we got for this HTTP code
-                    om.get(handlers[i], response, xml_http_response);
+                    result &= om.get(handlers[i], response, xml_http_response);
                 }
             }
+            return result;
         };
 
         /** Old-style API execution. */
@@ -5532,7 +5533,9 @@ Changelog:
             ajax.on_ajax_success = function (response, text_status, xml_http_request) {
                 var json_response, spillage, message, error, response_encoding,
                     response_charset, response_parts, cookies, header;
-                om_client._parse_response(xml_http_request, response);
+                if (! om_client._parse_response(xml_http_request, response)) {
+                    return false;
+                }
                 header = xml_http_request.getResponseHeader('Content-Type');
                 if (header) {
                     response_parts = header.split('; ');
@@ -5601,7 +5604,9 @@ Changelog:
                     }
                 }
                 response = xml_http_request.responseText;
-                om_client._parse_response(xml_http_request, response);
+                if (! om_client._parse_response(xml_http_request, response)) {
+                    return false;
+                }
                 if (response_encoding === 'application/json') {
                     // if there was any spillage then note
                     response = om.json.decode(response);
@@ -5697,7 +5702,9 @@ Changelog:
             ajax.on_ajax_success = function (response, text_status, xml_http_request) {
                 var json_response, spillage, message, error, response_encoding,
                     response_charset, response_parts, cookies, header;
-                om_client._parse_response(xml_http_request, response);
+                if (! om_client._parse_response(xml_http_request, response)) {
+                    return false;
+                }
                 header = xml_http_request.getResponseHeader('Content-Type');
                 if (header) {
                     response_parts = header.split('; ');
@@ -5766,7 +5773,9 @@ Changelog:
                     }
                 }
                 response = xml_http_request.responseText;
-                om_client._parse_response(xml_http_request, response);
+                if (! om_client._parse_response(xml_http_request, response)) {
+                    return false;
+                }
                 if (response_encoding === 'application/json') {
                     // if there was any spillage then note
                     response = om.json.decode(response);
