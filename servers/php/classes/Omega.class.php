@@ -9,6 +9,7 @@
 
 /** Omega exists as a global object ($om or $omega) and provides an API to assist omega services (e.g. provide subservices like ACLs and logging). */
 class Omega extends OmegaLib {
+    static private $instance = null; // so we don't depend on a global var
     public $session;
     public $session_id; // used when scope = 'session', can be prefixed with $om->response->set_cookie_prefix()
     private $restful; // whether or not the API is RESTful
@@ -32,6 +33,11 @@ class Omega extends OmegaLib {
     public $subservice; // subservices to help out
 
     public function __construct($service_name) {
+        // we shouldn't ever exist already...
+        if (self::$instance !== null) {
+            $om = self::get();
+            throw new Exception("Omega has already been initialized for service " . $om->service_name . ".");
+        }
         if (! preg_match(OmegaTest::word_re, $service_name)) {
             throw new Exception("Invalid service name format: '$service_name'.");
         }
@@ -77,12 +83,12 @@ class Omega extends OmegaLib {
         } else {
             $this->save_service_state = true;
         }
+        self::$instance = $this;
     }
 
-    /** Returns the global $om var without restoring to using a global variable by the caller. */
+    /** Returns the the Omega instance (as opposed to trusing 'omega' or 'om' to be usable as globals). */
     public static function get() {
-        global $om;
-        return $om;
+        return self::$instance;
     }
 
     public function _get_routes() {
@@ -125,7 +131,7 @@ class Omega extends OmegaLib {
 
     /** Returns a reference to an output stream that can be written to for providing an API response. */
     public function _get_output_stream($write_headers = true) {
-        global $om;
+        $om = Omega::get();
         // end output buffering, since we're taking over
         $spillage = $this->_flush_ob(false);
         // note that headers MUST be sent before writing to the output stream, but you could concievably want to delay just a bit longer
@@ -145,7 +151,7 @@ class Omega extends OmegaLib {
     }
 
     public function test_log($msg, $alert = false) {
-        global $om;
+        $om = Omega::get();
         return $this->log($msg, $alert);
     }
 
@@ -196,7 +202,7 @@ class Omega extends OmegaLib {
 
     /** Rewrites the arguments from associative to positional to work for the class constructor. */
     private function _get_construct_args($r_class, $args) {
-        global $om;
+        $om = Omega::get();
         $missing_params = array();
         $params = array();
         $param_count = 0;
@@ -246,6 +252,19 @@ class Omega extends OmegaLib {
         $class_name = $this->service_name;
         $r_class = new ReflectionClass($class_name);
         $params = $this->_get_construct_args($r_class, $this->request->get_api_params());
+        if (count($params)) {
+            /* If we have parameters in our constructor it must be explicitally accessed
+            otherwise our args might overlap the underlying API being asked for.
+            It also means you can post the auth info to any URI. I don't know
+            of any way to cleanly separate constructor args from API args without
+            requiring a separate call to init */
+            // we can post to our nickname or base location
+            $api = $this->request->get_api();
+            // TODO: we should also be a 'POST' request
+            if (! ($api === $this->service_nickname || $api === '')) {
+                throw new Exception("Not found: \"$api\".");
+            }
+        }
         $service = $r_class->newInstanceArgs($params);
         if ($service !== null) {
             $this->service = $service;
@@ -349,8 +368,13 @@ class Omega extends OmegaLib {
         if (! isset($os_server_config['services'][$this->service_name]) || $os_server_config['services'][$this->service_name] == false) {
             throw new Exception("Unknown or unavailable service : '" . $this->service_name . "'.");
         }
-        // load/create the service instance, if needed
-        if ($this->request->get_api() == '?' || ($this->request->get_api() === $this->service_nickname && $this->request->is_query())) {
+        if ($this->request->get_api() == '?'
+            || (
+                ($this->request->get_api() === $this->service_nickname
+                || $this->request->get_api() === '')
+                && $this->request->is_query()
+            )) {
+            // only querying about the API itself?
             $this->save_service_state = false;
             $this->service = null;
             $this->api = $this->service;
