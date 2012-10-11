@@ -39,14 +39,22 @@ class OmegaClient {
             '/' . $matches[4] . '/'
         );
         $this->set_service_url($service_url);
-        $this->curl = new OmegaCurl(
-            $this->base_url . $this->uri_root,
-            $port
-        );
         $this->port = $port;
+        $this->init_curl();
         $this->set_credentials($credentials);
     }
 
+    private function init_curl() {
+        $this->curl = new OmegaCurl(
+            $this->base_url . $this->uri_root,
+            $this->port
+        );
+    }
+
+    public function __wakeup() {
+        $this->init_curl();
+    }
+    
     private function get_service_url() {
         return $this->service_url;
     }
@@ -76,13 +84,6 @@ class OmegaClient {
         }
     }
 
-    public function __wakeup() {
-        $this->curl = new OmegaCurl(
-            $this->base_url,
-            $this->port
-        );
-    }
-    
     public function set_verbose($verbose = false) {
         if ($verbose) {
             $this->verbose = true;
@@ -193,6 +194,18 @@ class OmegaClient {
         // make sure we got back a meaningful result
         $result = $result_info['response'];
         $meta = $result_info['meta'];
+        if ($meta['http_code'] < 200 || 
+            $meta['http_code'] >= 300) {
+            $data = array(
+                'meta' => $meta,
+                'response' => $result
+            );
+            $url = array_shift(explode('?', $meta['url'], 2));
+            throw new OmegaException(
+                "'$url' - HTTP " . $meta['http_code'] . '. ' . $result,
+                $data
+            );
+        }
         $content_type = substr($meta['content_type'], 0, 16);
         if ($content_type == 'application/json') {
             $response = json_decode($result, true);
