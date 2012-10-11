@@ -190,7 +190,10 @@ abstract class OmegaRESTful {
         $method = $_SERVER['REQUEST_METHOD'];
         $handlers = $this->_sorted_handlers();
         if ($debug) echo "Path not found; checking handlers for $path. (" . var_export($handlers, true) . ")\n";
+        /* this seems to be too open; if we didn't route we're expecting to hit a method by now
         $query = (substr($path, -2) === '/?');
+        */
+        $query = $path === '/?';
         if ($query && ($method == 'GET' || $method == 'POST')) {
             return array(
                 'api_branch' => $this,
