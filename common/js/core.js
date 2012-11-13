@@ -532,7 +532,7 @@ It also comtains various useful, generic functions. */
             var mod, int_half, multiplier, i, to_add;
             args = om.get_args({
                 interval: undefined, // round to nearest 4th (e.g 5.9 -> 4, 6.1 -> 8) (default: 1)
-                decimal: 0, // rount to 10^n decimal (default: 0)
+                decimal: undefined, // rount to 10^n decimal (default: 0)
                 min_dec: undefined // pad the decimal with 0's to ensure min length, returns string
             }, args);
             if (args.interval !== undefined && args.decimal !== undefined) {

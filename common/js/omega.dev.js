@@ -532,7 +532,7 @@ It also comtains various useful, generic functions. */
             var mod, int_half, multiplier, i, to_add;
             args = om.get_args({
                 interval: undefined, // round to nearest 4th (e.g 5.9 -> 4, 6.1 -> 8) (default: 1)
-                decimal: 0, // rount to 10^n decimal (default: 0)
+                decimal: undefined, // rount to 10^n decimal (default: 0)
                 min_dec: undefined // pad the decimal with 0's to ensure min length, returns string
             }, args);
             if (args.interval !== undefined && args.decimal !== undefined) {
@@ -3188,6 +3188,7 @@ Changelog:
                 },
                 break_type: undefined, // null, 'column', 'tab', 'page'
                 'class': undefined,
+                on_submit: undefined,
                 classes: undefined,
                 dont_show: false
             }, args, true);
@@ -3701,6 +3702,12 @@ Changelog:
             form._breaker = null;
             form._field_count = 0;
             form._create_target = form._canvas.$;
+            // add in a default submit handler hook
+            form.$.bind('submit', function (ev) {
+                if (form._args.on_submit) {
+                    return om.get(form._args.on_submit, ev, form);
+                }
+            });
             if (form._args.dont_show !== true) {
                 form.$.show();
             }
@@ -4072,6 +4079,7 @@ Changelog:
                 on_change: undefined, // what to do when the value changes
                 on_click: undefined, // what to do when the input is clicked
                 tooltip: undefined, // a tooltip to show on mouse-over
+                tooltip_args: undefined, // a tooltip args
                 validate: undefined
             }, args, true);
             // we don't want to pass our own on_click to the base box obj, as we only want it to work on the input value
@@ -4162,7 +4170,7 @@ Changelog:
             });
             // add a tooltip if needed
             if (args.tooltip !== undefined && args.tooltip !== '') {
-                obj._tooltip = om.bf.make.tooltip(obj.$, args.tooltip);
+                obj._tooltip = om.bf.make.tooltip(obj.$, args.tooltip, args.tooltip_args);
             }
 
             obj._enable = function () {
@@ -4814,9 +4822,12 @@ Changelog:
         obj: function (owner, message, args) {
             var tooltip;
             args = om.get_args({
+                align_x: 'left', // tooltip edge positioning
+                align_y: 'top',
                 classes: [],
                 offset: {x: 8, y: 8},
                 speed: 0,
+                width: undefined,
                 target: owner
             }, args, true);
             args.classes.push('om_tooltip');
@@ -4832,15 +4843,27 @@ Changelog:
             tooltip._args = args;
             tooltip._message = message;
             tooltip._offset = args.offset;
-            if (message !== undefined) {
-                tooltip.$.html(message);
-            }
+            tooltip._set_msg = function (msg) {
+                tooltip.$.html('<div class="om_tooltip_msg">' + message + '</div>');
+            };
             tooltip._on_move = function (mouse_move) {
-                // show the tooltip by the cursor
-                tooltip._move_to(mouse_move.pageX + tooltip._offset.x, mouse_move.pageY + tooltip._offset.y);
-                if (tooltip._args.on_move !== undefined) {
-                    tooltip._args.on_move(mouse_move, tooltip);
+                var win = $(window);
+                // show the tooltip by the cursor -- aligned to a particular edge
+                if (tooltip._args.align_x === 'right') {
+                    tooltip.$.css('left', 'auto');
+                    tooltip.$.css('right', (win.width() - mouse_move.pageX) + tooltip._offset.x);
+                } else {
+                    tooltip.$.css('right', 'auto');
+                    tooltip.$.css('left', mouse_move.pageX + tooltip._offset.x);
                 }
+                if (tooltip._args.align_y === 'bottom') {
+                    tooltip.$.css('top', 'auto');
+                    tooltip.$.css('bottom', (win.height() - mouse_move.pageY) + tooltip._offset.y);
+                } else {
+                    tooltip.$.css('bottom', 'auto');
+                    tooltip.$.css('top', mouse_move.pageY + tooltip._offset.y);
+                }
+                om.get(tooltip._args.on_move, mouse_move, tooltip);
                 tooltip.$.show();
                 // and move to be within any constraint we were given
                 if (tooltip._args.constraint) {
@@ -4876,6 +4899,10 @@ Changelog:
                 }
                 tooltip._box_remove();
             };
+            if (args.width) {
+                tooltip.$.width(args.width);
+            }
+            tooltip._set_msg(message);
             return tooltip;
         }
     });
