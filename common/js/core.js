@@ -587,15 +587,19 @@ It also comtains various useful, generic functions. */
                 if (args.decimal) {
                     num /= multiplier;
                 }
-                if (args.min_dec !== undefined) {
-                    num = String(num);
-                    to_add = num.match(/\.(.*)$/);
-                    if (to_add !== null) {
-                        to_add = args.min_dec - to_add[1].length;
-                        for (i = 0; i < to_add; i++) {
-                            num += '0';
-                        }
-                    }
+            }
+            if (args.min_dec !== undefined) {
+                num = String(num);
+                to_add = num.match(/\.(.*)$/);
+                if (to_add === null) {
+                    // we're an integer, so add it all w/ a decimal point
+                    to_add = args.min_dec;
+                    num += '.';
+                } else {
+                    to_add = args.min_dec - to_add[1].length;
+                }
+                for (i = 0; i < to_add; i++) {
+                    num += '0';
                 }
             }
             return num;
