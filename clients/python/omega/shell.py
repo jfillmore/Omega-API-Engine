@@ -438,13 +438,13 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
                         else:
                             # break the array into the parts
                             p_parts = param_parts[0].split('.')
-                            base = p_parts[0]
                             key = p_parts.pop()
+                            param_ptr = params
                             for p_part in p_parts:
                                 if not p_part in params:
                                     params[p_part] = {}
-                                params = params[p_part]
-                            params[key] = param_parts[1]
+                                param_ptr = params[p_part]
+                            param_ptr[key] = param_parts[1]
             i += 1
         # get any redirection ready, if we can
         if stdout_redir != None:
