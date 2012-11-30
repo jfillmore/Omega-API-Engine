@@ -532,7 +532,7 @@ It also comtains various useful, generic functions. */
             var mod, int_half, multiplier, i, to_add;
             args = om.get_args({
                 interval: undefined, // round to nearest 4th (e.g 5.9 -> 4, 6.1 -> 8) (default: 1)
-                decimal: 0, // rount to 10^n decimal (default: 0)
+                decimal: undefined, // rount to 10^n decimal (default: 0)
                 min_dec: undefined // pad the decimal with 0's to ensure min length, returns string
             }, args);
             if (args.interval !== undefined && args.decimal !== undefined) {
@@ -587,15 +587,19 @@ It also comtains various useful, generic functions. */
                 if (args.decimal) {
                     num /= multiplier;
                 }
-                if (args.min_dec !== undefined) {
-                    num = String(num);
-                    to_add = num.match(/\.(.*)$/);
-                    if (to_add !== null) {
-                        to_add = args.min_dec - to_add[1].length;
-                        for (i = 0; i < to_add; i++) {
-                            num += '0';
-                        }
-                    }
+            }
+            if (args.min_dec !== undefined) {
+                num = String(num);
+                to_add = num.match(/\.(.*)$/);
+                if (to_add === null) {
+                    // we're an integer, so add it all w/ a decimal point
+                    to_add = args.min_dec;
+                    num += '.';
+                } else {
+                    to_add = args.min_dec - to_add[1].length;
+                }
+                for (i = 0; i < to_add; i++) {
+                    num += '0';
                 }
             }
             return num;
