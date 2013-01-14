@@ -204,6 +204,23 @@ class OmegaDatabase {
             $this->tr_rolling_back = false;
         }
     }
+
+    /** Returns statistics about the last executed query. */
+    public function query_stats() {
+        if ($this->type == 'mysqli') {
+            return array(
+                'query_info' => $this->conn->info,
+                'rows_affected' => $this->conn->affected_rows
+            );
+        } else if ($this->type == 'mysql') {
+            return array(
+                'query_info' => mysqli_info($this->conn),
+                'rows_affected' => mysqli_affected_rows($this->conn)
+            );
+        } else {
+            throw new Exception("Unsupported database type: {$this->type}.");
+        }
+    }
     
     /** Execute an SQL query and return the result through a specific parser. Available parsers are 'array' and 'raw'. If 'key_col' is set, the 'array' parser will use the value of $key_col for each row's array index, returning an associative array.
         expects: query=string, parser=string, key_col=string, auto_split=boolean, max_tries=number
