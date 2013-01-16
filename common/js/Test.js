@@ -9,7 +9,7 @@
     om.Test = om.doc({
         desc: 'A few useful regular expressions.',
         obj: {
-            hostname_re: /^([a-zA-Z0-9_-]+\.)*[a-zA-Z0-9-]+\.[a-zA-Z0-9\-]+$/,
+            hostname_re: /^([a-zA-Z0-9_-]+\.)*[a-zA-Z0-9-]+(\.[a-zA-Z0-9\-]+)?$/,
             ip4_address_re: /^\d{1,3}(\.\d{1,3}){3}$/,
             email_address_re: /^[a-zA-Z0-9+._-]+@[a-zA-Z0-9+._\-]+$/,
             word_re: /^[a-zA-Z0-9_-]+$/
