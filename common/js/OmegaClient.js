@@ -538,7 +538,11 @@
                         }
                     }
                 } else {
-                    om.get(om_client.on_fail, response, ajax_args);
+                    if (typeof(fail_callback) === 'function') {
+                        om.get(fail_callback, response, ajax_args);
+                    } else {
+                        om.get(om_client.on_fail, response, ajax_args);
+                    }
                 }
             };
 
