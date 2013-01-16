@@ -5,26 +5,23 @@
    Licensed under the MIT license. See LICENSE file.
    http://www.opensource.org/licenses/mit-license.php */
 
-.om_box {
-}
-
-.om_box .om_box_left {
+.om_box_left {
     float: left;
 }
 
-.om_box .om_box_right {
+.om_box_right {
     float: right;
 }
 
-.om_box .om_box_middle {
+.om_box_middle {
     overflow: hidden;
 }
 
-.om_box .om_box_top {
+.om_box_top {
     clear: both;
 }
 
-.om_box .om_box_bottom {
+.om_box_bottom {
     clear: both;
 }
 
@@ -47,11 +44,11 @@
     height: 100% !important;
 }
 
-.om_box.om_button {
+.om_button {
     display: inline;
 }
 
-.om_box.om_button button {
+.om_button button {
     cursor: pointer;
 }
 
@@ -202,15 +199,15 @@
 }
 
 .om_menu .om_menu_option {
-    padding: 2px 7px 3px 7px;
+    /*padding: 2px 7px 3px 7px;*/
     cursor: pointer;
-    border: 1px solid #333;
-    background-color: #181818;
+    /*border: 1px solid #333;*/
+    /*background-color: #181818;*/
 }
 
 .om_menu .om_menu_option:hover {
-    border: 1px solid #555;
-    background-color: #2A2A2A;
+    /*border: 1px solid #555;*/
+    /*background-color: #2A2A2A;*/
 }
 
 .om_menu .om_menu_option:hover .om_menu_option_caption {
@@ -218,9 +215,9 @@
 }
 
 .om_menu .om_menu_option.om_selected {
-    border: 1px solid #aaa;
-    background-color: #333;
-    border: 1px solid #777;
+    /*border: 1px solid #aaa;*/
+    /*background-color: #333;*/
+    /*border: 1px solid #777;*/
 }
 
 .om_menu .om_menu_option .om_menu_option_icon {
@@ -236,9 +233,6 @@
 .om_menu .om_menu_option.om_selected .om_menu_option_icon {
     opacity: 1.0;
     filter: alpha(opacity=100);
-}
-
-.om_menu .om_menu_option .om_menu_option_caption {
 }
 
 .om_scroller > .om_scroller_track {

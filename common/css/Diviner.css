@@ -376,7 +376,7 @@
     visibility: visible;
 }
 
-.om_diviner.ss_editor .nav .api_node .controls div.om_box {
+.om_diviner.ss_editor .nav .api_node .controls div {
     display: none !important;
     border-top: 1px solid #777 !important;
     border-left: 1px solid #777 !important;
@@ -401,11 +401,11 @@
     background-repeat: no-repeat;
 }
 
-.om_diviner.ss_editor .nav .api_node:hover .controls > .om_box {
+.om_diviner.ss_editor .nav .api_node:hover .controls > div {
     display: block !important;
 }
 
-.om_diviner .nav .api_node .controls > .om_box:hover {
+.om_diviner .nav .api_node .controls > div:hover {
     filter: alpha(opacity=80) !important;
     opacity: .80 !important;
 }
@@ -1054,18 +1054,6 @@
 .om_diviner .om_type_string {
     color: #888;
     font-style: italic;
-}
-
-.om_diviner .om_box button.om_button  {
-    /*
-    background-color: #111;
-    color: #ccc;
-    border: 1px solid #000;
-    padding: 2px 4px 2px 4px;
-    margin: 4px;
-    font-size: 12px;
-    */
-    cursor: pointer;
 }
 
 .om_diviner .om_input .om_input_caption {
