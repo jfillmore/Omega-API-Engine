@@ -90,7 +90,7 @@ function __autoload($class_name) {
         }
     }
     // didn't find it? complain!
-    throw new Exception( "Unable to locate class object '$class_name'." );
+    throw new Exception("Unable to locate class object '$class_name'.");
 }
 
 // figure out who we're talking to

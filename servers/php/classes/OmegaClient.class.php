@@ -194,6 +194,7 @@ class OmegaClient {
         // make sure we got back a meaningful result
         $result = $result_info['response'];
         $meta = $result_info['meta'];
+        $content_type = substr($meta['content_type'], 0, 16);
         if ($meta['http_code'] < 200 || 
             $meta['http_code'] >= 300) {
             $data = array(
@@ -201,52 +202,61 @@ class OmegaClient {
                 'response' => $result
             );
             $url = array_shift(explode('?', $meta['url'], 2));
+            // did we get a JSON response w/ a message back?
+            if ($content_type == 'application/json') {
+                // look for an error
+                $response = $this->parse_json($result, $meta, true, true);
+                // only show the reason in the error
+                $reason = $response['reason'];
+            } else {
+                $reason = $result;
+            }
             throw new OmegaException(
-                "'$url' - HTTP " . $meta['http_code'] . '. ' . $result,
+                "$reason (HTTP " . $meta['http_code'] . ')',
                 $data
             );
         }
-        $content_type = substr($meta['content_type'], 0, 16);
         if ($content_type == 'application/json') {
-            $response = json_decode($result, true);
-            if ($response === false || $response === null) {
-                throw new OmegaException("Failed to decode Omega response.", array(
-                'response' => $result,
-                'meta' => $meta
-            ));
-            }
-            // check to see if our API call was successful
-            if (isset($response['result']) && $response['result'] == false) {
-                if (isset($response['reason'])) {
-                    if ($args['verbose']) {
-                        throw new OmegaException($response['reason'], array(
-                            'response' => $response,
-                            'meta' => $this->get_meta()
-                        ));
-                    } else {
-                        throw new OmegaException($response['reason'], array(
-                            'response' => $response,
-                            'meta' => $this->get_meta()
-                        ));
-                        throw new Exception($response['reason']);
-                    }
-                } else {
-                    $reason = 'API to "' . $this->get_service_url() . '" failed without an explanation.';
-                    throw new OmegaException($reason, array(
-                        'params' => $params,
-                        'response' => $response,
-                        'meta' => $this->get_meta()
-                    ));
-                }
-            }
-            if (isset($response['data'])) {
-                return $response['data'];
-            } else {
-                return;
-            }
+            $response = $this->parse_json($result, $meta);
+            return $response['data'];
         } else {
             return $result;
         }
+    }
+
+    private function parse_json($json, $meta, $expect_error = false, $return_error = false) {
+        $response = json_decode($json, true);
+        if ($response === false || $response === null) {
+            throw new OmegaException("Failed to decode Omega response.", array(
+            'response' => $result,
+            'meta' => $meta
+        ));
+        }
+        // check to see if our API call was successful
+        if (isset($response['result']) && $response['result'] == false) {
+            if (! $expect_error) {
+                throw new Exception("Unexpected error in API result when HTTP code was 2xx.");
+            }
+            if (! isset($response['reason'])) {
+                $response['reason'] = 'API to "' . $this->get_service_url() . '" failed without an explanation.';
+            }
+            if ($return_error) {
+                return $response;
+            } else {
+                throw new OmegaException($response['reason'], array(
+                    'response' => $response,
+                    'meta' => $this->get_meta()
+                ));
+            }
+        } else {
+            if ($expect_error) {
+                throw new Exception("Error expected but API result indicates success.");
+            }
+        }
+        if (! isset($response['data'])) {
+            $response['data'] = null;
+        }
+        return $response;
     }
 }
 
