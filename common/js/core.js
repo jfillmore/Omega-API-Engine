@@ -605,6 +605,39 @@ It also comtains various useful, generic functions. */
             return num;
         }
     });
+    
+    /* Returns the first N values of an array or object. Objects will be converted to arrays. */
+    om.first = function (obj, count) {
+        var new_obj, prop, i;
+        if (! count) {
+            count = 1;
+        }
+        if (jQuery.isArray(obj)) {
+            return obj.slice(0, count);
+        } else if (jQuery.isPlainObject(obj)) {
+            new_obj = [];
+            i = 0;
+            for (prop in obj) {
+                new_obj.push(obj[prop]);
+                i += 1;
+                if (i === count) {
+                    return new_obj;
+                }
+            }
+            return new_obj;
+        } else {
+            throw "Invalid object or array."
+        }
+    };
+
+    /* Escape HTML as text via jQuery */
+    om.escape_html = function (html) {
+        if (html) {
+            return $('<div />').text(html).html();
+        } else {
+            return '';
+        }
+    };
 
     om.Error = om.doc({
         desc: 'Generic error handling.',
