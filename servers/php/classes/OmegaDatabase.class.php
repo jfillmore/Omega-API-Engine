@@ -14,7 +14,7 @@ class OmegaDatabase {
     public $password;
     public $dbname;
     public $type; // 'psql', 'mysql', 'mysqli'
-    private $error_log = null; // log file to track SQL errors
+    public $error_log = null; // log file to track SQL errors
     private $conn;
     private $tr_depth; // transaction depth marker
     private $tr_rolling_back; // whether or not the transaction has started rolling back
@@ -202,6 +202,23 @@ class OmegaDatabase {
             $this->query('ROLLBACK');
             $this->tr_depth = 0;
             $this->tr_rolling_back = false;
+        }
+    }
+
+    /** Returns statistics about the last executed query. */
+    public function query_stats() {
+        if ($this->type == 'mysqli') {
+            return array(
+                'query_info' => $this->conn->info,
+                'rows_affected' => $this->conn->affected_rows
+            );
+        } else if ($this->type == 'mysql') {
+            return array(
+                'query_info' => mysqli_info($this->conn),
+                'rows_affected' => mysqli_affected_rows($this->conn)
+            );
+        } else {
+            throw new Exception("Unsupported database type: {$this->type}.");
         }
     }
     

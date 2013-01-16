@@ -108,7 +108,8 @@ class Shell:
     
     def get_prompt(self):
         # TODO: simulate location awareness in API branch
-        if self.args['color']:
+        if self.args['color'] and 0:
+            # FIXME: using colors messes up term spacing w/ readline history support
             prompt = ''.join([
                 '\033[0;31m',
                 '[__',
@@ -419,6 +420,7 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
                 else:
                     # we have a parameter; split it up on the =
                     param_parts = part.split('=', 1)
+                    # FIXME: if something like 'args.foo' is given w/o a value it won't parse as an array
                     if len(param_parts) == 1:
                         if not api.startswith('/'):
                             if param_parts[0] == '?':
@@ -438,15 +440,16 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
                         else:
                             # break the array into the parts
                             p_parts = param_parts[0].split('.')
-                            base = p_parts[0]
                             key = p_parts.pop()
+                            param_ptr = params
                             for p_part in p_parts:
                                 if not p_part in params:
                                     params[p_part] = {}
-                                params = params[p_part]
-                            params[key] = param_parts[1]
+                                param_ptr = params[p_part]
+                            param_ptr[key] = param_parts[1]
             i += 1
         # get any redirection ready, if we can
+        # FIXME: if the API fails the file shouldn't be written to
         if stdout_redir != None:
             try:
                 file = open(stdout_redir, redir_type)

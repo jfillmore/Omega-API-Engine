@@ -27,6 +27,7 @@ import os
 import tempfile
 import base64
 import hashlib
+import socket
 
 from error import Exception
 import util
@@ -278,25 +279,38 @@ class OmegaClient:
                 ((method, proto, self._hostname, self._port, url, data, str(headers), str(http.cookies)))
             )
         #http.request(method, url, data, headers)
-        # start the request
-        http.putrequest(method, url)
-        # send our headers
-        for hdr, value in headers.iteritems():
-            http.putheader(hdr, value);
-        # and our cookies too!
-        if http.cookies:
-            [http.putheader('Cookie', value) for value in http.cookies]
-        # write the body
-        header_names = headers.fromkeys([k.lower() for k in headers])
-        if data:
-            body_len = len(data)
-            if body_len:
-                http.putheader('Content-Length', str(body_len))
-        http.endheaders()
-        if data:
-            http.send(data)
-        # get our response back from the server and parse
-        response = http.getresponse()
+        # be willing to try again if the socket got closed on us (e.g. timeout)
+        tries = 0
+        max_tries = 3
+        response = None
+        while tries < max_tries and response is None:
+            tries += 1
+            try:
+                # start the request
+                http.putrequest(method, url)
+                # send our headers
+                for hdr, value in headers.iteritems():
+                    http.putheader(hdr, value);
+                # and our cookies too!
+                if http.cookies:
+                    [http.putheader('Cookie', value) for value in http.cookies]
+                # write the body
+                header_names = headers.fromkeys([k.lower() for k in headers])
+                if data:
+                    body_len = len(data)
+                    if body_len:
+                        http.putheader('Content-Length', str(body_len))
+                http.endheaders()
+                if data:
+                    http.send(data)
+                # get our response back from the server and parse
+                response = http.getresponse()
+            except socket.error, v:
+                http.connect()
+            except:
+                http.close()
+        if response is None:
+            raise Exception('HTTP request failed and could not be retried.')
         # see if we get a cookie back
         response_headers = str(response.msg).split('\n');
         cookies = [c.split(': ')[1].split('; ')[0] for c in response_headers if c.startswith('Set-Cookie: ')]

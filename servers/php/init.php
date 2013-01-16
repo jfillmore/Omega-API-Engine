@@ -13,12 +13,14 @@ ini_set('error_reporting', E_ALL);
 // snag our configuration file
 require_once('config.php');
 
-// initialize our two omega variables
+// initialize our two omega variables -- needed in '__autoload' for now
 $omega = null;
 $om = null;
 
 function _clean_trace($st) {
     $stack = array();
+    // hide internal frames
+    array_pop($st);
     foreach ($st as $trace) {
         $line = '';
         if (isset($trace['file'])) {
@@ -30,8 +32,16 @@ function _clean_trace($st) {
         if (isset($trace['class'])) {
             $line .= ' ' . $trace['class'] . $trace['type'];
         }
-        // don't return the actual args by default for security reasons
-        $line .= $trace['function'] . '(' . count($trace['args']) . ' ' . (count($trace['args']) === 1 ? 'arg' : 'args') . ')';
+        $line .= $trace['function'] . '(';
+        if (count($trace['args'])) {
+            // don't return the actual args, but the types are nice
+            $args = array();
+            foreach ($trace['args'] as $arg) {
+                $args[] = gettype($arg);
+            }
+            $line .= join(', ', $args);
+        }
+        $line .= ')';
         $stack[] = $line;
     }
     return $stack;
@@ -64,7 +74,7 @@ function __autoload($class_name) {
     );
     // if omega has been loaded then add the service's class dirs too
     if ($om !== null) {
-        foreach ($om->config->get('omega.class_dirs') as $class_dir) {
+        foreach ($om->config->get('omega/class_dirs') as $class_dir) {
             array_push($dirs, $class_dir);
         }
     }
@@ -80,15 +90,42 @@ function __autoload($class_name) {
         }
     }
     // didn't find it? complain!
-    throw new Exception( "Unable to locate class object '$class_name'." );
+    throw new Exception("Unable to locate class object '$class_name'.");
 }
 
 // figure out who we're talking to
 $service_name = getenv('OMEGA_SERVICE');
 if ($service_name == '' || $service_name === false) {
-    // no service name set? give 'em a 404 and bugger out
-    header('HTTP/1.0 404 Not Found');
-    exit;
+    // no service name set? peek at the URI and figure it out from there then
+    $uri = null;
+    // document uri = nginx rewritten URL, request_uri = actual HTTP request
+    // it's preferable to use the rewritten URL so APIs can be mounted at
+    // locations other than in 'omega/location'
+    if (isset($_SERVER['DOCUMENT_URI'])) {
+        $uri = $_SERVER['DOCUMENT_URI'];
+    } else {
+        $uri = $_SERVER['REQUEST_URI'];
+    }
+    $uri_parts = explode('/', substr($uri, 1), 2);
+    // the first part should be the service location
+    $location = $uri_parts[0];
+    // see if it matches any of our config files
+    $shed = new OmegaFileShed(OmegaConstant::data_dir);
+    $server_config = $shed->get('OmegaServer/services', 'config');
+    foreach ($server_config['services'] as $name => $enabled) {
+        if ($enabled) {
+            $config = $shed->get($name, "config");
+            $service_loc = trim(@$config['omega']['location'], '/');
+            if ($service_loc == $location) {
+                $service_name = $name;
+                break;
+            }
+        }
+    }
+    if ($service_name === false) {
+        header('HTTP/1.0 404 Not Found');
+        exit;
+    }
 }
 
 // capture any crap that PHP leaks through (e.g. warnings on functions) or that the user intentionally leaks

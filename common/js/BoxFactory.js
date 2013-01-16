@@ -257,7 +257,7 @@
                     };
                     box.$.bind('select.om', box._focus);
                     box.$.bind('unselect.om', box._focus_out);
-                    box.$.bind('click dblclick', function (click_event) {
+                    box.$.bind('click', function (click_event) {
                         box.$.triggerHandler('select.om');
                     });
                     // if we're the first free sibling, auto-focus ourself
@@ -1307,7 +1307,7 @@
                                 }
                             );
                             win._toolbar._controls._min.bind(
-                                'click dblclick',
+                                'click',
                                 function (click_event) {
                                     win.$.trigger('win_minimize.om');
                                     click_event.stopPropagation();
@@ -1335,7 +1335,7 @@
                                 }
                             );
                             win._toolbar._controls._max.bind(
-                                'click dblclick',
+                                'click',
                                 function (click_event) {
                                     win.$.trigger('win_maximize.om');
                                     click_event.stopPropagation();
@@ -1361,7 +1361,7 @@
                                 }
                             );
                             win._toolbar._controls._close.bind(
-                                'click dblclick',
+                                'click',
                                 function (click_event) {
                                     win.$.trigger('win_close.om');
                                     click_event.stopPropagation();
@@ -1650,7 +1650,7 @@
                     }
                 };
                 // make our option clickable
-                option.$.bind('click dblclick', option._select);
+                option.$.bind('click', option._select);
                 // fall inline, if needed
                 if (menu._args.options_inline) {
                     option.$.css('display', 'inline');
@@ -1723,6 +1723,7 @@
                 },
                 break_type: undefined, // null, 'column', 'tab', 'page'
                 'class': undefined,
+                on_submit: undefined,
                 classes: undefined,
                 dont_show: false
             }, args, true);
@@ -2236,6 +2237,12 @@
             form._breaker = null;
             form._field_count = 0;
             form._create_target = form._canvas.$;
+            // add in a default submit handler hook
+            form.$.bind('submit', function (ev) {
+                if (form._args.on_submit) {
+                    return om.get(form._args.on_submit, ev, form);
+                }
+            });
             if (form._args.dont_show !== true) {
                 form.$.show();
             }
@@ -2607,6 +2614,7 @@
                 on_change: undefined, // what to do when the value changes
                 on_click: undefined, // what to do when the input is clicked
                 tooltip: undefined, // a tooltip to show on mouse-over
+                tooltip_args: undefined, // a tooltip args
                 validate: undefined
             }, args, true);
             // we don't want to pass our own on_click to the base box obj, as we only want it to work on the input value
@@ -2667,7 +2675,7 @@
                 // and link it with the value if requested
                 if (args.link_caption) {
                     obj._caption.$.css('cursor', 'pointer');
-                    obj._caption.$.bind('click dblclick', function (click_event) {
+                    obj._caption.$.bind('click', function (click_event) {
                         var value;
                         obj._value.trigger('click');
                         obj._value.trigger('change');
@@ -2680,9 +2688,9 @@
                 }
             }
             // add in a click event if supplied
-            obj.$.delegate('.om_input_value', 'click dblclick', function (click_event) {
+            obj.$.delegate('.om_input_value', 'click', function (click_event) {
                 if (typeof(obj._on_click) === 'function') {
-                    obj._on_click(click_event, obj);
+                    return obj._on_click(click_event, obj);
                 }
             });
             // run our on_change method when the value is changed
@@ -2692,12 +2700,12 @@
                     obj._validate(change_event);
                 }
                 if (typeof(obj._args.on_change) === 'function') {
-                    obj._args.on_change(change_event, obj);
+                    return obj._args.on_change(change_event, obj);
                 }
             });
             // add a tooltip if needed
             if (args.tooltip !== undefined && args.tooltip !== '') {
-                obj._tooltip = om.bf.make.tooltip(obj.$, args.tooltip);
+                obj._tooltip = om.bf.make.tooltip(obj.$, args.tooltip, args.tooltip_args);
             }
 
             obj._enable = function () {
@@ -2752,25 +2760,27 @@
             if (args.on_click !== undefined) {
                 // try disable ourselves right away to prevent double clicks
                 if (args.multi_click) {
-                    button._value.one('click dblclick', function (click_event) {
+                    button._value.one('click', function (click_event) {
                         button._value.prop('enabled', false);
                         args.on_click(click_event, button);
                         // after having done our work we can re-bind/activate ourself
-                        button._value.one('click dblclick', arguments.callee);
+                        button._value.one('click', arguments.callee);
                         button._value.prop('enabled', true);
                         click_event.preventDefault();
                         click_event.stopPropagation();
+                        return false;
                     });
                 } else {
-                    button._value.one('click dblclick', function (click_event) {
+                    button._value.one('click', function (click_event) {
                         button._value.prop('enabled', false);
                         args.on_click(click_event, button);
                         if (click_event.isDefaultPrevented()) {
                             // re-bind our click
-                            button._value.one('click dblclick', arguments.callee);
+                            button._value.one('click', arguments.callee);
                         }
                         click_event.preventDefault();
                         click_event.stopPropagation();
+                        return false;
                     });
                 }
             }
@@ -3347,9 +3357,12 @@
         obj: function (owner, message, args) {
             var tooltip;
             args = om.get_args({
+                align_x: 'left', // tooltip edge positioning
+                align_y: 'top',
                 classes: [],
                 offset: {x: 8, y: 8},
                 speed: 0,
+                width: undefined,
                 target: owner
             }, args, true);
             args.classes.push('om_tooltip');
@@ -3365,15 +3378,27 @@
             tooltip._args = args;
             tooltip._message = message;
             tooltip._offset = args.offset;
-            if (message !== undefined) {
-                tooltip.$.html(message);
-            }
+            tooltip._set_msg = function (msg) {
+                tooltip.$.html('<div class="om_tooltip_msg">' + message + '</div>');
+            };
             tooltip._on_move = function (mouse_move) {
-                // show the tooltip by the cursor
-                tooltip._move_to(mouse_move.pageX + tooltip._offset.x, mouse_move.pageY + tooltip._offset.y);
-                if (tooltip._args.on_move !== undefined) {
-                    tooltip._args.on_move(mouse_move, tooltip);
+                var win = $(window);
+                // show the tooltip by the cursor -- aligned to a particular edge
+                if (tooltip._args.align_x === 'right') {
+                    tooltip.$.css('left', 'auto');
+                    tooltip.$.css('right', (win.width() - mouse_move.pageX) + tooltip._offset.x);
+                } else {
+                    tooltip.$.css('right', 'auto');
+                    tooltip.$.css('left', mouse_move.pageX + tooltip._offset.x);
                 }
+                if (tooltip._args.align_y === 'bottom') {
+                    tooltip.$.css('top', 'auto');
+                    tooltip.$.css('bottom', (win.height() - mouse_move.pageY) + tooltip._offset.y);
+                } else {
+                    tooltip.$.css('bottom', 'auto');
+                    tooltip.$.css('top', mouse_move.pageY + tooltip._offset.y);
+                }
+                om.get(tooltip._args.on_move, mouse_move, tooltip);
                 tooltip.$.show();
                 // and move to be within any constraint we were given
                 if (tooltip._args.constraint) {
@@ -3409,6 +3434,10 @@
                 }
                 tooltip._box_remove();
             };
+            if (args.width) {
+                tooltip.$.width(args.width);
+            }
+            tooltip._set_msg(message);
             return tooltip;
         }
     });
@@ -3627,7 +3656,7 @@
                     om.get(args.on_close, click_event, conf);
                     // if we did prevent the default then rebind ourselves if default is disabled too
                     if (click_event.isDefaultPrevented()) {
-                        conf._box_bottom.$.find('.om_confirm_close').one('click dblclick', arguments.callee);
+                        conf._box_bottom.$.find('.om_confirm_close').one('click', arguments.callee);
                     } else {
                         // remove ourselves from the DOM
                         conf._remove();

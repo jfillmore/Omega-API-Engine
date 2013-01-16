@@ -50,7 +50,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         // e.g. request_uri = '/foo/bar/a/b/cde'
         // document uri = nginx rewritten URL, request_uri = actual HTTP request
         // it's preferable to use the rewritten URL so APIs can be mounted at
-        // locations other than in 'omega.location'
+        // locations other than in 'omega/location'
         if (isset($_SERVER['DOCUMENT_URI'])) {
             $request_uri = $_SERVER['DOCUMENT_URI'];
             // we are already URL decoded, so only chop ?... if there is stuff after
@@ -100,6 +100,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
                 $api_parts[] = $req_part;
             }
         }
+        // this API may not be a valid API -- we'll determine that at resolve time
         $this->set_api(join('/', $api_parts));
 
         // set our option defaults, and collect any that were sent by the user
@@ -155,10 +156,15 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         }
         // with a properly formatted API we can see if we should infer the service name or not
         $first = $parts[0];
-        // the first part is generally expected to be the service nickname or 'omega'
-        if (! (in_array($first, array('omega', $om->service_nickname)) || substr($first, -1) == '?')) {
-            // just assume they gave us the service name to make API calls cleaner
-            array_unshift($parts, $om->service_nickname);
+        if ($first === '') {
+            // only way first part is blank is if the API is '/', which we can assume to be '/service_nickname'
+            $parts = array($om->service_nickname);
+        } else {
+            // the first part is generally expected to be the service nickname or 'omega'
+            if (! (in_array($first, array('omega', $om->service_nickname)) || substr($first, -1) == '?')) {
+                // just assume they gave us the service name to make API calls cleaner
+                array_unshift($parts, $om->service_nickname);
+            }
         }
         // save the names of everything
         $this->api = implode('/', $parts);

@@ -25,8 +25,7 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
 
     public $headers;
     public $default_headers;
-    private $response_status = 200;
-    private $status_codes = array(
+    public $status_codes = array(
         // 1xx Informational
         '100' => 'Continue',
         '101' => 'Switching Protocols',
@@ -82,6 +81,7 @@ class OmegaResponse extends OmegaRESTful implements OmegaApi {
         '507' => 'Insufficient Storage',
         '510' => 'Not Extended'
     );
+    private $response_status = 200;
 
     public function __construct() {
         global $om;
