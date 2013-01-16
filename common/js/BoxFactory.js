@@ -42,8 +42,12 @@
         },
         obj: function (jquery_obj, args) {
             var box, type, part_type, i, arg;
+            // note om.bf.make.box args & 'box_args' var
             args = om.get_args({
                 html: undefined,
+                text_args: false,
+                tooltip: undefined, // a tooltip to show on mouse-over
+                tooltip_args: undefined,
                 imbue: undefined // object from om.bf
                 // on_* will be auto
             }, args, true);
@@ -59,12 +63,13 @@
             }
             // create the box, starting with our jquery reference
             box = {$: jquery_obj};
-            box.$.toggleClass('om_box', true);
+            // this really isn't needed and just adds style clutter
+            //box.$.toggleClass('om_box', true);
 
             // auto-imbue as a box for starters
             box = om.bf.imbue.box(box);
             // imbue in any other functionality
-            if (args.imbue !== undefined && args.imbue !== null) {
+            if (args.imbue) {
                 type = typeof args.imbue;
                 if (type === 'function') {
                     // if we got a function then use it
@@ -95,9 +100,21 @@
                     throw new Error('Unable to perform imbue with the type "' + type + '".');
                 }
             }
+            // add any tooltip requested
+            if (args.tooltip) {
+                box._tooltip = om.bf.make.tooltip(
+                    box.$,
+                    args.tooltip,
+                    args.tooltip_args
+                );
+            }
             // set our HTML if given
             if (args.html !== undefined) {
-                box.$.html(args.html);
+                if (args.text_args) {
+                    box.$.text(args.html);
+                } else {
+                    box.$.html(args.html);
+                }
             }
             // add any events we got, e.g. on_click, on_dblclick, etc.
             for (arg in args) {
@@ -163,6 +180,117 @@
                             }
                             return box;
                         }    
+                    };
+
+                    /* Force our box to fit within some other object's dimensions (e.g. document, screen, etc). */
+                    box._constrain_to = function (constraint, args) {
+                        // TODO: add arg to resize to fit, otherwise act as 'viewport'
+                        var box_pos, box_off, con, delta, box_width, box_height, resized;
+                        resized = false;
+                        args = om.get_args({
+                            auto_scroll: false,
+                            with_resize: false,
+                            target: undefined,
+                            target_only: false
+                        }, args);
+                        // default to contraining to the body
+                        if (constraint === undefined) {
+                            constraint = $(window);
+                        }
+                        // re-constrain on resize
+                        if (args.with_resize === true) {
+                            // bind once, as it'll keep re-adding itself each time around
+                            box.$.one('resize', function (resize_event) {
+                                box._constrain_to(constraint, args);
+                            });
+                            /*
+                            if (args.target !== undefined) {
+                                args.target.one('resize', function (resize_event) {
+                                    box._constrain_to(constraint, args);
+                                });
+                            }
+                            */
+                        }
+                        // just remember these calcs so I don't have to repeat myself
+                        // and perform them differently on the 'window' object, since it doesn't have CSS style
+                        if (constraint[0].ownerDocument !== undefined) {
+                            // gotta go by offset at the window level
+                            con = constraint.position();
+                            con.width = constraint.outerWidth();
+                            con.height = constraint.outerHeight();
+                        } else {
+                            con = {left: 0, top: 0};
+                            con.width = constraint.width();
+                            con.height = constraint.height();
+                        }
+                        box_pos = box.$.position();
+                        // add what it'll take to get it inside the top left corners
+                        delta = {
+                            left: box_pos.left,
+                            top: box_pos.top
+                        };
+                        // too far top or left? scoot over
+                        if (delta.top < 0) {
+                            box_pos.top -= delta.top;
+                            box.$.css('top', box_pos.top + 'px');
+                        }
+                        if (delta.left < 0) {
+                            box_pos.left -= delta.left;
+                            box.$.css('left', box_pos.left + 'px');
+                        }
+                        // now check our right edge to be sure its not hanging over
+                        box_width = box.$.outerWidth(true);
+                        // are we fatter than the constraint width? if so, shrink the difference
+                        if (box_width > con.width) {
+                            if (args.target_only !== true) {
+                                box.$.width(
+                                    con.width - (box_width - box.$.width())
+                                );
+                            }
+                            // shrink the target too, if needed
+                            if (args.target !== undefined) {
+                                args.target.width(
+                                    args.target.width() - (box_width - con.width)
+                                );
+                            }
+                            resized = true;
+                            // recalculate our width after moving
+                            box_width = box.$.outerWidth(true);
+                        }
+                        // and see if we're hanging over the right edge
+                        delta.right = (box_pos.left + box_width) - con.width;
+                        if (delta.right > 0) {
+                            box_pos.left -= delta.right;
+                            box.$.css('left', box_pos.left + 'px');
+                        }
+                        box_height = box.$.outerHeight(true);
+                        // are we taller than the constraint height? if so, shrink the difference
+                        if (box_height > con.height) {
+                            if (args.target_only !== true) {
+                                box.$.height(con.height - (box_height - box.$.height()));
+                            }
+                            // shrink the difference too
+                            if (args.target !== undefined) {
+                                args.target.height(args.target.height() - (box_height - con.height));
+                                
+                            }
+                            resized = true;
+                            // recalculate our height after moving
+                            box_height = box.$.outerHeight(true);
+                        }
+                        // and finally see if we're hanging over the bottom edge
+                        delta.bottom = (box_pos.top + box_height) - con.height;
+                        if (delta.bottom > 0) {
+                            box_pos.top -= delta.bottom;
+                            box.$.css('top', box_pos.top + 'px');
+                        }
+                        if (resized) {
+                            box.$.trigger('resize');
+                            if (args.target !== undefined) {
+                                args.target.trigger('resize');
+                            }
+                        }
+                        return box;
                     };
 
                     /* Create another box inside, in a specific layout position.
@@ -772,134 +900,6 @@
                         });
                     };
                     
-                    box._constrain_to = function (constraint, args) {
-                        // TODO: add arg to resize to fit, otherwise act as 'viewport'
-                        var box_pos, box_off, con, delta, box_width, box_height, resized;
-                        resized = false;
-                        args = om.get_args({
-                            auto_scroll: false,
-                            with_resize: false,
-                            target: undefined,
-                            target_only: false
-                        }, args);
-                        // default to contraining to the body
-                        if (constraint === undefined) {
-                            constraint = $(window);
-                        }
-                        // re-constrain on resize
-                        if (args.with_resize === true) {
-                            // bind once, as it'll keep re-adding itself each time around
-                            box.$.one('resize', function (resize_event) {
-                                box._constrain_to(constraint, args);
-                            });
-                            /*
-                            if (args.target !== undefined) {
-                                args.target.one('resize', function (resize_event) {
-                                    box._constrain_to(constraint, args);
-                                });
-                            }
-                            */
-                        }
-                        // just remember these calcs so I don't have to repeat myself
-                        // and perform them differently on the 'window' object, since it doesn't have CSS style
-                        if (constraint[0].ownerDocument !== undefined) {
-                            // gotta go by offset at the window level
-                            con = constraint.position();
-                            con.width = constraint.outerWidth();
-                            con.height = constraint.outerHeight();
-                        } else {
-                            con = {left: 0, top: 0};
-                            con.width = constraint.width();
-                            con.height = constraint.height();
-                        }
-                        box_pos = box.$.position();
-                        // add what it'll take to get it inside the top left corners
-                        delta = {
-                            left: box_pos.left,
-                            top: box_pos.top
-                        };
-                        // too far top or left? scoot over
-                        if (delta.top < 0) {
-                            box_pos.top -= delta.top;
-                            box.$.css('top', box_pos.top + 'px');
-                        }
-                        if (delta.left < 0) {
-                            box_pos.left -= delta.left;
-                            box.$.css('left', box_pos.left + 'px');
-                        }
-                        // now check our right edge to be sure its not hanging over
-                        box_width = box.$.outerWidth(true);
-                        // are we fatter than the constraint width? if so, shrink the difference
-                        if (box_width > con.width) {
-                            if (args.target_only !== true) {
-                                box.$.width(
-                                    con.width - (box_width - box.$.width())
-                                );
-                            }
-                            // shrink the target too, if needed
-                            if (args.target !== undefined) {
-                                args.target.width(
-                                    args.target.width() - (box_width - con.width)
-                                );
-                            }
-                            resized = true;
-                            // recalculate our width after moving
-                            box_width = box.$.outerWidth(true);
-                        }
-                        // and see if we're hanging over the right edge
-                        delta.right = (box_pos.left + box_width) - con.width;
-                        if (delta.right > 0) {
-                            box_pos.left -= delta.right;
-                            box.$.css('left', box_pos.left + 'px');
-                        }
-                        box_height = box.$.outerHeight(true);
-                        // are we taller than the constraint height? if so, shrink the difference
-                        if (box_height > con.height) {
-                            if (args.target_only !== true) {
-                                box.$.height(con.height - (box_height - box.$.height()));
-                            }
-                            // shrink the difference too
-                            if (args.target !== undefined) {
-                                args.target.height(args.target.height() - (box_height - con.height));
-                                
-                            }
-                            resized = true;
-                            // recalculate our height after moving
-                            box_height = box.$.outerHeight(true);
-                        }
-                        /*
-                        // causing more problems than it seems to be worth right now...
-                        if (args.auto_scroll) {
-                            // set overflow to scroll, since we we're presumably too big
-                            if (args.target === undefined) {
-                                box.$.css('overflow-y', 'scroll');
-                            } else {
-                                args.target.css('overflow-y', 'scroll');
-                            }
-                        } else {
-                            // remove auto-scrolling
-                            if (args.target === undefined) {
-                                box.$.css('overflow-y', 'inherit');
-                            } else {
-                                args.target.css('overflow-y', 'inherit');
-                            }
-                        }
-                        */
-                        // and finally see if we're hanging over the bottom edge
-                        delta.bottom = (box_pos.top + box_height) - con.height;
-                        if (delta.bottom > 0) {
-                            box_pos.top -= delta.bottom;
-                            box.$.css('top', box_pos.top + 'px');
-                        }
-                        if (resized) {
-                            box.$.trigger('resize');
-                            if (args.target !== undefined) {
-                                args.target.trigger('resize');
-                            }
-                        }
-                        return box;
-                    };
-
                     /*
                     box._dodge_cursor = function (x, y, margin) {
                         return; // TODO
@@ -1169,9 +1169,12 @@
                 'class': undefined,
                 type: 'div',
                 imbue: undefined,
+                tooltip: undefined, // a tooltip to show on mouse-over
+                tooltip_args: undefined,
                 html: undefined,
                 id: undefined,
-                insert: 'append'
+                insert: 'append',
+                text_args: false
             }, args, true);
             if (typeof(args.classes) === 'string') {
                 args.classes = args.classes.split(' ');
@@ -1205,7 +1208,13 @@
                 jq = $(html).insertAfter(target);
             }
             // pass any remaining 'on_*' args on through
-            box_args = {imbue: args.imbue, html: args.html};
+            box_args = {
+                html: args.html,
+                imbue: args.imbue,
+                tooltip: args.tooltip,
+                tooltip_args: args.tooltip_args,
+                text_args: args.text_args
+            };
             for (arg in args) {
                 if (args.hasOwnProperty(arg) && arg.substr(0, 3) === 'on_') {
                     box_args[arg] = args[arg];
@@ -1419,6 +1428,7 @@
                 equal_option_widths: false,
                 multi_select: false,
                 name: '', // name of menu, also set as class
+                on_select: function (select_ev, option) {}, // select event handler for any time an option gets selected
                 options_inline: false, // defaults to true if options_orient is 'top' or 'bottom' 
                 options_orient: undefined, // whether or not to orient menu options towards a particular box position
                 peer_group: undefined // a jQuery ref to a DOM object to find menu option peers in (e.g. for nested single-select menus)
@@ -1536,7 +1546,9 @@
                     icon_orient: 'left', // left, top, bottom, right, inline
                     on_select: undefined, // before the select occurs, can cancel selection
                     on_selected: undefined, // after the selection occurs
-                    on_unselect: undefined
+                    on_unselect: undefined,
+                    tooltip: undefined,
+                    tooltip_args: undefined
                 }, args);
                 if (name === undefined) {
                     throw new Error("Unable to add an option without a name.");
@@ -1545,7 +1557,9 @@
                     menu._options_box.$,
                     {
                         classes: args.classes,
-                        'class': args['class']
+                        'class': args['class'],
+                        tooltip: args.tooltip,
+                        tooltip_args: args.tooltip_args
                     }
                 );
                 option.$.toggleClass('om_menu_option', true);
@@ -1621,13 +1635,19 @@
                     }
                     // handle any events
                     if (selected) {
-                        om.get(option._args.on_select, select_event, option);
+                        // menu-level event
+                        om.get(option._menu._args.on_select, select_event, option);
+                        if (! select_event.isDefaultPrevented()) {
+                            // option-level event for pre-select
+                            om.get(option._args.on_select, select_event, option);
+                        }
                         if (! select_event.isDefaultPrevented()) {
                             if (to_unselect !== null) {
                                 to_unselect.trigger('unselect.om');
                             }
                             node.toggleClass('om_selected', selected);
                         }
+                        // option-level event for post-select
                         om.get(option._args.on_selected, select_event, option);
                     } else {
                         option.$.trigger('unselect.om');
@@ -2703,10 +2723,6 @@
                     return obj._args.on_change(change_event, obj);
                 }
             });
-            // add a tooltip if needed
-            if (args.tooltip !== undefined && args.tooltip !== '') {
-                obj._tooltip = om.bf.make.tooltip(obj.$, args.tooltip, args.tooltip_args);
-            }
 
             obj._enable = function () {
                 return obj._set_enabled(true);
@@ -2762,10 +2778,14 @@
                 if (args.multi_click) {
                     button._value.one('click', function (click_event) {
                         button._value.prop('enabled', false);
+                        // explicitly trigger a mouse-out for any tooltips this button may have
+                        button.$.triggerHandler('mouseout');
+                        // handle the click
                         args.on_click(click_event, button);
                         // after having done our work we can re-bind/activate ourself
                         button._value.one('click', arguments.callee);
                         button._value.prop('enabled', true);
+                        // consider ourselves done
                         click_event.preventDefault();
                         click_event.stopPropagation();
                         return false;
@@ -2773,11 +2793,15 @@
                 } else {
                     button._value.one('click', function (click_event) {
                         button._value.prop('enabled', false);
+                        // explicitly trigger a mouse-out for any tooltips this button may have
+                        button.$.triggerHandler('mouseout');
+                        // handle the click
                         args.on_click(click_event, button);
                         if (click_event.isDefaultPrevented()) {
                             // re-bind our click
                             button._value.one('click', arguments.callee);
                         }
+                        // consider ourselves done
                         click_event.preventDefault();
                         click_event.stopPropagation();
                         return false;
@@ -3361,6 +3385,7 @@
                 align_y: 'top',
                 classes: [],
                 offset: {x: 8, y: 8},
+                insert: 'after', // default to putting the tooltip after the owner in the DOM, not inside
                 speed: 0,
                 width: undefined,
                 target: owner
@@ -3491,6 +3516,7 @@
                 dont_show: false,
                 draggable: true,
                 imbue: 'free',
+                text_args: false, // parse the HTML and Title as text, not HTML
                 modal: false // automatically cover owning object with a skirt obj
             }, args, true);
             if (owner === undefined) {
@@ -3563,12 +3589,20 @@
             // set the HTML if available
             if (html !== undefined && html !== null) {
                 message._extend('middle');
-                message._box_middle.$.html(html);
+                if (args.text_args) {
+                    message._box_middle.$.text(html);
+                } else {
+                    message._box_middle.$.html(html);
+                }
             }
             // add in a title if one was given
             if (title !== undefined && title !== null) {
                 message._extend('top', 'om_message_title');
-                message._box_top.$.html(title);
+                if (args.text_args) {
+                    message._box_top.$.text(title);
+                } else {
+                    message._box_top.$.html(title);
+                }
                 // default to dragging by the title
                 if (args.draggable) {
                     message._draggable(message._box_top.$, {
