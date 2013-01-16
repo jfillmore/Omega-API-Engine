@@ -38,7 +38,7 @@ def get_obj_info(obj, include_private = False):
     obj_info = {
         'type': type(obj).__name__,
         'callable': callable(obj),
-        'value': str(obj),
+        'value': unicode(obj),
         'repr': repr(obj),
         'description': unicode(getattr(obj, '__doc__', '')).strip()
     }
@@ -84,9 +84,9 @@ def obj2str(obj, depth = 0, color = True, indent_char = ' ', indent_size = 4, in
     """Returns a formatted string, optionally with color coding"""
     def shell_color(obj, obj_color):
         if color:
-            return '\033[%sm%s\033[0;0m' % (obj_color, str(obj))
+            return '\033[%sm%s\033[0;0m' % (obj_color, unicode(obj))
         else:
-            return str(obj)
+            return unicode(obj)
 
     def rdump(obj, depth = 0, indent_size = 4, inline = False, short_form = False):
         if short_form:
