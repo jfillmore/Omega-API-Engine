@@ -3283,20 +3283,19 @@ Changelog:
             /* methods */
             // collect the user's input
             form._get_input = function (args) {
-                var input = {}, name;
+                var input = {}, name, val;
                 args = om.get_args({
                     trim: false,
                     all: false
                 }, args);
                 for (name in form._fields) {
                     if (form._fields.hasOwnProperty(name) && (args.all || form._fields[name]._type !== 'readonly')) {
-                        if (args.trim) {
-                            input[name] = String(
-                                form._fields[name]._val()
-                            ).trim();
-                        } else {
-                            input[name] = form._fields[name]._val();
+                        val = form._fields[name]._val();
+                        // only trim strings, not booleans (e.g. checkbox)
+                        if (args.trim && typeof(val) == typeof('')) {
+                            val = val.trim();
                         }
+                        input[name] = val;
                     }
                 }
                 return input;
