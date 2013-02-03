@@ -46,6 +46,7 @@
         } else {
             // default error handler
             om_client.on_fail = function (reason, api_args) {
+                /*
                 // failed? throw a polite error to the user
                 var error = om.bf.make.confirm(
                     $('body'),
@@ -58,7 +59,6 @@
                     }
                 );
                 error.$.toggleClass('om_error', true);
-                /*
                 // let them retry
                 error._box_bottom._add_input(
                     'button',
@@ -72,8 +72,8 @@
                         }
                     }
                 );
-                */
                 error._center_top(0.1)._constrain_to();
+                */
             };
         }
 
