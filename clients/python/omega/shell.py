@@ -8,7 +8,7 @@
 # http://www.opensource.org/licenses/mit-license.php
 
 
-"""Shell for interacting with an omega client."""
+"""Shell for interacting with a RESTful server."""
 
 import re
 import os
@@ -24,11 +24,16 @@ import dbg
 
 class Shell:
     """Shell for interacting with omega client."""
-    _version = '0.1'
-    _histfile = None
-    _histfile_name = '.om_history'
-    _cmd_char = '/'
+    _version = '0.2'
     # a list of our internal commands
+    _api_cmds = (
+        'get',
+        'post',
+        'put',
+        'patch',
+        'delete',
+        'exec'
+    )
     _cmds = {
         'set': {},
         'reload': {},
@@ -37,61 +42,40 @@ class Shell:
         'quit': {},
         'sh': {}
     }
-    _cmd_tree = None
+    _env = {
+        'cwd': '/', # where in the URL we are operating
+        'last_cwd': '/',
+        'histfile': None
+    }
     # client to talk to omega service
     client = None
     # our default arguments
-    args = None
-    # information about our API
-    api_info = None
+    args = {
+        'color': sys.stdout.isatty(),
+        'full_response': False,
+        'raw_response': False,
+        'headers': {},
+        'verbose': False
+    }
 
     def __init__(self, client, args = {}):
-        self._histfile = os.path.join(os.path.expanduser('~'), '.om_history')
+        self.env(
+            'histfile',
+            os.path.join(os.path.expanduser('~'), '.om_history')
+        )
         self.client = client
-        self.args = util.get_args({
-            'color': sys.stdout.isatty(),
-            'full_response': False,
-            'raw_response': False,
-            'headers': {},
-            'verbose': False
-            #'edit_mode': 'vi'
-        }, args)
-
-    def reload(self, cmd_tree = False):
-        try:
-            # figure out who we are exactly
-            self.api_info = self.client.run(
-                '?'
-            )
-        except Exception, e:
-            self._print_response(False, e.message)
-            sys.exit(1)
-        if cmd_tree and False:
-            try:
-                # rebuild our data for tab completion
-                self._cmd_tree = self._build_cmd_tree(
-                    self.client.post(
-                        'omega/?',
-                        {'recurse': True,
-                        'verbose': True}
-                    )
-                )
-            except Exception, e:
-                self._print_response(False, 'Unable to get API information; tab completion unavailable.\n' + e.message)
+        self.args = util.get_args(self.args, args)
 
     def start(self):
-        self.reload(False)
-        #self.reload(True)
         # test our client first and load info about the API
         # disabled until rest support works: //TODO readline.parse_and_bind('tab: complete')
         # disabled until rest support works: //TODO readline.set_completer(self.cmd_complete)
         #self.set_edit_mode(self.args['edit_mode'])
         # load our history
         try:
-            readline.read_history_file(self._histfile)
+            readline.read_history_file(self.env('histfile'))
         except:
             pass
-        # TODO: setup auto-completion for API trees, methods, and params
         # run APIs until the cows come home
         try:
             while self.parse_cmd(raw_input(self.get_prompt())):
@@ -100,32 +84,35 @@ class Shell:
             pass
         except EOFError, e:
             pass
+        except Exception, e:
+            sys.stderr.write('! ' + error + '\n')
+            pass
         self.stop()
     
     def stop(self):
         # save our history
-        readline.write_history_file(self._histfile)
+        readline.write_history_file(self.env('histfile'))
     
     def get_prompt(self):
-        # TODO: simulate location awareness in API branch
-        if self.args['color'] and 0:
-            # FIXME: using colors messes up term spacing w/ readline history support
+        # : using colors messes up term spacing w/ readline history support
+        # http://bugs.python.org/issue12972
+        # likely fixed in 2.7+?
+        if self.args['color'] and sys.version_info >= (2, 7):
             prompt = ''.join([
                 '\033[0;31m',
-                '[__',
+                '[',
                 '\033[1;31m',
-                self.api_info['name'],
+                self.env('cwd'),
                 '\033[0;31m',
-                '__] ',
+                '] ',
                 '\033[0;37m',
                 '> ',
                 '\033[0;0m'
             ])
         else:
-            prompt = ''.join([
-                '[',
-                self.api_info['name'],
-                '] > '
+            prompt = ' '.join([
+                self.env('cwd'),
+                '> '
             ])
         return prompt
     
@@ -140,184 +127,37 @@ class Shell:
     
     def print_help(self):
         sys.stderr.write(
-'''EXTRA DATA OPTIONS (each may be specified multiple times)
-   -F, --file             File to add to request.
-   -G, --get GET_DATA     GET data to include (e.g. foo=bar&food=yummy).
-   -P, --post POST_DATA   Extra POST data to add to request.
+'''COMMANDS
+   help                   This information
+   [HTTP-verb] API ARGS   Perform an API call
+   cd                     Change the base URL (e.g. /cd site/foo.com; cd ../bar.com)
+   quit                   Adios!
+   set                    Set configuration options
+   config                 List current configuration infomation
+   sh CMD                 Run a BASH shell command
 
-RETURN DATA OPTIONS (may also be set via '*set' command)
-   -f, --full             Return full response instead of just data.
-   -r, --raw              Print response data in raw form.
-   -v, --verbose          Print verbose debugging info to stderr.
-   -c, --color            Colorize return output (unless returning raw data).
+OPTIONAL OPTIONS (each may be specified multiple times)
+   -F, --file FILE        File to add to request
+   -G, --get GET_DATA     GET data to include (e.g. foo=bar&food=yummy)
+   -P, --post POST_DATA   Extra POST data to add to request
 
-COMMANDS
-   /config                List configuration infomation.
-   /help, /h              This information.
-   /quit                  Adios!
-   /reload                Reload service API tree.
-   /set                   Set configuration options.
-   /sh ifconfig eth0      Run a shell command.
+OTHER OPTIONS (may also be set via 'set' command)
+   -f, --full             Return full response instead of just data
+   -r, --raw              Print response data in raw form
+   -v, --verbose          Print verbose debugging info to stderr
+   -c, --color            Colorize return output (unless returning raw data)
+   > FILE                 Write API response to specified file
+   >> FILE                Append API response to specified file
 
+DEPRECATED COMMANDS
+   exec API ARGS          Execute an old-style Omega API
 
-EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.g. redirection)
-   [__foo__] > /help
-   [__foo__] > /set raw_response=0 full_response=1
-   [__server__] > server.reboot hostname=localhost -f
-   [__gallery__] > gallery.image.upload gen_thumbs=1 -F logo.png -F ../.gif
-   [__cp__] > cp user=foo password=bob -P secret1=x&secret2=y -v
-   [__cp__] > cp.billing.invoices.export where.year=2010 format=csv -r > ./invoices.csv
-   [__cp__] > cp.billing.invoices.export where='year = 2011' format=csv -r >>./invoices.csv
-   [__systems__] > systems.server.?
-   [__systems__] > systems.servers.find server=%example%
+EXAMPLE COMMANDS:
+> get site/foo.com -v
+> post site -j domain=foo.com
+> cd site/foo.com
 
 ''')
-
-    def _build_cmd_tree(self, api_tree):
-        tree = {}
-        tree['omega'] = self._api2tree(api_tree)
-        tree[self.api_info['name']] = tree['omega']['branches']['service']
-        return tree
-
-    def _api2tree(self, api):
-        tree = {
-            'branches': {},
-            'methods': {},
-        }
-        if 'branches' in api:
-            for branch in api['branches']:
-                tree['branches'][branch] = self._api2tree(api['branches'][branch])
-        if 'methods' in api:
-            for method in api['methods']:
-                method = api['methods'][method]
-                if 'accessible' in method and method['accessible']:
-                    tree['methods'][method['name']] = method['params']
-        return tree
-
-    def _traverse(self, branches, tree = None):
-        if not branches:
-            raise Exception('Unable to traverse empty list of branches.')
-        if tree is None:
-            if branches[0] == 'omega':
-                tree = self._cmd_tree['omega']
-            else:
-                tree = self._cmd_tree[self.api_info['name']]
-            branches = branches[1:]
-        for name in branches:
-            if not name in tree['branches']:
-                raise Exception("The branch %s was not found in %s." % (branch, '.'.join(branches)))
-            tree = tree['branches'][name]
-        return tree
-
-    def _is_api(self, api):
-        branches = api.split('.')
-        if len(branches) == 1:
-            return False
-        else:
-            method = branches.pop()
-        tree = self._traverse(branches)
-        return method in tree['methods']
-
-    def _get_completions(self, tokens):
-        # TODO: pull edit area dynamically for better parsing
-        # if we don't have any thing in our command it could be anything in the top of the tree
-        if len(tokens) == 0:
-            return ['/help', self.api_info['name'], 'omega']
-        elif len(tokens) == 1 and not self._is_api(tokens[0]):
-            branches = tokens[0].split('.')
-            if len(branches) == 1:
-                # api or command?
-                if tokens[0].startswith(self._cmd_char):
-                    comps = self._cmds.keys()
-                    text = tokens[0]
-                    text = text[1:]
-                    return [cmd for cmd in comps if cmd.startswith(text)]
-                else:
-                    comps = [self.api_info['name'], 'omega']
-                    return [opt + '.' for opt in comps if opt.startswith(tokens[0])]
-            else:
-                # what branch are we trying to auto complete?
-                text = branches.pop()
-                if len(branches):
-                    branch = self._traverse(branches)
-                else:
-                    branch = self._cmd_tree[branches[0]]
-                path = '.'.join(branches)
-                # no text? list 'em all
-                if text == '':
-                    return branch['branches'].keys() + branch['methods'].keys()
-                else:
-                    branches = [''.join([path, '.', opt, '.']) for opt in branch['branches'].keys()if opt.startswith(text)]
-                    methods = [''.join([path, '.', opt]) for opt in branch['methods'].keys()if opt.startswith(text)]
-                    return branches + methods
-        else:
-            def get_def_val(val):
-                val_type = type(val)
-                if val_type == type(True):
-                    if val:
-                        return 1
-                    else:
-                        return 0
-                elif val_type == type(''):
-                    return val
-                else:
-                    return str(val)
-            branches = tokens[0].split('.')
-            method = branches.pop()
-            # we're past the API and into the parameters
-            # first figure out which branch we're in
-            branch = self._traverse(branches)
-            req_params = None
-            methods = branch['methods'].keys()
-            if not method in methods:
-                return None
-                raise Exception('Failed to find method ' + method + ' in ' + tokens[0] + '.', {
-                    'methods': methods,
-                    'branch_path': branches
-                })
-            params = branch['methods'][method]
-            param_names = [param['name'] for param in params] + ['='.join([param['name'], get_def_val(self.param['default_val'])]) for param in params if 'default_val' in param]
-            # one token = no params yet, so return all
-            if len(tokens) == 1:
-                text = ''
-            else:
-                # handle arguments
-                text = tokens[-1]
-                if text.startswith('-'):
-                    if text.startswith('--'):
-                        comps = ['--full', '--raw', '--verbose', '--color']
-                    else:
-                        comps = ['-f', '-r', '-v', '-c', '-F', '-G', '-P']
-                    return [opt for opt in comps if opt.startswith(text)]
-                # remove any completed params from our param names
-                for token in tokens[1:-1]:
-                    eq_index = token.find('=')
-                    if eq_index > -1:
-                        token = token[0:eq_index]
-                    # already got it, so no need to offer it to auto complete
-                    if token in param_names:
-                        del param_names[param_names.index(token)]
-                ## see what param we're typing, and if we have it already
-                eq_index = text.find('=')
-                if eq_index > -1:
-                    text = text[0:eq_index]
-                # are we already a param?
-                if text in param_names:
-                    del param_names[param_names.index(text)]
-                    text = ''
-            return [opt + '=' for opt in param_names if opt.startswith(text)]
-
-    def cmd_complete(self, text, state):
-        try:
-            # we need to compare what we've currently got to where in the command we're at (e.g. API branch/method, arguments, etc)
-            input = readline.get_line_buffer().strip()
-            parts = self._split_cmd(input)
-            nodes = self._get_completions(parts) + [None]
-            return nodes[state]
-        except Exception, e:
-            dbg.pp('Exception: ' + e.message)
-            # errors to this handler are otherwise suppressed, but someone else might call us
-            raise e
 
     def _split_cmd(self, cmd):
         # I love you python for having this module. <3 & =3
@@ -328,9 +168,10 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
         # collect up the command parts
         parts = self._split_cmd(cmd)
         # our API info
-        method = None
+        cmd = None
         api = None
-        params = {}
+        api_params = {}
+        cmd_args = []
         args = {
             'verbose': False,
             'headers': {},
@@ -403,7 +244,7 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
                 if i == len(parts):
                     raise Exception("Missing value for JSON API params.")
                 try:
-                    params = self.client.decode(parts[i])
+                    api_params = self.client.decode(parts[i])
                 except Exception, e:
                     sys.stderr.write('Invalid JSON:' + e.message)
                     return
@@ -412,41 +253,19 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
             elif part == '-r' or part == '--raw':
                 args['raw_response'] = True
             else:
-                # exec = force old-style API
-                if method == None and part.upper() in ('GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'EXEC'):
-                    method = part.upper()
-                elif api == None:
-                    api = part
+                # we always pick up the command first
+                if cmd == None:
+                    cmd = part.lower()
+                elif cmd in self._api_cmds and not api:
+                    # collect the API -- unless this is a internal command
+                    api = self.parse_path(part)
                 else:
-                    # we have a parameter; split it up on the =
-                    param_parts = part.split('=', 1)
-                    # FIXME: if something like 'args.foo' is given w/o a value it won't parse as an array
-                    if len(param_parts) == 1:
-                        if not api.startswith('/'):
-                            if param_parts[0] == '?':
-                                params['?'] = True;
-                            else:
-                                if param_parts[0].startswith('!'):
-                                    params[param_parts[0]] = False
-                                else:
-                                    params[param_parts[0]] = True
-                        elif api.startswith('/'):
-                            # if a word is just given, treat it as a true value-- for internal commands only
-                            params[param_parts[0]] = True
+                    # anything else is a parameter
+                    if cmd in self._api_cmds:
+                        # get the name/value
+                        api_params = self.parse_param(part, api_params)
                     else:
-                        # check to see if we have a psuedo array (e.g. 'foo.bar=3' => 'foo = {"bar": 3}')
-                        if param_parts[0].find('.') == -1:
-                            params[param_parts[0]] = param_parts[1]
-                        else:
-                            # break the array into the parts
-                            p_parts = param_parts[0].split('.')
-                            key = p_parts.pop()
-                            param_ptr = params
-                            for p_part in p_parts:
-                                if not p_part in params:
-                                    params[p_part] = {}
-                                param_ptr = params[p_part]
-                            param_ptr[key] = param_parts[1]
+                        cmd_args.append(part)
             i += 1
         # get any redirection ready, if we can
         # FIXME: if the API fails the file shouldn't be written to
@@ -459,32 +278,24 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
         else:
             file = None
         # run the command or API
-        if api == None or len(api) == 0:
+        if cmd == None or len(cmd) == 0:
             # no command, just do nothing
             return {
                 'response': None,
                 'result': True
             }
-        elif api[0] == self._cmd_char:
-            # run a shell command
-            try:
-                self.run_cmd(api[1:], params)
-                response = None
-                if response == False:
-                    return False
-                result = True
-            except Exception, e:
-                response = e.message
-                result = False
-        else:
+        elif cmd in self._api_cmds:
             # run an API
             if args['verbose']:
-                sys.stderr.write('+ API=%s, PARAMS=%s, OPTIONS=%s\n' % (api, self.client.encode(params), self.client.encode(args)))
+                sys.stderr.write('+ API=%s, PARAMS=%s, OPTIONS=%s\n' %
+                    (api, self.client.encode(api_params), self.client.encode(args))
+                )
             try: 
-                if method == 'EXEC':
+                if cmd == 'exec':
+                    # TODO: fully deprecate and then remove
                     response = self.client.run(
                         api,
-                        params,
+                        api_params,
                         args['raw_response'],
                         args['full_response'],
                         '&'.join(args['GET']),
@@ -493,9 +304,9 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
                     )
                 else:
                     response = self.client.request(
-                        method,
+                        cmd,
                         api,
-                        params,
+                        api_params,
                         args['raw_response'],
                         args['full_response'],
                         args['GET'],
@@ -506,7 +317,19 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
             except Exception, e:
                 result = False
                 response = e.message
+        else:
+            # run an internal command
+            try:
+                self.run_cmd(cmd, cmd_args)
+                response = None
+                if response == False:
+                    return False
+                result = True
+            except Exception, e:
+                response = e.message
+                result = False
         # print the response
+        # TODO: check response type
         self._print_response(
             result,
             response,
@@ -520,6 +343,15 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
             'result': result,
             'response': response
         }
+
+    def _get_uri(self, api):
+        api = util.pretty_path(api)
+        # absolute path?
+        if api.startswith('/'):
+            return api
+        else:
+            # otherwise, parse against the current dir for the actual path
+            return self.parse_path(api);
 
     def _print_response(self, result, response, **args):
         if result:
@@ -549,6 +381,7 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
 
     def run(self, method, api, params = {}, args = {}):
         args = util.get_args(self.args, args, True)
+        api = self._get_uri(api)
         if args['verbose']:
             sys.stderr.write('+ API=%s, PARAMS=%s, OPTIONS=%s\n' % (api, self.client.encode(params), self.client.encode(args)))
         retval = {}
@@ -602,14 +435,87 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
             'reason': response
         }
 
-    def run_cmd(self, cmd, params = {}):
+    def env(self, key, value = None):
+        key = key.lower()
+        if key in self._env:
+            if value == None:
+                return self._env[key]
+            else:
+                # remember the last dir when changing it
+                if key == 'cwd':
+                    self._env['last_cwd'] = self._env['cwd']
+                self._env[key] = value
+                return value
+
+    def parse_param(self, str, params = {}):
+        param_parts = str.split('=', 1)
+        param = param_parts[0]
+        # no value given? treat it as a boolean
+        if len(param_parts) == 1:
+            if param.startswith('!'):
+                value = False
+            else:
+                value = True
+            param = param.lstrip('!')
+        else:
+            value = param_parts.pop()
+            # we we need to json-decode the value?
+            if param.endswith(':'): # e.g. 'foo:={"bar":42}'
+                value = self.client.decode(value)
+                param = param.rstrip(':')
+        # check the name to see if we have a psuedo array
+        # (e.g. 'foo.bar=3' => 'foo = {"bar": 3}')
+        if param.find('.') == -1:
+            params[param] = value
+        else:
+            # break the array into the parts
+            p_parts = param.split('.')
+            key = p_parts.pop()
+            param_ptr = params
+            for p_part in p_parts:
+                if not p_part in params:
+                    params[p_part] = {}
+                param_ptr = params[p_part]
+            param_ptr[key] = value
+        return params
+
+    def parse_path(self, path = ''):
+        # no path? go to our last working dir
+        if not len(path):
+            return self._env['last_cwd'];
+        # make sure the path is formatted pretty
+        path = util.pretty_path(path)
+        # parse the dir path for relative portions
+        if path.startswith('/'):
+            cur_dirs = ['/']
+        else:
+            cur_dirs = self.env('cwd').split('/');
+        dirs = path.split('/')
+        for dir in dirs:
+            if dir == '' or dir == '.':
+                # blanks can creep in on absolute paths, no worries
+                continue
+            rel_depth = 0
+            if dir == '..':
+                if not len(cur_dirs):
+                    raise Exception ("URI is out of bounds: \"%s\"." % (path))
+                cur_dirs.pop()
+            else:
+                cur_dirs.append(dir)
+        # always end up with an absolute path
+        return util.pretty_path('/'.join(cur_dirs) + '/', True)
+
+    def run_cmd(self, cmd, params = []):
         if cmd == 'set':
             # break the array into the parts
-            for param in params:
-                val = params[param]
+            for str in params:
+                pair = self.parse_param(str)
+                param = pair.keys()[0]
+                val = pair[param]
                 if not (param in self.args):
                     raise Exception('Unrecognized parameter: "%s". Enter "%shelp" or "%sh" for help.' % (param, self._cmd_char, self._cmd_char))
                 if param in ['color', 'full_response', 'raw_response', 'verbose', 'headers']:
+                    # just so there is no confusion on these...
                     if val in ['1', 'true', 'True']:
                         val = True
                     elif val in ['0', 'false', 'False']:
@@ -619,9 +525,11 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
                     self.set_edit_mode(val)
                 else:
                     raise Exception("Unrecognized configuration option: " + param + ".")
-        elif cmd == 'reload':
-            self.reload()
-            sys.stdout.write('\n')
+        elif cmd == 'cd':
+            path = ''
+            if len(params):
+                path = params[0]
+            self.env('cwd', self.parse_path(path))
         elif cmd == 'config':
             dbg.pp(self.args)
             sys.stdout.write('\n')
@@ -635,10 +543,154 @@ EXAMPLES: (APIs are parsed like BASH syntax; some BASH-like features present (e.
         elif cmd == 'help' or cmd == '*':
             self.print_help()
         elif cmd == 'sh':
-            proc = subprocess.Popen(args);
+            proc = subprocess.Popen(params);
+            sys.stdout.write('\n')
         else:
-            raise Exception('Unrecognized command: "%s". Enter "%shelp" or "%sh" for help.' % (cmd, self._cmd_char, self._cmd_char))
+            raise Exception('Unrecognized command: "%s". Enter "help" for help.' % (cmd))
         return True
+
+    #def _api2tree(self, api):
+    #    tree = {
+    #        'branches': {},
+    #        'methods': {},
+    #    }
+    #    if 'branches' in api:
+    #        for branch in api['branches']:
+    #            tree['branches'][branch] = self._api2tree(api['branches'][branch])
+    #    if 'methods' in api:
+    #        for method in api['methods']:
+    #            method = api['methods'][method]
+    #            if 'accessible' in method and method['accessible']:
+    #                tree['methods'][method['name']] = method['params']
+    #    return tree
+
+    #def _traverse(self, branches, tree = None):
+    #    if not branches:
+    #        raise Exception('Unable to traverse empty list of branches.')
+    #    if tree is None:
+    #        if branches[0] == 'omega':
+    #            tree = self._cmd_tree['omega']
+    #        else:
+    #            tree = self._cmd_tree[self.api_info['name']]
+    #        branches = branches[1:]
+    #    for name in branches:
+    #        if not name in tree['branches']:
+    #            raise Exception("The branch %s was not found in %s." % (branch, '.'.join(branches)))
+    #        tree = tree['branches'][name]
+    #    return tree
+
+    #def _is_api(self, api):
+    #    branches = api.split('.')
+    #    if len(branches) == 1:
+    #        return False
+    #    else:
+    #        method = branches.pop()
+    #    tree = self._traverse(branches)
+    #    return method in tree['methods']
+
+    def _get_completions(self, tokens):
+        return
+        # disabled for now -- needs to be updated for RESTful APIs
+        #
+        # TODO: pull edit area dynamically for better parsing
+        # if we don't have any thing in our command it could be anything in the top of the tree
+        #if len(tokens) == 0:
+        #    return ['/help', self.api_info['name'], 'omega']
+        #elif len(tokens) == 1 and not self._is_api(tokens[0]):
+        #    branches = tokens[0].split('.')
+        #    if len(branches) == 1:
+        #        # api or command?
+        #        if tokens[0] in self._cmds:
+        #            comps = self._cmds.keys()
+        #            text = tokens[0]
+        #            text = text[1:]
+        #            return [cmd for cmd in comps if cmd.startswith(text)]
+        #        else:
+        #            comps = [self.api_info['name'], 'omega']
+        #            return [opt + '.' for opt in comps if opt.startswith(tokens[0])]
+        #    else:
+        #        # what branch are we trying to auto complete?
+        #        text = branches.pop()
+        #        if len(branches):
+        #            branch = self._traverse(branches)
+        #        else:
+        #            branch = self._cmd_tree[branches[0]]
+        #        path = '.'.join(branches)
+        #        # no text? list 'em all
+        #        if text == '':
+        #            return branch['branches'].keys() + branch['methods'].keys()
+        #        else:
+        #            branches = [''.join([path, '.', opt, '.']) for opt in branch['branches'].keys()if opt.startswith(text)]
+        #            methods = [''.join([path, '.', opt]) for opt in branch['methods'].keys()if opt.startswith(text)]
+        #            return branches + methods
+        #else:
+        #    def get_def_val(val):
+        #        val_type = type(val)
+        #        if val_type == type(True):
+        #            if val:
+        #                return 1
+        #            else:
+        #                return 0
+        #        elif val_type == type(''):
+        #            return val
+        #        else:
+        #            return str(val)
+        #    branches = tokens[0].split('.')
+        #    method = branches.pop()
+        #    # we're past the API and into the parameters
+        #    # first figure out which branch we're in
+        #    branch = self._traverse(branches)
+        #    req_params = None
+        #    methods = branch['methods'].keys()
+        #    if not method in methods:
+        #        return None
+        #        raise Exception('Failed to find method ' + method + ' in ' + tokens[0] + '.', {
+        #            'methods': methods,
+        #            'branch_path': branches
+        #        })
+        #    params = branch['methods'][method]
+        #    param_names = [param['name'] for param in params] + ['='.join([param['name'], get_def_val(self.param['default_val'])]) for param in params if 'default_val' in param]
+        #    # one token = no params yet, so return all
+        #    if len(tokens) == 1:
+        #        text = ''
+        #    else:
+        #        # handle arguments
+        #        text = tokens[-1]
+        #        if text.startswith('-'):
+        #            if text.startswith('--'):
+        #                comps = ['--full', '--raw', '--verbose', '--color']
+        #            else:
+        #                comps = ['-f', '-r', '-v', '-c', '-F', '-G', '-P']
+        #            return [opt for opt in comps if opt.startswith(text)]
+        #        # remove any completed params from our param names
+        #        for token in tokens[1:-1]:
+        #            eq_index = token.find('=')
+        #            if eq_index > -1:
+        #                token = token[0:eq_index]
+        #            # already got it, so no need to offer it to auto complete
+        #            if token in param_names:
+        #                del param_names[param_names.index(token)]
+        #        ## see what param we're typing, and if we have it already
+        #        eq_index = text.find('=')
+        #        if eq_index > -1:
+        #            text = text[0:eq_index]
+        #        # are we already a param?
+        #        if text in param_names:
+        #            del param_names[param_names.index(text)]
+        #            text = ''
+        #    return [opt + '=' for opt in param_names if opt.startswith(text)]
+
+    def cmd_complete(self, text, state):
+        try:
+            # we need to compare what we've currently got to where in the command we're at (e.g. API branch/method, arguments, etc)
+            input = readline.get_line_buffer().strip()
+            parts = self._split_cmd(input)
+            nodes = self._get_completions(parts) + [None]
+            return nodes[state]
+        except Exception, e:
+            dbg.pp('Exception: ' + e.message)
+            # errors to this handler are otherwise suppressed, but someone else might call us
+            raise e
 
     
 if __name__ == '__main__':
