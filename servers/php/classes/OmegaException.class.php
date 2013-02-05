@@ -11,6 +11,8 @@ class OmegaException extends Exception {
     public $data = null;
     public $comment = null;
     public $user_error = false;
+    public $subject;
+    public $body;
     private $args;
 
     public function __construct($message, $data = null, $args = null) {
@@ -106,7 +108,9 @@ class OmegaException extends Exception {
                 $email_body .= "-------------------------------\n";
             }
         }
-        if (isset($om->service_name) && isset($om->whoami)) {
+        if (isset($om->service_name)) {
+            $this->subject = $om->service_name . ' Exception: ' . $message;
+        } else if (isset($om->whoami)) {
             $this->subject = $om->service_name . ' (' . $om->whoami() . ') Exception: ' . $message;
         } else {
             $this->subject = 'Exception: ' . $message;

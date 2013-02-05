@@ -90,7 +90,21 @@ function __autoload($class_name) {
         }
     }
     // didn't find it? complain!
-    throw new Exception("Unable to locate class object '$class_name'.");
+    throw new Exception("Unable to locate class object '$class_name'." . var_export($dirs, true));
+}
+
+function _on_shutdown() {
+    $om = Omega::get();
+    if ($om && ! $om->finished) {
+        $oe = new OmegaException(
+            "Internal Server Error",
+            array(
+                'last_error' => error_get_last(),
+                'api' => $om->request->get_api()
+            ),
+            array('alert' => true)
+        );
+    }
 }
 
 // figure out who we're talking to
@@ -127,6 +141,8 @@ if ($service_name == '' || $service_name === false) {
         exit;
     }
 }
+
+register_shutdown_function('_on_shutdown');
 
 // capture any crap that PHP leaks through (e.g. warnings on functions) or that the user intentionally leaks
 ob_start();
