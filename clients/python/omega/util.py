@@ -38,3 +38,10 @@ def pretty_path(path, absolute = False):
     regex = re.compile('//+/')
     path = regex.sub('/', path)
     return path
+
+def is_number(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
