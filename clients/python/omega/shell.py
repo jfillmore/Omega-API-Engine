@@ -258,7 +258,7 @@ EXAMPLE COMMANDS:
                     cmd = part.lower()
                 elif cmd in self._api_cmds and not api:
                     # collect the API -- unless this is a internal command
-                    api = self.parse_path(part)
+                    api = util.pretty_path(self.parse_path(part))
                 else:
                     # anything else is a parameter
                     if cmd in self._api_cmds:
@@ -345,13 +345,12 @@ EXAMPLE COMMANDS:
         }
 
     def _get_uri(self, api):
-        api = util.pretty_path(api)
         # absolute path?
         if api.startswith('/'):
-            return api
+            return util.pretty_path(api)
         else:
             # otherwise, parse against the current dir for the actual path
-            return self.parse_path(api);
+            return util.pretty_path(self.parse_path(api));
 
     def _print_response(self, result, response, **args):
         if result:

@@ -64,10 +64,10 @@ class OmegaClient:
                 # check for protocol
                 if url.lower()[0:7] == 'http://':
                     url = url[8:]
-                    self.set_https(false)
+                    self.set_https(False)
                 elif url.lower()[0:8] == 'https://':
                     url = url[9:]
-                    self.set_https(true)
+                    self.set_https(True)
                 else:
                     # some other protocol perhaps?
                     if re.match('^\w+://', url):
@@ -155,6 +155,7 @@ class OmegaClient:
             url = ''.join(('http://', self._hostname))
         url = '/'.join((':'.join((url, str(self._port))), self._folder))
         url = '/'.join((url, api))
+        url = re.sub(r'/+', '/', util.pretty_path(url)).replace(':/', '://', 1)
         if get:
             url = '?'.join((url, get))
         # fire away
@@ -258,12 +259,14 @@ class OmegaClient:
         url = self._url
         headers['Content-type'] = 'application/json'
         headers['Accept'] = 'application/json'
-        url = '/'.join(('', self._folder, api))
+        url = util.pretty_path('/'.join(('', self._folder, api)), True)
         if get:
             url = '?'.join((url, get))
         if method == 'GET':
             url = '?'.join((url, '&'.join([
-                '='.join((urllib.quote(name), urllib.quote(str(params[name])))) for name in params
+                '='.join(
+                    (urllib.quote(name), urllib.quote(str(params[name])))
+                ) for name in params
             ])))
             data = None
         else:
@@ -275,7 +278,7 @@ class OmegaClient:
             else:
                 proto = 'http'
             sys.stderr.write(
-                '+ %s %s://%s:%d/%s, params: "%s", headers: "%s", cookies: "%s"\n' %
+                '+ %s %s://%s:%d%s, params: "%s", headers: "%s", cookies: "%s"\n' %
                 ((method, proto, self._hostname, self._port, url, data, str(headers), str(http.cookies)))
             )
         #http.request(method, url, data, headers)

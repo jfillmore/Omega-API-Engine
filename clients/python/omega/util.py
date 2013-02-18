@@ -35,7 +35,7 @@ def pretty_path(path, absolute = False):
     path = path.rstrip('/')
     if absolute:
         path = '/' + path
-    regex = re.compile('//+/')
+    regex = re.compile(r'/+')
     path = regex.sub('/', path)
     return path
 
