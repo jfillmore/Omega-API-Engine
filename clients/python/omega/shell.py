@@ -385,6 +385,12 @@ EXAMPLE COMMANDS:
         if args['verbose']:
             sys.stderr.write('+ API=%s, PARAMS=%s, OPTIONS=%s\n' % (api, self.client.encode(params), self.client.encode(args)))
         retval = {}
+        # check to see if we need to parse params (e.g. got them from CLI)
+        if args['parse_params']:
+            api_params = {};
+            for param in params:
+                api_params = self.parse_param(param, api_params);
+            params = api_params
         try: 
             get = None
             if method is None:

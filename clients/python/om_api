@@ -141,38 +141,16 @@ def get_opts(defaults, argv):
             elif args['api'] == None:
                 args['api'] = arg
             else:
-                # we have a parameter; split it up on the =
-                param_parts = arg.split('=', 1)
-                if len(param_parts) == 1:
-                    if param_parts[0] == '?':
-                        args['params']['?'] = '?'
-                    else:
-                        if param_parts[0].startswith('!'):
-                            args['params'][param_parts[0]] = False
-                        else:
-                            args['params'][param_parts[0]] = True
-                else:
-                    # check to see if we have a psuedo array (e.g. 'foo.bar=3' => 'foo = {"bar": 3}')
-                    if param_parts[0].find('.') == -1:
-                        args['params'][param_parts[0]] = param_parts[1]
-                    else:
-                        # break the array into the parts
-                        parts = param_parts[0].split('.')
-                        base = parts[0]
-                        key = parts.pop()
-                        params = args['params']
-                        for part in parts:
-                            if not part in params:
-                                params[part] = {}
-                            params = params[part]
-                        params[key] = param_parts[1]
+                # we'll parse the parameters later
+                args['params'].append(arg);
         i += 1
     return args
 
 opts = get_opts({
     'gui_mode': False,
     'shell_mode': False,
-    'params': {},
+    'params': [],
+    'parse_params': True, # assume we've got a bunch of strings to parse for our params
     'full_response': False,
     'json_params': None,
     'color': sys.stdout.isatty(),
@@ -227,18 +205,18 @@ shell = omega.shell.Shell(client, opts)
 # gather up our options if we have any
 if opts['json_params'] != None:
     opts['params'] = client.decode(opts['json_params'])
-
+    opts['parse_params'] = False
 # start a GUI/shell if requested
 if opts['test_mode']:
     shell.run_cmd('test')
 elif opts['gui_mode']:
     import omega.browser
+    # TODO complete this eventually
     browser = omega.browser.Browser(client, opts['api'], opts['params'])
     browser.start()
 elif opts['shell_mode']:
     # if we have an API, run it first
     if opts['api']:
-        # TODO: handle args better
         shell.run(opts['http_method'], opts['api'], opts['params'], opts)
     shell.start()
 else:
