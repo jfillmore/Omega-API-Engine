@@ -639,6 +639,22 @@ It also comtains various useful, generic functions. */
         }
     };
 
+    /* Return number of items in an array or properties of an object. */
+    om.count = function (obj) {
+        var key, i;
+        if ($.isArray(obj)) {
+            return obj.length;
+        } else {
+            i = 0;
+            for (key in obj) {
+                if (obj.hasOwnProperty(key)) {
+                    i += 1;
+                }
+            }
+        }
+        return i;
+    };
+
     om.Error = om.doc({
         desc: 'Generic error handling.',
         params: {
