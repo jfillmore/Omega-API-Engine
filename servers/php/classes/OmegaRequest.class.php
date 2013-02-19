@@ -568,7 +568,11 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
             $data['name'] = $om->service_nickname;
             $data['desc'] = trim(substr($doc_string, 3, strlen($doc_string)-5));
             // and constructor information too
-            $data['info'] = $this->_get_method_info($r_service->getMethod('__construct'), true);
+            if ($r_service->hasMethod('__construct')) {
+                $data['info'] = $this->_get_method_info($r_service->getMethod('__construct'), true);
+            } else {
+                $data['info'] = array();
+            }
             // show enabled subservices
             $data['subservices'] = $om->subservice->list_enabled();
             return $data;

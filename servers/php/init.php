@@ -120,9 +120,8 @@ if ($service_name == '' || $service_name === false) {
     } else {
         $uri = $_SERVER['REQUEST_URI'];
     }
-    $uri_parts = explode('/', substr($uri, 1), 2);
-    // the first part should be the service location
-    $location = $uri_parts[0];
+    // the first part (e.g. /api, /foo/bar/api, should be the service location)
+    $location = trim(preg_replace('/\/+/', '/', $uri), '/');
     // see if it matches any of our config files
     $shed = new OmegaFileShed(OmegaConstant::data_dir);
     $server_config = $shed->get('OmegaServer/services', 'config');
@@ -130,7 +129,7 @@ if ($service_name == '' || $service_name === false) {
         if ($enabled) {
             $config = $shed->get($name, "config");
             $service_loc = trim(@$config['omega']['location'], '/');
-            if ($service_loc == $location) {
+            if (strpos($location, $service_loc) === 0) {
                 $service_name = $name;
                 break;
             }
