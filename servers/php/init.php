@@ -100,7 +100,7 @@ function _on_shutdown() {
             "Internal Server Error",
             array(
                 'last_error' => error_get_last(),
-                'api' => $om->request->get_api()
+                'api' => $_SERVER['REQUEST_URI']
             ),
             array('alert' => true)
         );

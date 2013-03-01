@@ -333,7 +333,10 @@ class OmegaClient:
         # handle any errors based on status code
         if response.status < 200 or response.status >= 300:
             if content_type.startswith("application/json"):
-                result = self.decode(response_data)
+                try:
+                    result = self.decode(response_data)
+                except:
+                    result = {"result": False, "reason": response_data}
                 if 'reason' in result:
                     error = result['reason']
                 else:
