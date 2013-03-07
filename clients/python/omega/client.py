@@ -335,13 +335,12 @@ class OmegaClient:
             if content_type.startswith("application/json"):
                 try:
                     result = self.decode(response_data)
-                    if 'reason' in result:
-                        error = result['reason']
-                    else:
-                        error = 'An unknown error has occurred.'
                 except:
-                    result = '[Invalid JSON] ' + response_data
-                    error = result
+                    result = {"result": False, "reason": response_data}
+                if 'reason' in result:
+                    error = result['reason']
+                else:
+                    error = 'An unknown error has occurred.'
             else:
                 result = response_data
                 error = response_data
