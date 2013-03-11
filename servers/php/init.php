@@ -16,6 +16,7 @@ require_once('config.php');
 // initialize our two omega variables -- needed in '__autoload' for now
 $omega = null;
 $om = null;
+$omega_dir = getcwd(); // the CWD gets reset when _on_shutdown gets called, so we need to capture this while we can
 
 function _clean_trace($st) {
     $stack = array();
@@ -67,10 +68,12 @@ function _fail($ex, $spillage = null, $prodution = true) {
 
 // define __autoload to automatically look in the omega class dir, and service include directories if available
 function __autoload($class_name) {
+    // sadly, we *must* use globals here cause PHP kinda sucks
     global $om;
+    global $omega_dir;
     $dirs = array(
-        'classes/',
-        'classes/subservices/'
+        $omega_dir . '/classes/',
+        $omega_dir . '/classes/subservices/'
     );
     // if omega has been loaded then add the service's class dirs too
     if ($om !== null) {
@@ -90,19 +93,19 @@ function __autoload($class_name) {
         }
     }
     // didn't find it? complain!
-    throw new Exception("Unable to locate class object '$class_name'." . var_export($dirs, true));
+    throw new Exception("Unable to locate class object '$class_name'.");
 }
 
 function _on_shutdown() {
     $om = Omega::get();
     if ($om && ! $om->finished) {
-        $oe = new OmegaException(
+        $alert = new OmegaAlert(
             "Internal Server Error",
+            "API execution failed due to a fatal error.",
             array(
                 'last_error' => error_get_last(),
                 'api' => $_SERVER['REQUEST_URI']
-            ),
-            array('alert' => true)
+            )
         );
     }
 }

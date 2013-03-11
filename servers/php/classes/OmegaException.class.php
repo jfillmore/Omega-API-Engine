@@ -15,7 +15,7 @@ class OmegaException extends Exception {
     public $body;
     private $args;
 
-    public function __construct($message, $data = null, $args = null) {
+    public function __construct($message, $data = null, $args = array()) {
         global $om;
         parent::__construct($message);
         $this->data = $data;
@@ -39,7 +39,7 @@ class OmegaException extends Exception {
             try {
                 $admin_email = $om->config->get('omega/admin/email');
             } catch (Exception $e) {
-                // QQ
+                // QQ, older styles for backwards compat that one day must die
                 try {
                     $admin_email = $om->config->get('omega/admin_email');
                 } catch (Exception $e) {
