@@ -19,7 +19,7 @@ class OmegaAlert {
         }
         $email_body = $subject . "\n\n";
         if (count($data)) {
-            $email_body .= "\n\Data:\n===============================\n";
+            $email_body .= "\nData:\n===============================\n";
             foreach ($data as $i => $obj) {
                 $email_body .= "[$i]\n";
                 $email_body .= var_export($obj, true) . "\n";
