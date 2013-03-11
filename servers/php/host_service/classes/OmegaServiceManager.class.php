@@ -128,7 +128,7 @@ class OmegaServiceManager extends OmegaRESTful implements OmegaApi {
             scope=string
             enabled=boolean
             */
-    public function create($service, $nickname, $description, $key, $class_dirs, $location, $async = true, $scope = 'global', $enabled = true) {
+    public function create($service, $nickname, $description, $key, $class_dirs, $location, $admin_email, $async = true, $scope = 'global', $enabled = true) {
         global $om;
         // validate our input
         if (! preg_match(OmegaTest::word_re, $service)) {
@@ -156,6 +156,9 @@ class OmegaServiceManager extends OmegaRESTful implements OmegaApi {
         if (! preg_match(OmegaTest::file_path_re, $location)) {
             throw new Exception("Invalid service location: '$location'.");
         }
+        if (! preg_match(OmegaTest::email_address_re, $admin_email)) {
+            throw new Exception("Invalid admin email address: '$admin_email'.");
+        }
         // make sure the service name is available
         if (in_array($service, array_keys($this->config['services']))) {
             throw new Exception("The service name '$service' is already in use.");
@@ -175,6 +178,9 @@ class OmegaServiceManager extends OmegaRESTful implements OmegaApi {
             try {
                 $config = array('omega' => array(
                     'key' => $key,
+                    'admin' => array(
+                        'email' => $admin_email
+                    ),
                     'nickname' => $nickname,
                     'description' => $description,
                     'async' => (bool)$async,
