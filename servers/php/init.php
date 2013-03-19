@@ -66,8 +66,45 @@ function _fail($ex, $spillage = null, $prodution = true) {
     exit(1);
 }
 
+// check each dir for either a class or interface file
+function scan_dir($class_name, $dir, $depth = 5) {
+    if (is_dir($dir)) {
+        if (file_exists($dir . "/$class_name.class.php")) {
+            require_once($dir . "/$class_name.class.php");
+            return true;
+        }
+        if (file_exists($dir . "/$class_name.interface.php")) {
+            require_once($dir . "/$class_name.interface.php");
+            return true;
+        }
+        $found = false;
+        $dir_h = opendir($dir);
+        if (! $dir_h) {
+            return $found;
+        }
+        if ($depth > 0) {
+            while (false !== ($item = readdir($dir_h))) {
+                if (is_dir("$dir/$item")) {
+                    if ($item == '.' || $item == '..') {
+                        continue;
+                    }
+                    $found = scan_dir(
+                        $class_name,
+                        $dir . "/" . $item,
+                        $depth - 1
+                    );
+                    if ($found) {
+                        break;
+                    }
+                }
+            }
+        }
+        return $found;
+    }
+}
+
 // define __autoload to automatically look in the omega class dir, and service include directories if available
-function __autoload($class_name) {
+spl_autoload_register(function ($class_name) {
     // sadly, we *must* use globals here cause PHP kinda sucks
     global $om;
     global $omega_dir;
@@ -81,22 +118,19 @@ function __autoload($class_name) {
             array_push($dirs, $class_dir);
         }
     }
-    // check each dir for either a class or interface file
+    $found = false;
     foreach ($dirs as $dir) {
-        if (file_exists($dir . "/$class_name.class.php")) {
-            require_once($dir . "/$class_name.class.php");
-            return;
-        }
-        if (file_exists($dir . "/$class_name.interface.php")) {
-            require_once($dir . "/$class_name.interface.php");
-            return;
+        $found = scan_dir($class_name, $dir);
+        if ($found) {
+            break;
         }
     }
-    // didn't find it? complain!
-    throw new Exception("Unable to locate class object '$class_name'.");
-}
+    if (! $found) {
+        throw new Exception("Unable to locate class object '$class_name'.");
+    }
+});
 
-function _on_shutdown() {
+register_shutdown_function(function () {
     $om = Omega::get();
     if ($om && ! $om->finished) {
         $alert = new OmegaAlert(
@@ -108,7 +142,7 @@ function _on_shutdown() {
             )
         );
     }
-}
+});
 
 // figure out who we're talking to
 $service_name = getenv('OMEGA_SERVICE');
@@ -144,7 +178,6 @@ if ($service_name == '' || $service_name === false) {
     }
 }
 
-register_shutdown_function('_on_shutdown');
 
 // capture any crap that PHP leaks through (e.g. warnings on functions) or that the user intentionally leaks
 ob_start();
