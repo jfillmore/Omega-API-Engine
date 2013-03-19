@@ -54,6 +54,7 @@ class Shell:
         'color': sys.stdout.isatty(),
         'full_response': False,
         'raw_response': False,
+        'raw_noformat': False,
         'headers': {},
         'verbose': False
     }
@@ -178,6 +179,7 @@ EXAMPLE COMMANDS:
             'color': self.args['color'],
             'full_response': self.args['full_response'],
             'raw_response': self.args['raw_response'],
+            'raw_noformat': self.args['raw_noformat'],
             'FILES': [],
             'GET': [],
             'POST': []
@@ -250,7 +252,10 @@ EXAMPLE COMMANDS:
                     return
             elif part == '-f' or part == '--full':
                 args['full_response'] = True
-            elif part == '-r' or part == '--raw':
+            elif part == '-r' or part == '--raw' or part == '-rr':
+                # -rr = -r -r, twice means no formatting
+                if part == '-rr' or args['raw_response']:
+                    args['raw_noformat'] = True
                 args['raw_response'] = True
             else:
                 # we always pick up the command first
@@ -311,7 +316,8 @@ EXAMPLE COMMANDS:
                         args['full_response'],
                         args['GET'],
                         args['headers'],
-                        args['verbose']
+                        args['verbose'],
+                        args['raw_noformat']
                     )
                 result = True
             except Exception, e:
@@ -356,20 +362,20 @@ EXAMPLE COMMANDS:
         if result:
             if 'raw_response' in args and args['raw_response']:
                 if 'stdout_redir' in args and args['stdout_redir'] != None:
-                    args['file'].write(response)
+                    args['file'].write(response + "\n")
                 else:
-                    sys.stdout.write(response)
+                    sys.stdout.write(response + "\n")
             else:
                 if response != None:
                     if 'stdout_redir' in args and args['stdout_redir'] != None:
-                        args['file'].write(dbg.obj2str(response, color = False))
+                        args['file'].write(dbg.obj2str(response, color = False)) + "\n"
                         args['file'].close()
                     else:
                         if 'color' in args:
                             dbg.pretty_print(response, color = args['color'])
                         else:
                             dbg.pretty_print(response, color = False)
-                        #sys.stdout.write('\n')
+                        sys.stdout.write('\n')
         else:
             sys.stderr.write('! ' + response + '\n')
             if 'data' in args:
@@ -421,7 +427,8 @@ EXAMPLE COMMANDS:
                     args['full_response'],
                     get,
                     args['headers'],
-                    args['verbose']
+                    args['verbose'],
+                    args['raw_noformat']
                 )
             result = True
             error = None

@@ -126,9 +126,12 @@ def get_opts(defaults, argv):
             args['json_params'] = argv[i]
         elif arg == '--test': # secret test mode
             args['test_mode'] = True
-        elif arg == '-r' or arg == '--raw':
+        elif arg == '-r' or arg == '--raw' or arg == '-rr':
             if args['gui_mode']:
                 raise Exception('Unable to toggle raw responses when using GUI mode.')
+            # -rr = -r -r, twice means no formatting
+            if arg == '-rr' or args['raw_response']:
+                args['raw_noformat'] = True
             args['raw_response'] = True
         elif arg == '-u' or arg == '--url':
             i += 1
@@ -156,6 +159,7 @@ opts = get_opts({
     'json_params': None,
     'color': sys.stdout.isatty(),
     'raw_response': False,
+    'raw_noformat': False,
     'api': None,
     'http_method': None,
     'use_https': True,

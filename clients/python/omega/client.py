@@ -237,7 +237,7 @@ class OmegaClient:
     def delete(self, api, params, opts = {}):
         return self.request('DELETE', api, params, opts);
 
-    def request(self, method, api, params = (), raw_response = False, full_response = False, get = None, headers = {}, verbose = False):
+    def request(self, method, api, params = (), raw_response = False, full_response = False, get = None, headers = {}, verbose = False, no_format = False):
         '''New REST-friendly API invoker'''
         # check and prep the data
         if method is None or method == '':
@@ -379,11 +379,15 @@ class OmegaClient:
             # all is well, return the data portion of the response (unless everything is requested)
             if full_response:
                 if raw_response:
-                    result = json.dumps(result, sort_keys = True, indent = 4)
+                    if not no_format:
+                        result = json.dumps(result, sort_keys = True, indent = 4)
             else:
                 if raw_response:
                     if 'data' in result:
-                        result = json.dumps(result['data'], sort_keys = True, indent = 4)
+                        if not no_format:
+                            result = json.dumps(result['data'], sort_keys = True, indent = 4)
+                        else:
+                            result = self.encode(result['data'])
                     else:
                         result = '{}'
                 else:
