@@ -64,6 +64,15 @@ class Omega extends OmegaLib {
             $production = (bool)$this->config->get('omega/production');
         } catch (Exception $e) {};
         $this->production = $production;
+        // add any user class dirs to the include path too
+        set_include_path(
+            get_include_path()
+            . PATH_SEPARATOR
+            . join(
+                PATH_SEPARATOR,
+                $this->config->get('omega/class_dirs')
+            )
+        );
         // initialize our storage engine for sessions
         try {
             $engine = $this->config->get('omega/session/engine');

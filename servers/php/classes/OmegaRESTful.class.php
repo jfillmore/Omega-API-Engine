@@ -68,10 +68,10 @@ abstract class OmegaRESTful {
         }
         $pre_proc = array();
         foreach ($routes as $route => $target) {
-            $start = substr($om->_pretty_path($route, true), 0, 2);
             if ($route == '@pre_route') {
                 $pre_proc[$route] = $target;
             } else {
+                $route = $om->_pretty_path($route, true);
                 // we start with a literal, but we may contain a var (e.g. '/foo/:bar')
                 $var_depth = null;
                 $route_depth = 0;

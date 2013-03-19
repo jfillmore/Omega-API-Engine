@@ -15,6 +15,7 @@ abstract class OmegaTest {
     const email_address_re = '/^[a-zA-Z0-9+._-]+@[a-zA-Z0-9+_\-]+\.[a-zA-Z0-9+\._\-]+$/';
     const file_name_re = '/^[\'()a-zA-Z0-9@&%^*<>, _\.\-~]+$/';
     const file_path_re = '/^[\'()\/a-zA-Z0-9@&%^*<>, _\.\-~]+$/';
+    const mac_addr_re = '/^([0-9A-F]{2}[:-]){5}([0-9A-F]{2})$/';
     const word_re = '/^[a-zA-Z0-9_-]+$/';
     const float2_re = '/^[0-9]*(\.[0-9]{1,2})?$/';
     const float3_re = '/^[0-9]*(\.[0-9]{1,3})?$/';

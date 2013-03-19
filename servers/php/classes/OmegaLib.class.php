@@ -7,22 +7,26 @@
    http://www.opensource.org/licenses/mit-license.php */
 
 
+/* Handy methods. Underscore versions exist for backwards compatibility. */
 class OmegaLib extends OmegaRESTful implements OmegaApi {
     /** Camel-cases a word by splitting the word up into clusters of letters, capitalizing the first letter of each cluster.
         expects: word=string
         returns: string */
-    public function _camel_case($word) {
+    static public function camel_case($word) {
         $return = '';
         foreach (preg_split('/[^a-zA-Z]+/', $word) as $hump) {
             $return .= ucfirst($hump);
         }
         return $return;
     }
+    public function _camel_case($word) {
+        return OmegaLib::camel_case($word);
+    }
 
     /** Flattens a camel-cased word (e.g. fooBar, FooBar) to a lower-case representation (e.g. foobar), optionally inserting an underscore before capital letters (e.g. foo_bar).
         expects: word=string, add_cap_cap
         returns: string */
-    public function _flatten($str, $add_cap_gap = false) {
+    static public function flatten($str, $add_cap_gap = false) {
         // force the first character to be lower
         // QQ... lcfirst is only in php 5.3.0
         $str = strtolower(substr($str, 0, 1)) . substr($str, 1);
@@ -34,11 +38,14 @@ class OmegaLib extends OmegaRESTful implements OmegaApi {
         // and strip out anything else but alphanums and underscores
         return strtolower(preg_replace('/[^a-zA-Z0-9_]+/', '', preg_replace('/( |_)+/', '_', $str)));
     }
+    public function _flatten($str, $add_cap_gap = false) {
+        return OmegaLib::flatten($str, $add_cap_gap);
+    }
 
     /** Executes a shell command, possibly writing $stdin to the command, returning the contents of stdout and stderr. Throws an exception if the return value is non-zero. THE COMMAND BEING EXECUTED WILL NOT BE ESCAPED. USE WITH CAUTION.
         expects: cmd=string, stdin=string, env=array
         returns: object */
-    public function _exec($cmd, $stdin = null, $env = null) {
+    static public function exec($cmd, $stdin = null, $env = null) {
         $pipe_info = array(
             0 => array('pipe', 'r'),
             1 => array('pipe', 'w'),
@@ -67,11 +74,14 @@ class OmegaLib extends OmegaRESTful implements OmegaApi {
         }
         return array('stdout' => $stdout, 'stderr' => $stderr);
     }
+    public function _exec($cmd, $stdin = null, $env = null) {
+        return OmegaLib::exec($cmd, $stdin, $env);
+    }
 
     /** Executes a shell command as another user, passing the command to su via STDIN to avoid escaping. Defaults to using /bin/bash and does not use a login shell. Returning the contents of stdout and stderr. Throws an exception if the return value is non-zero.
         expects: user=string, cmd=string, env=array, shell=string, login_shel=boolean
         returns: object */
-    public function _su($user, $cmd, $env = null, $shell = '/bin/bash', $login_shell = false) {
+    static public function su($user, $cmd, $env = null, $shell = '/bin/bash', $login_shell = false) {
         if (! preg_match('/^[a-zA-Z\.\-]+$/', $user)) {
             throw new Exception("Invalid user name: '$user'.");
         }
@@ -106,9 +116,12 @@ class OmegaLib extends OmegaRESTful implements OmegaApi {
         }
         return array('stdout' => $stdout, 'stderr' => $stderr);
     }
+    public function _su($user, $cmd, $env = null, $shell = '/bin/bash', $login_shell = false) {
+        return OmegaLib::su($user, $cmd, $env, $shell, $login_shell);
+    }
 
     /** Return the default arg if set, otherwise use corresponding value in args. */
-    public function _get_args($defaults, $args, $merge = false) {
+    static public function get_args($defaults, $args, $merge = false) {
         if ($args === null) {
             $my_args = $defaults;
         } else if (is_array($defaults) && is_array($args)) {
@@ -130,11 +143,14 @@ class OmegaLib extends OmegaRESTful implements OmegaApi {
         }
         return $my_args;
     }
+    public function _get_args($defaults, $args, $merge = false) {
+        return OmegaLib::get_args($defaults, $args, $merge);
+    }
 
     /** Abort execution, dumping structure of supplied object. Arguments are passed to thrown OmegaException for notifications/etc.
         expects: obj=object, args=object */
-    public function _die($obj, $args = null) {
-        $args = $this->_get_args(array(
+    static public function _die($obj, $args = null) {
+        $args = OmegaLib::get_args(array(
             'alert' => false
         ), $args);
         $err = var_export($obj, true);
@@ -144,13 +160,16 @@ class OmegaLib extends OmegaRESTful implements OmegaApi {
     /** Returns a cleaned up version of a path (e.g. condense multiple slashes into one, trims trailing slashes). May optionally also force to be absolute.
         expects: path=string, absolute=boolean
         returns: string */
-    public function _pretty_path($path, $absolute = false) {
+    static public function pretty_path($path, $absolute = false) {
         $path = rtrim($path, '/');
         if ($absolute) {
             $path = '/' . $path;
         }
         $path = preg_replace('/\/+/', '/', $path);
         return $path;
+    }
+    public function _pretty_path($path, $absolute = false) {
+        return OmegaLib::pretty_path($path, $absolute);
     }
 }
 
