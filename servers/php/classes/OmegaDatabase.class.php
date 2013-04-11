@@ -15,11 +15,11 @@ class OmegaDatabase {
     public $dbname;
     public $type; // 'psql', 'mysql', 'mysqli'
     public $error_log = null; // log file to track SQL errors
-    private $conn;
-    private $tr_depth; // transaction depth marker
-    private $tr_rolling_back; // whether or not the transaction has started rolling back
+    protected $conn;
+    protected $tr_depth; // transaction depth marker
+    protected $tr_rolling_back; // whether or not the transaction has started rolling back
 
-    private $split_joins = false; // whether or not to auto-split sql JOIN table data into their own array
+    protected $split_joins = false; // whether or not to auto-split sql JOIN table data into their own array
 
     public function __construct($hostname, $username, $password, $dbname, $type, $error_log = null) {
         $this->hostname = $hostname;
@@ -71,7 +71,7 @@ class OmegaDatabase {
         return $this->split_joins;
     }
 
-    private function connect() {
+    protected function connect() {
         if ($this->conn !== false) { // if we already have a connection then don't bother trying again...
             if ($this->type == 'psql') {
                 if ($this->password == "") {
@@ -83,7 +83,7 @@ class OmegaDatabase {
                     throw new Exception("Couldn't connect to database at '" . $this->hostname . "': " . pg_result_error() . ".");
                 }
             } else if ($this->type == 'mysqli') {
-                $this->conn = new mysqli($this->hostname, $this->username, $this->password); 
+                $this->conn = @new mysqli($this->hostname, $this->username, $this->password); 
                 if ($this->conn == false){
                     throw new Exception("Couldn't connect to database at '" . $this->hostname . "': " . mysql_error() . ".");
                 }
@@ -105,7 +105,7 @@ class OmegaDatabase {
         return true;
     }
     
-    private function disconnect() {
+    protected function disconnect() {
         if ($this->type == 'psql') {
             IF (! pg_close($this->conn)) {
                 throw new Exception("Couldn't disconnect from database.");
@@ -125,9 +125,9 @@ class OmegaDatabase {
     }
 
     /** Returns a database engine specific sanitized version of the string
-        expects: string=string
+        expects: string=string, strip_slashes=boolean, quote=boolean
         returns: string */
-    public function escape($string, $strip_slashes = false) {
+    public function escape($string, $strip_slashes = false, $quote = false) {
         $string = (string)$string;
         if ($strip_slashes) {
             stripslashes($string);
@@ -140,6 +140,9 @@ class OmegaDatabase {
             $string = mysql_real_escape_string($string); 
         } else {
             throw new Exception("Invalid database type: '$this->type'.");
+        }
+        if ($quote) {
+            $string = "'$string'";
         }
         return $string;
     }
@@ -274,7 +277,7 @@ class OmegaDatabase {
     /** Execute an SQL query and return the result through a specific parser. Available parsers are 'array' and 'raw'. If 'key_col' is set, the 'array' parser will use the value of $key_col for each row's array index, returning an associative array. Queries that fail will be automatically retried a set number of times, delaying a one second between attempts.
         expects: query=string, parser=string, key_col=string, auto_split=boolean
         returns: object */
-    private function _query($query, $parser = 'array', $key_col = null, $auto_split = false) {
+    protected function _query($query, $parser = 'array', $key_col = null, $auto_split = false) {
         if ($this->type == 'psql') {
             $db_result = @pg_query($this->conn, $query);
             if ($db_result === false) {
@@ -390,7 +393,7 @@ class OmegaDatabase {
         return $result;
     }
 
-    private function typecast($value, $type) {
+    protected function typecast($value, $type) {
         $types = array(
             0 => "DECIMAL",
             1 => "TINYINT",

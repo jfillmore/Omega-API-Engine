@@ -375,7 +375,7 @@ EXAMPLE COMMANDS:
                             dbg.pretty_print(response, color = args['color'])
                         else:
                             dbg.pretty_print(response, color = False)
-                        sys.stdout.write('\n')
+                        #sys.stdout.write('\n')
         else:
             sys.stderr.write('! ' + response + '\n')
             if 'data' in args:

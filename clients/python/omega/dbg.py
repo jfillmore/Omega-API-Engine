@@ -195,6 +195,8 @@ def pretty_print(obj, depth = 0, color = True, indent_char = ' ', indent_size = 
         str = str.encode(sys.stdout.encoding, 'replace')
     except:
         pass;
+    if not str.endswith("\n"):
+        str = str + "\n";
     stream.write(str)
 
 pp = pretty_print

@@ -9,8 +9,16 @@
 
 /* Because we can't always use OmegaException to send alerts... */
 class OmegaAlert {
-    public function __construct($subject, $message, $data = array(), $args = array()) {
+    public function __construct($subject = '', $message = '', $data = array(), $args = array()) {
         $om = Omega::get();
+        // no args? just return. hack for init.php
+        // see "http://dev.kohanaframework.org/issues/4191" for why
+        if (! $subject && ! $message) {
+            return;
+        }
+        if (! $subject) {
+            $subject = "Internal Server Error";
+        }
         $args = $om->_get_args(array(
             'email' => array() // list of people to e-mail
         ), $args);

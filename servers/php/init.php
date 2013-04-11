@@ -130,9 +130,12 @@ spl_autoload_register(function ($class_name) {
     }
 });
 
+// load the alert class before the shutdown handler so it can load proper in case of PHP parse errors
+// see "http://dev.kohanaframework.org/issues/4191" for why
+new OmegaAlert();
 register_shutdown_function(function () {
     $om = Omega::get();
-    if ($om && ! $om->finished) {
+    if ($om && ! $om->finished && $om->in_production()) {
         $alert = new OmegaAlert(
             "Internal Server Error",
             "API execution failed due to a fatal error.",

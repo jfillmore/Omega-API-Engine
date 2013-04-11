@@ -101,6 +101,12 @@ class Omega extends OmegaLib {
         return self::$instance;
     }
 
+    /** Returns link to the user API Obj. */
+    public static function api() {
+        $om = Omega::get();
+        return $om->api;
+    }
+
     public function _get_routes() {
         return  array(
             'api' => 'api',

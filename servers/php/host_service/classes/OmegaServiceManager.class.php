@@ -127,8 +127,9 @@ class OmegaServiceManager extends OmegaRESTful implements OmegaApi {
             async=boolean
             scope=string
             enabled=boolean
+            production=boolean
             */
-    public function create($service, $nickname, $description, $key, $class_dirs, $location, $admin_email, $async = true, $scope = 'global', $enabled = true) {
+    public function create($service, $nickname, $description, $key, $class_dirs, $location, $admin_email, $async = true, $scope = 'global', $enabled = true, $production = true) {
         global $om;
         // validate our input
         if (! preg_match(OmegaTest::word_re, $service)) {
@@ -183,6 +184,7 @@ class OmegaServiceManager extends OmegaRESTful implements OmegaApi {
                     ),
                     'nickname' => $nickname,
                     'description' => $description,
+                    'production' => (bool)$production,
                     'async' => (bool)$async,
                     'scope' => $scope,
                     'location' => $location,

@@ -70,7 +70,15 @@ class OmegaLib extends OmegaRESTful implements OmegaApi {
         $stderr = stream_get_contents($pipes[2]);
         $ret_val = proc_close($proc);
         if ($ret_val != 0) {
-            throw new Exception("Command execution failed with return value $ret_val. Read '$stdout' from stdout, '$stderr' from stderr.");
+            $stdout2 = substr(trim($stdout), 0, 128);
+            $stderr2 = substr(trim($stderr), 0, 128);
+            if (trim($stdout) !== $stdout2) {
+                $stdout2 .= '...';
+            }
+            if (trim($stderr) !== $stderr2) {
+                $stderr2 .= '...';
+            }
+            throw new Exception("Command execution failed with return value $ret_val. Read '$stdout2' from stdout, '$stderr2' from stderr.");
         }
         return array('stdout' => $stdout, 'stderr' => $stderr);
     }

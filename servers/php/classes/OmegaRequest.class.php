@@ -692,7 +692,33 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
         }
         if (count($missing_params) > 0) {
             $om->response->header_num(400);
-            throw new Exception("API '" . $this->get_api() . "' is missing the following parameters: " . implode(', ', $missing_params) . '.');
+            $errors = array();
+            $doc = $this->_parse_doc_string($r_method);
+            // return any docs we have on missing params too
+            foreach ($missing_params as $missing) {
+                $error = '* ' . $missing;
+                if ($doc['expects'][$missing]) {
+                    $p_info = $doc['expects'][$missing];
+                    if (is_array($p_info)) {
+                        if ($p_info['type']) {
+                            $error .= " (" . $p_info['type'] . ")";
+                        }
+                        if ($p_info['desc']) {
+                            $error .= ": " . $p_info['desc'];
+                        }
+                    } else {
+                        if ($p_info) {
+                            $error .= " ($p_info)";
+                        }
+                    }
+                }
+                $errors[] = $error;
+            }
+            throw new Exception(
+                '"' . $_SERVER['REQUEST_METHOD'] . ' '
+                . $this->get_api() . "\" is missing the following parameters.\n"
+                . join("\n", $errors)
+            );
         }
         return $params;
     }

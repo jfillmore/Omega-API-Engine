@@ -15,16 +15,24 @@ abstract class OmegaTest {
     const email_address_re = '/^[a-zA-Z0-9+._-]+@[a-zA-Z0-9+_\-]+\.[a-zA-Z0-9+\._\-]+$/';
     const file_name_re = '/^[\'()a-zA-Z0-9@&%^*<>, _\.\-~]+$/';
     const file_path_re = '/^[\'()\/a-zA-Z0-9@&%^*<>, _\.\-~]+$/';
-    const mac_addr_re = '/^([0-9A-F]{2}[:-]){5}([0-9A-F]{2})$/';
+    const mac_addr_re = '/^([0-9A-F]{2}[:-]){5}([0-9A-F]{2})$/i';
     const word_re = '/^[a-zA-Z0-9_-]+$/';
     const float2_re = '/^[0-9]*(\.[0-9]{1,2})?$/';
     const float3_re = '/^[0-9]*(\.[0-9]{1,3})?$/';
+    const datetime_re = '/^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$/';
 
     /** Checks whether a number is an integer greater than or equal to zero.
         expects: num=number
         returns: boolean */
     static public function int_non_neg($num) {
         return preg_match('/^[0-9]+$/', $num);
+    }
+
+    /** Returns whether a given string is in proper date-time format (YYYY-MM-DD HH:MM:SS).
+    @param string $date Date to validate
+    @return boolean Whether the date is formatted correctly. */
+    static public function datetime($date) {
+        return preg_match($this->datetime_re, $date);
     }
 
     /** Returns information about a country by name, 2 digit or 3 digit ISO 3166-1 alpha code.
