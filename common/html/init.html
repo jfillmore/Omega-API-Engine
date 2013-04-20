@@ -1,39 +1,39 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
-	<head>
-		<title>Authenticate</title>
-		<link rel="stylesheet" href="/omega/css/BoxFactory.class.css" type="text/css" />
-		<link rel="stylesheet" href="/omega/css/BoxFactory-style.css" type="text/css" />
-		<script type="text/javascript" language="JavaScript" src="/omega/js/jquery.js"></script>
-		<script type="text/javascript" language="JavaScript" src="/omega/js/core.js"></script>
-		<script type="text/javascript" language="JavaScript" src="/omega/js/json.js"></script>
-		<script type="text/javascript" language="JavaScript" src="/omega/js/OmegaClient.class.js"></script>
-		<script type="text/javascript" language="JavaScript" src="/omega/js/DataShed.class.js"></script>
-		<script type="text/javascript" language="JavaScript" src="/omega/js/BoxFactory.class.js"></script>
-	</head>
-	<body>
-		<style type="text/css">
-		/*<![CDATA[*/
-		.login_box {
-			width: 150px;
-		}
-		/*]]>*/
-		</style>
-		<script language="JavaScript">
-		//<![CDATA[
-			$(document).ready(function() {
-				var client;
+    <head>
+        <title>Authenticate</title>
+        <link rel="stylesheet" href="/omega/css/BoxFactory.class.css" type="text/css" />
+        <link rel="stylesheet" href="/omega/css/BoxFactory-style.css" type="text/css" />
+        <script type="text/javascript" language="JavaScript" src="/omega/js/jquery.js"></script>
+        <script type="text/javascript" language="JavaScript" src="/omega/js/core.js"></script>
+        <script type="text/javascript" language="JavaScript" src="/omega/js/json.js"></script>
+        <script type="text/javascript" language="JavaScript" src="/omega/js/OmegaClient.class.js"></script>
+        <script type="text/javascript" language="JavaScript" src="/omega/js/DataShed.class.js"></script>
+        <script type="text/javascript" language="JavaScript" src="/omega/js/BoxFactory.class.js"></script>
+    </head>
+    <body>
+        <style type="text/css">
+        /*<![CDATA[*/
+        .login_box {
+            width: 150px;
+        }
+        /*]]>*/
+        </style>
+        <script language="JavaScript">
+        //<![CDATA[
+            $(document).ready(function() {
+                var client;
 
-				client = om.OmegaClient();
-				// initialize the service, if needed
-				client.init_service({
-					on_init: function (service_info) {
-						// redirect to the service root
-						window.location = service_info.location;
-					}
-				});
-			});
-		//]]>
-		</script>
-	</body>
+                client = om.OmegaClient();
+                // initialize the service, if needed
+                client.init_service({
+                    on_init: function (service_info) {
+                        // redirect to the service root
+                        window.location = service_info.location;
+                    }
+                });
+            });
+        //]]>
+        </script>
+    </body>
 </html>

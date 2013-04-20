@@ -7,6 +7,7 @@
 # Licensed under the MIT license. See LICENSE file.
 # http://www.opensource.org/licenses/mit-license.php
 
+import re
 
 """Generic utility functions automatically loaded within omega core."""
 
@@ -30,3 +31,17 @@ def pyv(version):
 		i += 1
 	return True
 
+def pretty_path(path, absolute = False):
+    path = path.rstrip('/')
+    if absolute:
+        path = '/' + path
+    regex = re.compile(r'/+')
+    path = regex.sub('/', path)
+    return path
+
+def is_number(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False

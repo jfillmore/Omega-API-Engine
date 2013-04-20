@@ -8,13 +8,13 @@
 # http://www.opensource.org/licenses/mit-license.php
 
 
-"""Error handling with advanced options (data objs, alerting, etc)."""
+"""Exception handling with advanced options (data objs, alerting, etc)."""
 
 # local
 import dbg
 from util import get_args
 
-class Error(Exception):
+class Exception(Exception):
 	def __init__(self, message, data = None, **args):
 		my_args = {
 			'email': None, # who to e-mail an error report to
@@ -31,7 +31,7 @@ class Error(Exception):
 		import time
 		# generate the body
 		body = [
-			'Error Report',
+			'Exception Report',
 			time.strftime("%Y-%m-%d %H:%M:%S"),
 			'------------------------------',
 			self.message,

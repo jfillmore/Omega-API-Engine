@@ -21,10 +21,10 @@ $BASE_DIR/gen_gui omega \
 	--js $js_dir/core.js \
 	--js $js_dir/sprintf.js \
 	--js $js_dir/json.js \
-	--js $js_dir/Test.class.js \
-	--js $js_dir/BoxFactory.class.js \
-	--js $js_dir/OmegaClient.class.js \
-	--js $js_dir/ColorFactory.class.js \
-	--js $js_dir/Visualizer.class.js \
-	--js $js_dir/DataShed.class.js \
-	--css $css_dir/BoxFactory.class.css 
+	--js $js_dir/Test.js \
+	--js $js_dir/BoxFactory.js \
+	--js $js_dir/OmegaClient.js \
+	--js $js_dir/ColorFactory.js \
+	--js $js_dir/Visualizer.js \
+	--js $js_dir/DataShed.js \
+	--css $css_dir/BoxFactory.css 
