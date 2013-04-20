@@ -67,28 +67,35 @@ class Shell:
         self.client = client
         self.args = util.get_args(self.args, args)
 
-    def start(self):
+    def start(self, read_history = True):
         # test our client first and load info about the API
         # disabled until rest support works: //TODO readline.parse_and_bind('tab: complete')
         # disabled until rest support works: //TODO readline.set_completer(self.cmd_complete)
         #self.set_edit_mode(self.args['edit_mode'])
         # load our history
-        try:
-            readline.read_history_file(self.env('histfile'))
-        except:
-            pass
+        if read_history:
+            try:
+                readline.read_history_file(self.env('histfile'))
+            except:
+                pass
         # run APIs until the cows come home
         try:
+            repeat = False
             while self.parse_cmd(raw_input(self.get_prompt())):
                 pass
         except KeyboardInterrupt, e:
             pass
         except EOFError, e:
             pass
+        except ValueError, e:
+            sys.stderr.write('! Input error: ' + str(e) + '\n')
+            repeat = True
         except Exception, e:
-            sys.stderr.write('! ' + error + '\n')
-            pass
-        self.stop()
+            sys.stderr.write('! ' + str(e) + '\n')
+        if repeat:
+            self.start(False)
+        else:
+            self.stop()
     
     def stop(self):
         # save our history

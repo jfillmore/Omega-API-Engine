@@ -18,7 +18,6 @@ class OmegaDatabase {
     protected $conn;
     protected $tr_depth; // transaction depth marker
     protected $tr_rolling_back; // whether or not the transaction has started rolling back
-
     protected $split_joins = false; // whether or not to auto-split sql JOIN table data into their own array
 
     public function __construct($hostname, $username, $password, $dbname, $type, $error_log = null) {
@@ -242,17 +241,29 @@ class OmegaDatabase {
         }
         $error = array_shift($errors);
         // didn't work? that's not good! log and throw the first error
-        if ($this->error_log) {
-            $message = '[' . date('r') . '] ' . $errors[0]->getMessage();
-            $data = array(
-                'query' => $query,
-                'tries' => $tries,
-                'max_tries' => $max_tries
-            );
-            foreach ($data as $name => $val) {
-                $message .= "\n  $name: $val";
-            }
-            $i = 0;
+        $this->log_query($query, array(
+            'key_col' => $key_col,
+            'auto_split' => $auto_split,
+            'max_tries' => $max_tries,
+            'retry_delay' => $retry_delay
+        ), $errors[0]);
+        throw $error;
+    }
+
+    protected function log_query($query, $data = array(), $error = null) {
+        if (! $this->error_log) {
+            return;
+        }
+        $message = '[' . date('r') . ']';
+        if ($error) {
+            $message .= ' ' . $error->getMessage();
+        }
+        $message .= "\n  query: $query";
+        foreach ($data as $name => $val) {
+            $message .= "\n  $name: " . json_encode($val);
+        }
+        $i = 0;
+        if ($error) {
             foreach ($error->getTrace() as $trace) {
                 $line = "\n  #$i. ";
                 if (isset($trace['file'])) {
@@ -269,9 +280,9 @@ class OmegaDatabase {
                 $message .= $line;
                 $i++;
             }
-            @file_put_contents($this->error_log, $message . "\n", FILE_APPEND);
         }
-        throw $error;
+        @file_put_contents($this->error_log, $message . "\n", FILE_APPEND);
+        return $message;
     }
 
     /** Execute an SQL query and return the result through a specific parser. Available parsers are 'array' and 'raw'. If 'key_col' is set, the 'array' parser will use the value of $key_col for each row's array index, returning an associative array. Queries that fail will be automatically retried a set number of times, delaying a one second between attempts.

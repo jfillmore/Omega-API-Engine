@@ -21,6 +21,23 @@ abstract class OmegaTest {
     const float3_re = '/^[0-9]*(\.[0-9]{1,3})?$/';
     const datetime_re = '/^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$/';
 
+    /** Returns whether the string is a valid IPv4 address.
+    @param string $ip4 IPv4 address to validate.
+    @return boolean Whether the string is a valid IPv4 address. */
+    static public function is_ip4($ip4) {
+        return ip2long($ip4) > 0;
+    }
+
+    /** Throws an exception if not given a valid IPv4 addrses.
+    @param string $ip4 IPv4 address to check.
+    @return boolean Always returns 'true'. */
+    static public function assert_ip4($ip4) {
+        if (! OmegaTest::is_ip4($ip4)) {
+            throw new Exception("Invalid IPv4 address: \"$ip4\".");
+        }
+        return true;
+    }
+
     /** Checks whether a number is an integer greater than or equal to zero.
         expects: num=number
         returns: boolean */
@@ -32,7 +49,7 @@ abstract class OmegaTest {
     @param string $date Date to validate
     @return boolean Whether the date is formatted correctly. */
     static public function datetime($date) {
-        return preg_match($this->datetime_re, $date);
+        return preg_match(OmegaTest::datetime_re, $date);
     }
 
     /** Returns information about a country by name, 2 digit or 3 digit ISO 3166-1 alpha code.
