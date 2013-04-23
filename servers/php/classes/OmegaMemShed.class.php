@@ -68,7 +68,7 @@ class OmegaMemShed {
 
     /** Serializes using JSON and stores data with the specified key.
         expects: key=string, data=object, no_clobber=boolean */
-    public function store($$key, $data, $no_clobber = false) {
+    public function store($key, $data, $no_clobber = false) {
         // serialize our data
         $dna = serialize($data);
         if ($dna === false) {
