@@ -248,6 +248,14 @@ EXAMPLE COMMANDS:
                 args['color'] = True
             elif part == '-v' or part == '--verbose':
                 args['verbose'] = True
+            elif part == '-H' or part == '--header':
+                i += 1
+                if i == len(parts):
+                    raise Exception("Missing value for HTTP header.")
+                h_parts = parts[i].split(': ', 1)
+                if len(h_parts) != 2:
+                    raise Exception("Invalid HTTP header.");
+                args['headers'][h_parts[0]] = h_parts[1];
             elif part == '-j' or part == '--json':
                 i += 1
                 if i == len(parts):
@@ -492,8 +500,8 @@ EXAMPLE COMMANDS:
             key = p_parts.pop()
             param_ptr = params
             for p_part in p_parts:
-                if not p_part in params:
-                    params[p_part] = {}
+                if not p_part in params_ptr:
+                    params_ptr[p_part] = {}
                 param_ptr = params[p_part]
             param_ptr[key] = value
         return params

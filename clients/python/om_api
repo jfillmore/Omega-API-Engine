@@ -26,12 +26,13 @@ arguments:
    -s, --shell            Shell mode.
 
    -c, --color            Color output.
-   -h, --help, -H         This information.
+   -h, --help         This information.
 
    EXTRA DATA OPTIONS (each may be specified multiple times)
    -F, --file             File to add to request.
    -G, --get GET_DATA     GET data to include (e.g. foo=bar&food=yummy).
    -P, --post POST_DATA   Extra POST data to add to request.
+   -H, --header HEADER    HTTP header (e.g. 'Foo: bar') 
 
    RETURN DATA OPTIONS
    -f, --full             Return full response instead of just data.
@@ -69,9 +70,17 @@ def get_opts(defaults, argv):
             args['color'] = True
         if arg == '-f' or arg == '--full':
             args['full_response'] = True
-        elif arg == '-h' or arg == '--help' or arg == '-H':
+        elif arg == '-h' or arg == '--help':
             usage()
             exit()
+        elif arg == '-H' or arg == '--header':
+            i += 1
+            if i == len(argv):
+                raise Exception("Missing value for HTTP header.")
+            h_parts = argv[i].split(': ', 1)
+            if len(h_parts) != 2:
+                raise Exception("Invalid HTTP header.");
+            args['headers'][h_parts[0]] = h_parts[1];
         elif arg == '-g' or arg == '--gui':
             if args['raw_response']:
                 raise Exception('Unable to toggle GUI mode when using raw responses.')
@@ -161,6 +170,7 @@ opts = get_opts({
     'raw_response': False,
     'raw_noformat': False,
     'api': None,
+    'headers': {},
     'http_method': None,
     'use_https': True,
     'url': 'localhost',
