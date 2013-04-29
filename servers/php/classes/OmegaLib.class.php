@@ -207,7 +207,7 @@ class OmegaLib extends OmegaRESTful implements OmegaApi {
     }
 
     public function mysql_date($date) {
-        if (OmegaTest:::int_non_neg($date)) {
+        if (OmegaTest::int_non_neg($date)) {
             return date("Y-m-d H:i:s", $date);
         } else if (OmegaTest::datetime($date)) {
             return $date;

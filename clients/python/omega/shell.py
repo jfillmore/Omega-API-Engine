@@ -500,9 +500,9 @@ EXAMPLE COMMANDS:
             key = p_parts.pop()
             param_ptr = params
             for p_part in p_parts:
-                if not p_part in params_ptr:
-                    params_ptr[p_part] = {}
-                param_ptr = params[p_part]
+                if not p_part in param_ptr:
+                    param_ptr[p_part] = {}
+                param_ptr = param_ptr[p_part]
             param_ptr[key] = value
         return params
 
