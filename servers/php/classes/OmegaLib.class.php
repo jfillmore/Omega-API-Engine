@@ -179,6 +179,46 @@ class OmegaLib extends OmegaRESTful implements OmegaApi {
     public function _pretty_path($path, $absolute = false) {
         return OmegaLib::pretty_path($path, $absolute);
     }
+
+    /** Because PHP's array_merge sucks on assoc arrays with numbers as keys. */
+    public function merge($a1, $a2) {
+        foreach ($a2 as $k => $v) {
+            $a1[$k] = $v;
+        }
+        return $a1;
+    }
+
+    public function random($length = 64, $symbols = false) {
+        $char_pool = array('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',
+            'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w',
+            'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
+            'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W',
+            'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9');
+        if ($symbols) {
+            $char_pool = array_merge($char_pool, array(
+                ',', '_', '-', '&', '%', '^', '$', '#', '@', '!', '+'
+            ));
+        }
+        $random = '';
+        for ($i = 0; $i < $length; $i++) {
+            $random .= $char_pool[rand(0, count($char_pool)-1)];
+        }
+        return $random;
+    }
+
+    public function mysql_date($date) {
+        if (OmegaTest:::int_non_neg($date)) {
+            return date("Y-m-d H:i:s", $date);
+        } else if (OmegaTest::datetime($date)) {
+            return $date;
+        } else {
+            $ts = strtotime($date);
+            if ($ts === -1 || $ts === false) {
+                throw new Exception("Unrecognized date: '$date'. Please provide a validate epoch, date, etc.");
+            }
+            return date("Y-m-d H:i:s", $ts);
+        }
+    }
 }
 
 ?>
