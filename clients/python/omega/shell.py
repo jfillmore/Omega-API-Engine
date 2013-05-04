@@ -450,12 +450,13 @@ EXAMPLE COMMANDS:
         except Exception, e:
             result = False
             response = e.message
-        self._print_response(
-            result,
-            response,
-            raw_response = args['raw_response'],
-            color = args['color']
-        )
+        if not 'quiet' in args or not args['quiet']:
+            self._print_response(
+                result,
+                response,
+                raw_response = args['raw_response'],
+                color = args['color']
+            )
         # handle the API response
         return {
             'result': result,

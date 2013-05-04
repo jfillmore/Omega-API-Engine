@@ -88,11 +88,8 @@ class Omega extends OmegaLib {
             $this->_get_construct_args($r_class, $engine_args)
         );
         // if we're an async service then don't save the state so we can execute requests simultaneously
-        if ($this->config->get('omega.async') == true) {
-            $this->save_service_state = false;
-        } else {
-            $this->save_service_state = true;
-        }
+        $this->save_service_state = 
+            ! (bool)(int)$this->config->get('omega/async');
         self::$instance = $this;
     }
 
@@ -319,7 +316,7 @@ class Omega extends OmegaLib {
         $this->finished = false;
         // capture any crap that PHP leaks through (e.g. warnings on functions) or that the user intentionally leaks
         ob_start();
-        $this->service_nickname = $this->config->get('omega.nickname');
+        $this->service_nickname = $this->config->get('omega/nickname');
         // load the subservice manager first so the request and response can do subservice-dependant stuff
         $this->subservice = new OmegaSubserviceManager();
         // get a response ready
@@ -329,7 +326,7 @@ class Omega extends OmegaLib {
         // determine what cookie the session will use, if present
         try {
             $this->response->set_cookie_name(
-                $this->config->get('omega.cookie_name')
+                $this->config->get('omega/cookie_name')
             );
         } catch (Exception $e) {
             $this->response->set_cookie_name(
@@ -495,7 +492,7 @@ class Omega extends OmegaLib {
         }
         // unlock and save the service instance if needed
         if ($this->save_service_state && $this->config->get('omega/scope') != 'none') {
-            $this->_save_session(false);
+            $this->_save_session(true, true);
         }
         // see if we spilled anywhere... if so, pick it up to ensure we have a clean stream
         $spillage = $this->_flush_ob(false);
@@ -617,7 +614,10 @@ class Omega extends OmegaLib {
                 && $this->sessions->exists($this->service_name . '/instances/sessions/', $session_id)
                 && $this->request->get_api() != $this->config->get('omega/nickname')
                 ) {
-                $this->session = $this->sessions->get($this->service_name . '/instances/sessions', $session_id);
+                $this->session = $this->sessions->get(
+                    $this->service_name . '/instances/sessions',
+                    $session_id
+                );
                 $this->service = $this->session['service'];
                 $this->api = $this->service;
                 $this->session_id = $_COOKIE[$this->response->get_cookie_name()];
@@ -633,7 +633,10 @@ class Omega extends OmegaLib {
                 );
             }
             if ($this->save_service_state) {
-                $this->sessions->lock($this->service_name . '/instances/sessions', $this->get_session_id());
+                $this->sessions->lock(
+                    $this->service_name . '/instances/sessions',
+                    $this->get_session_id()
+                );
             }
         } else if ($scope == 'none') {
             // each service is served fresh within 5 minutes or its free
@@ -648,17 +651,17 @@ class Omega extends OmegaLib {
         }
     }
 
-    public function _save_session($files_locked = true) {
+    public function _save_session($locked = true, $release = false) {
         // save our state
         $scope = $this->config->get('omega/scope');
         if ($scope == 'global') {
             // unlock and save the service instance
-            if (! $files_locked) {
-                $this->sessions->lock($this->service_name . '/instances', 'global');
+            if ($locked) {
+                $this->sessions->unlock($this->service_name . '/instances', 'global');
             }
             $this->sessions->store($this->service_name . '/instances', 'global', $this->service);
-            if (! $files_locked) {
-                $this->sessions->unlock($this->service_name . '/instances', 'global');
+            if (! $release) {
+                $this->sessions->lock($this->service_name . '/instances', 'global');
             }
         } else if ($scope == 'user') {
             // only supported if the authority service is available
@@ -666,16 +669,16 @@ class Omega extends OmegaLib {
                 throw new Exception("Unable to run service at the 'user' level without the authority service.");
             }
             $username = $this->subservice->authority->authed_username;
-            if (! $files_locked) {
-                $this->sessions->lock($this->service_name . '/instances/users', $username);
-            }
-            $this->sessions->store($this->service_name . '/instances/users', $username, $this->service);
-            if (! $files_locked) {
+            if ($locked) {
                 $this->sessions->unlock($this->service_name . '/instances/users', $username);
             }
+            $this->sessions->store($this->service_name . '/instances/users', $username, $this->service);
+            if (! $release) {
+                $this->sessions->lock($this->service_name . '/instances/users', $username);
+            }
         } else if ($scope == 'session') {
-            if (! $files_locked) {
-                $this->sessions->lock($this->service_name . '/instances/sessions', $this->get_session_id());
+            if ($locked) {
+                $this->sessions->unlock($this->service_name . '/instances/sessions', $this->get_session_id());
             }
             $this->session['service'] = $this->service;
             $this->sessions->store(
@@ -683,8 +686,8 @@ class Omega extends OmegaLib {
                 $this->get_session_id(),
                 $this->session
             );
-            if (! $files_locked) {
-                $this->sessions->unlock($this->service_name . '/instances/sessions', $this->get_session_id());
+            if (! $release) {
+                $this->sessions->lock($this->service_name . '/instances/sessions', $this->get_session_id());
             }
         } else if ($scope === 'none') {
             // do nothing, as we don't care to save the state... technically this shouldn't be called

@@ -38,6 +38,7 @@ arguments:
    -f, --full             Return full response instead of just data.
    -r, --raw              Print response data in raw form.
    -v, --verbose          Print verbose debugging info to stdout.
+   -q, --quiet            Do not print API return response.
 
    CLIENT OPTIONS
    -i, --insecure         Use HTTP as the protocol instead of HTTPS.
@@ -95,6 +96,8 @@ def get_opts(defaults, argv):
             args['use_https'] = False
         elif arg == '-v' or arg == '--verbose':
             args['verbose'] = True
+        elif arg == '-q' or arg == '--quiet':
+            args['quiet'] = True
         elif arg == '-p' or arg == '--port':
             i += 1
             if i == len(argv):
@@ -178,6 +181,7 @@ opts = get_opts({
     'port': None,
     'test_mode': False,
     'verbose': False,
+    'quiet': False,
     'FILES': {},
     'GET': [],
     'POST': []

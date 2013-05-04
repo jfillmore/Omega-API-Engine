@@ -206,6 +206,7 @@ class OmegaLib extends OmegaRESTful implements OmegaApi {
         return $random;
     }
 
+    /** Validate and convert an epoch, PHP time description, or SQL date into a MySQL date string (e.g. 2013-05-30 13:30:01). */
     public function mysql_date($date) {
         if (OmegaTest::int_non_neg($date)) {
             return date("Y-m-d H:i:s", $date);
@@ -221,4 +222,3 @@ class OmegaLib extends OmegaRESTful implements OmegaApi {
     }
 }
 
-?>
