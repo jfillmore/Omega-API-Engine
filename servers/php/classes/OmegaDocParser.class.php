@@ -29,32 +29,28 @@
 *
 * Simple example usage: 
 * $a = new OmegaDocParser($string); 
-* $a->parse();
 * 
 * @author Murray Picton
 * @copyright 2010 Murray Picton
 */
 class OmegaDocParser {
-    /**
-    * The string that we want to parse
-    */
+    // The string that we want to parse
     private $string;
-    /**
-    * Storge for the short description
-    */
+    // Storge for the short description
     private $shortDesc;
-    /**
-    * Storge for the long description
-    */
+    // Storge for the long description
     private $longDesc;
-    /**
-    * Storge for all the PHPDoc tokens
-    */
+    // Storge for all the PHPDoc tokens
     private $tokens;
-    /**
-    * Method parameters
-    */
+    // Method parameters
     private $params = array();
+    // track the last parameter for multi-line descriptions
+    private $last = array(
+        'type' => null, // param/return
+        'name' => null, // param name
+    );
+    // what is our indentation level?
+    private $indent = 0;
 
     /**
     * Parse each line
@@ -67,75 +63,51 @@ class OmegaDocParser {
     private function parseLines($lines) {
         $desc = array();
         foreach ($lines as $line) {
-            $parsedLine = $this->parseLine($line); //Parse the line
-            if ($parsedLine === false && empty($this->shortDesc)) {
-                $this->shortDesc = trim($parsedLine);
-                $desc[] = $this->shortDesc;
-            } elseif ($parsedLine !== false) {
-                $desc[] = $parsedLine;
+            $parsed = $this->parseLine($line);
+            if ($parsed !== true) {
+                $desc[] = $parsed;
             }
+        }
+        if ($desc) {
+            $this->shortDesc = $desc[0];
         }
         $this->longDesc = trim(implode(PHP_EOL, $desc));
     }
 
     /**
-    * Parse the line
-    *
     * Takes a string and parses it as a PHPDoc comment
     * 
     * @param string $line The line to be parsed
-    * @return mixed False if the line contains no tokens
-    * that aren't valid otherwise, the line that was passed in.
+    * @return mixed True if the line was parsed and used, otherwise returns the line back.
     */
     private function parseLine($line) {
-
-        //Trim the whitespace from the line
-        $line = trim($line);
-
-        if (empty($line)) return false; //Empty line
-
-        if (strpos($line, '@') === 0) {
-            $token = substr($line, 1, strpos($line, ' ') - 1); //Get the parameter name
-            $value = substr($line, strlen($token) + 2); //Get the value
-            if ($this->setToken($token, $value)) return false; //Parse the line and return false if the parameter is valid
+        $trimmed = trim($line);
+        if (empty($trimmed)) return true;
+        if (strpos($trimmed, '@') === 0) {
+            $this->indent = strpos($line, '@');
+            $token = substr($trimmed, 1, strpos($trimmed, ' ') - 1); // parameter name
+            $value = substr($trimmed, strlen($token) + 2); // parameter value
+            // save the data found within the line
+            return $this->setToken($token, $value);
+        } else if ($this->last['type']) {
+            // preserve formatting by only trimming up to our indent level
+            // how much leading space on this line?
+            $offset = strpos($line, $trimmed[0]);
+            // how much do we need to restore to our trim?
+            $trimmed = str_repeat(' ', max($offset - $this->indent, 0))
+                . $trimmed;
+            // this is part of a previous param/return, so reassociate it
+            if ($this->last['type'] == 'return') {
+                $this->tokens['return']['desc'] .= PHP_EOL . $trimmed;
+            } else if ($this->last['type'] == 'param') {
+                $this->params[$this->last['name']]['desc'] .= PHP_EOL . $trimmed;
+            } else {
+                $this->setToken($this->last['name'], $trimmed);
+            }
+            return true;
         }
-
+        // we're still parsing the description, so return it back
         return $line;
-    }
-
-    /**
-    * Setup the valid tokens
-    */
-    private function setupTokens() {
-        $tokens = array(
-            'abstract' => '',
-            'access' => '',
-            'author' => '',
-            'copyright' => '',
-            'deprecated' => '',
-            'deprec' => '',
-            'example' => '',
-            'exception' => '',
-            'global' => '',
-            'ignore' => '',
-            'internal' => '',
-            'link' => '',
-            'name' => '',
-            'magic' => '',
-            'package' => '',
-            'param' => '',
-            'return' => '',
-            'see' => '',
-            'since' => '',
-            'static' => '',
-            'staticvar' => '',
-            'subpackage' => '',
-            'throws' => '',
-            'todo' => '',
-            'var' => '',
-            'version' => ''
-        );
-        $this->tokens = $tokens;
     }
 
     /**
@@ -182,6 +154,10 @@ class OmegaDocParser {
             'type' => $type,
             'desc' => $trimmed
         );
+        $this->last = array(
+            'type' => 'param',
+            'name' => $name
+        );
         return '(' . $type . ') ' . $trimmed;
     }
 
@@ -193,28 +169,34 @@ class OmegaDocParser {
     * @return bool True = the parameter has been set, false = the parameter was invalid
     */
     private function setToken($param, $value) {
-        if (! array_key_exists($param, $this->tokens)) return false;
+        if (! array_key_exists($param, $this->tokens)) {
+            throw new Exception("Invalid PHP documentation parameter type: '$param'.");
+        }
         if ($param == 'param') {
-            $value = $this->parseParam($value);
-        } else if ($param == 'return') {
+            // this will take care of saving the param in $this->params
+            $this->parseParam($value);
+            return true;
+        }
+        // normalize our return data to match how params are handled
+        if ($param == 'return') {
             $value = $this->parseReturn($value);
         }
-        if ($param == 'param') {
-            $this->tokens[$param][] = $value;
+        // default to each param value storing a string, unless given multiple times
+        if (empty($this->tokens[$param])) {
+            $this->tokens[$param] = $value;
         } else {
-            // default to each param value storing a string, unless given multiple times
-            if (empty($this->tokens[$param])) {
-                $this->tokens[$param] = $value;
+            $arr = $this->tokens[$param];
+            if (count($arr) == 1) {
+                $arr = array($arr, $value);
             } else {
-                $arr = $this->tokens[$param];
-                if (count($arr) == 1) {
-                    $arr = array($arr, $value);
-                } else {
-                    $arr[] = $value;
-                }
-                $this->tokens[$param] = $arr;
+                $arr[] = $value;
             }
+            $this->tokens[$param] = $arr;
         }
+        $this->last = array(
+            'type' => $param,
+            'name' => $param
+        );
         return true;
     }
 
@@ -232,15 +214,17 @@ class OmegaDocParser {
     /**
     * Parse the string
     */
-    public function parse() {
-        //Get the comment
+    private function parse() {
+        // get the comment
         if (preg_match('#^/\*\*(.*)\*/#s', $this->string, $comment) === false)
             die("Error");
         $comment = trim($comment[1]);
-        //Get all the lines and left-trim any * characters
-        if (preg_match_all('#^\s*\**(.*)#m', $comment, $lines) === false)
-            die('Error');
-        $this->parseLines($lines[1]);
+        // get all the lines and left-trim any * characters
+        $lines = explode("\n", $comment);
+        foreach ($lines as &$line) {
+            $line = preg_replace('/^(\s*)\* ?(.*)$/', '\1\2', $line);
+        }
+        $this->parseLines($lines);
     }
 
     /**
@@ -288,6 +272,41 @@ class OmegaDocParser {
             return $tokens;
         }
     }
+
+    /**
+    * Setup the valid tokens
+    */
+    private function setupTokens() {
+        $tokens = array(
+            'abstract' => '',
+            'access' => '',
+            'author' => '',
+            'copyright' => '',
+            'deprecated' => '',
+            'deprec' => '',
+            'example' => '',
+            'exception' => '',
+            'global' => '',
+            'ignore' => '',
+            'internal' => '',
+            'link' => '',
+            'name' => '',
+            'magic' => '',
+            'package' => '',
+            'param' => '',
+            'return' => '',
+            'see' => '',
+            'since' => '',
+            'static' => '',
+            'staticvar' => '',
+            'subpackage' => '',
+            'throws' => '',
+            'todo' => '',
+            'var' => '',
+            'version' => ''
+        );
+        $this->tokens = $tokens;
+    }
+
 }
 
-?>
