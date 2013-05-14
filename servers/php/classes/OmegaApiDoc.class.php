@@ -82,8 +82,9 @@ class OmegaApiDoc {
         foreach ($this->api_index as $uri => $api) {
             $ahref = str_replace('/', '', $api['path']);
             $ahref = str_replace(' ', '_', $ahref);
+            $api_desc = str_replace("\n", '<br>', $api['info']['desc']);
             $html = "<div class=\"api_end_point\" id=\"$ahref\">\n  <h3>{$api['path_html']}</h3>\n";
-            $html .= "\n" . '  <div class="api_desc">' . $api['info']['desc'] . '</div>';
+            $html .= "\n" . '  <div class="api_desc">' . $api_desc . '</div>';
             $html .= '  <div class="api_params">' . "\n";
             foreach ($api['info']['params'] as $param) {
                 $html .= "   <div class=\"api_param\">";
@@ -103,7 +104,8 @@ class OmegaApiDoc {
                 if ($param['optional']) {
                     $param['desc'] .= " <em>Default: " . json_encode($param['default_value']) . "</em>";
                 }
-                $html .= "\n      <div class=\"param_desc\">{$param['desc']}</div>";
+                $param_desc = str_replace("\n", '<br>', $param['desc']);
+                $html .= "\n      <div class=\"param_desc\">$param_desc</div>";
                 $html .= " \n </div>";
             }
             $html .= "\n  </div>"; // api_params
