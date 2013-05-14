@@ -8,8 +8,12 @@ class OmegaProxy {
         $this->curl->set_return_header(true);
     }
 
-    public function passthru($hostname, $port = null, $ssl = true, $method = null, $uri = null, $data = null, $content_type = null) {
-        global $om;
+    public function passthru($hostname, $port = null, $ssl = true, $method = null, $uri = null, $data = null, $content_type = null, $args = array()) {
+        $om = Omega::get();
+        $args = OmegaLib::get_args(array(
+            'cookies' => true,
+            'http_auth' => true
+        ), $args);
         $port = ($port === null ? $_SERVER['SERVER_PORT'] : $port);
         $timeout = 5;
         $om->_flush_ob(false);
@@ -52,11 +56,11 @@ class OmegaProxy {
         foreach ($_COOKIE as $name => $value) {
             $cookies[] = "$name=$value";
         }
-        if ($cookies) {
+        if ($cookies && $args['cookies']) {
             $req[] = "Cookie: " . join('; ', $cookies);
         }
         // any auth header too
-        if (isset($_SERVER['HTTP_AUTHENTICATION'])) {
+        if (isset($_SERVER['HTTP_AUTHENTICATION']) && $args['http_auth']) {
             $req[] = "Authentication: " . $_SERVER['HTTP_AUTHENTICATION'];
         }
         // other headers to ease things along

@@ -14,7 +14,8 @@ import re
 import os
 import sys
 import os.path
-import readline
+os.environ['TERM'] = 'linux'
+import readline;
 import shlex # simple lexical anaysis for command line parsing
 import subprocess # for shell commands
 
@@ -377,13 +378,14 @@ EXAMPLE COMMANDS:
         if result:
             if 'raw_response' in args and args['raw_response']:
                 if 'stdout_redir' in args and args['stdout_redir'] != None:
-                    args['file'].write(response + "\n")
+                    args['file'].write(response)
+                    args['file'].close()
                 else:
-                    sys.stdout.write(response + "\n")
+                    sys.stdout.write(response)
             else:
                 if response != None:
                     if 'stdout_redir' in args and args['stdout_redir'] != None:
-                        args['file'].write(dbg.obj2str(response, color = False)) + "\n"
+                        args['file'].write(dbg.obj2str(response, color = False))
                         args['file'].close()
                     else:
                         if 'color' in args:
