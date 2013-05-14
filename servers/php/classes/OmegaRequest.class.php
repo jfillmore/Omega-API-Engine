@@ -697,7 +697,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
             // return any docs we have on missing params too
             foreach ($missing_params as $missing) {
                 $error = '* ' . $missing;
-                if ($doc['expects'][$missing]) {
+                if (@$doc['expects'][$missing]) {
                     $p_info = $doc['expects'][$missing];
                     if (is_array($p_info)) {
                         if ($p_info['type']) {
