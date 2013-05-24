@@ -112,47 +112,77 @@ class OmegaClient {
     }
 
     public function get($url, $params = array(), $args = array()) {
+        $args = OmegaLib::get_args(array(
+            'headers' => array()
+        ), $args);
         return $this->parse_result($this->curl->get(
             $url,
             $params,
             true,
-            array('Content-Type: application/json')
+            array_merge(
+                $args['headers'],
+                array('Content-Type: application/json')
+            )
         ), $args);
     }
 
     public function post($url, $params = array(), $args = array()) {
+        $args = OmegaLib::get_args(array(
+            'headers' => array()
+        ), $args);
         return $this->parse_result($this->curl->post(
             $url,
             json_encode($params),
             true,
-            array('Content-Type: application/json')
+            array_merge(
+                $args['headers'],
+                array('Content-Type: application/json')
+            )
         ), $args);
     }
 
     public function patch($url, $params = array(), $args = array()) {
+        $args = OmegaLib::get_args(array(
+            'headers' => array()
+        ), $args);
         return $this->parse_result($this->curl->patch(
             $url,
             json_encode($params),
             true,
-            array('Content-Type: application/json')
+            array_merge(
+                $args['headers'],
+                array('Content-Type: application/json')
+            )
         ), $args);
     }
 
     public function put($url, $params = array(), $args = array()) {
+        $args = OmegaLib::get_args(array(
+            'headers' => array()
+        ), $args);
         return $this->parse_result($this->curl->put(
             $url,
             json_encode($params),
             true,
-            array('Content-Type: application/json')
+            array_merge(
+                $args['headers'],
+                array('Content-Type: application/json')
+            )
         ), $args);
     }
 
     public function delete($url, $params = array(), $args = array()) {
+        $args = OmegaLib::get_args(array(
+            'headers' => array()
+        ), $args);
         return $this->parse_result($this->curl->delete(
             $url,
             json_encode($params),
             true,
-            array('Content-Type: application/json')
+            array_merge(
+                $args['headers'],
+                array('Content-Type: application/json')
+            )
         ), $args);
     }
 

@@ -52,12 +52,22 @@ class OmegaProxy {
         ));
         $req[] = "Host: $hostname";
         // pass on any cookies
-        $cookies = array();
-        foreach ($_COOKIE as $name => $value) {
-            $cookies[] = "$name=$value";
-        }
-        if ($cookies && $args['cookies']) {
-            $req[] = "Cookie: " . join('; ', $cookies);
+        if ($args['cookies']) {
+            $cookies = array();
+            foreach ($_COOKIE as $name => $value) {
+                $cookies[] = "$name=$value";
+            }
+            // if 'true', we're done; otherwise add more cookies in
+            if (is_array($args['cookies'])) {
+                foreach ($args['cookies'] as $name => $value) {
+                    $cookies[] = "$name=$value";
+                }
+            } else if ($args['cookies'] !== true) {
+                $cookies[] = $args['cookies'];
+            }
+            if ($cookies) {
+                $req[] = "Cookie: " . join('; ', $cookies);
+            }
         }
         // any auth header too
         if (isset($_SERVER['HTTP_AUTHENTICATION']) && $args['http_auth']) {

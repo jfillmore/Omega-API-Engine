@@ -651,9 +651,12 @@ class Omega extends OmegaLib {
         }
     }
 
-    public function _save_session($locked = true, $release = false) {
+    public function _save_session($locked = null, $release = false) {
         // save our state
         $scope = $this->config->get('omega/scope');
+        if ($locked === null) {
+            $locked = $this->save_service_state;
+        }
         if ($scope == 'global') {
             // unlock and save the service instance
             if ($locked) {
