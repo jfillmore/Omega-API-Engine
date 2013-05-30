@@ -87,7 +87,7 @@ class OmegaDatabase {
                     throw new Exception("Couldn't connect to database at '" . $this->hostname . "': " . mysql_error() . ".");
                 }
                 if (! $this->conn->select_db($this->dbname)) {
-                    throw new Exception("Couldn't select database '" . $this->dbname . "': " . mysql_error($this->conn) . ".");
+                    throw new Exception("Couldn't select database '" . $this->dbname . "'.");
                 }
             } else if ($this->type == 'mysql') {
                 $this->conn = mysql_pconnect($this->hostname, $this->username, $this->password); 
@@ -95,7 +95,7 @@ class OmegaDatabase {
                     throw new Exception("Couldn't connect to database at '" . $this->hostname . "': " . mysql_error() . ".");
                 }
                 if (! mysql_select_db($this->dbname)) {
-                    throw new Exception("Couldn't select database '" . $this->dbname . "': " . mysql_error($this->conn) . ".");
+                    throw new Exception("Couldn't select database '" . $this->dbname . "'.");
                 }
             } else {
                 throw new Exception("Invalid database type: '$this->type'.");

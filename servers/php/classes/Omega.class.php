@@ -83,10 +83,14 @@ class Omega extends OmegaLib {
             $engine_args = array('location' => OmegaConstant::data_dir);
         }
         $class_name = 'Omega' . ucfirst($engine) . 'Shed';
-        $r_class = new ReflectionClass($class_name);
-        $this->sessions = $r_class->newInstanceArgs(
-            $this->_get_construct_args($r_class, $engine_args)
-        );
+        try {
+            $r_class = new ReflectionClass($class_name);
+            $this->sessions = $r_class->newInstanceArgs(
+                $this->_get_construct_args($r_class, $engine_args)
+            );
+        } catch (Exception $e) {
+            throw new Exception("Failed to initialize session storage: " . $e->getMessage());
+        }
         // if we're an async service then don't save the state so we can execute requests simultaneously
         $this->save_service_state = 
             ! (bool)(int)$this->config->get('omega/async');

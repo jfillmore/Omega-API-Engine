@@ -50,6 +50,7 @@ function _clean_trace($st) {
 
 function _fail($ex, $spillage = null, $prodution = true) {
     header('Content-Type: application/json; charset=utf-8');
+    
     $answer = array(
         'result' => false,
         'reason' => $ex->getMessage()
@@ -195,6 +196,7 @@ try {
     // encode the response that we'll send back
     ob_end_clean();
     // no dice? This should never happen
+    header($_SERVER['SERVER_PROTOCOL'] . ' 500 Internal Server Error');
     _fail($e, $spillage, $prodution);
 }
 // see if we spilled anywhere on start up... we really never should
@@ -202,7 +204,7 @@ $spillage = ob_get_contents();
 ob_end_clean();
 if ($spillage) {
     // be paranoid and die if we have any warnings or errors
-    $om->response->header_num(500);
+    header($_SERVER['SERVER_PROTOCOL'] . ' 500 Internal Server Error');
     _fail(new Exception('API Spillage'), $spillage, $prodution);
 }
 
