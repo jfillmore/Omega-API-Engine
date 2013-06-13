@@ -7,7 +7,7 @@
    http://www.opensource.org/licenses/mit-license.php */
 
 
-/** Generalized database abstraction class. */
+/** Generalized database abstraction class with special search methods. */
 class OmegaDatabase {
     public $hostname;
     public $username;
@@ -87,7 +87,7 @@ class OmegaDatabase {
                     throw new Exception("Couldn't connect to database at '" . $this->hostname . "': " . mysql_error() . ".");
                 }
                 if (! $this->conn->select_db($this->dbname)) {
-                    throw new Exception("Couldn't select database '" . $this->dbname . "'.");
+                    throw new Exception("Couldn't select database '" . $this->dbname . "': " . mysql_error($this->conn) . ".");
                 }
             } else if ($this->type == 'mysql') {
                 $this->conn = mysql_pconnect($this->hostname, $this->username, $this->password); 
@@ -95,7 +95,7 @@ class OmegaDatabase {
                     throw new Exception("Couldn't connect to database at '" . $this->hostname . "': " . mysql_error() . ".");
                 }
                 if (! mysql_select_db($this->dbname)) {
-                    throw new Exception("Couldn't select database '" . $this->dbname . "'.");
+                    throw new Exception("Couldn't select database '" . $this->dbname . "': " . mysql_error($this->conn) . ".");
                 }
             } else {
                 throw new Exception("Invalid database type: '$this->type'.");
@@ -457,5 +457,329 @@ class OmegaDatabase {
             throw new Exception("The database method 'get_last_id' is not support for the database type '" . $this->type . "'.");
         }
     }
+
+    /** Generate SQL for generic "flow" arguments.
+    @param array $args SQL flow control options:
+    $args = array(
+        'count' => null, // limit number of results, e.g. 20
+        'offset' => null, // offset within results, e.g. 10
+        'order_by' => null, // field to order by, e.g. "hostname"
+        'group_by' => null, // field to group results by e.g. "allocation"
+        'reverse' => false // return results in reverse order
+    );
+    @return string SQL snippit */
+    public function parse_flow($args) {
+        $args = OmegaLib::get_args(array(
+            'count' => null,
+            'offset' => null,
+            'order_by' => null,
+            'group_by' => null,
+            'reverse' => false
+        ), $args);
+        $sql = '';
+        if ($args['group_by']) {
+            $sql .= ' GROUP BY `' . $this->escape($args['group_by']) . '`';
+        }
+        if ($args['order_by']) {
+            $sql .= ' ORDER BY `' . $this->escape($args['order_by']) . '`';
+            if ($args['reverse']) {
+                $sql .= ' DESC';
+            } else {
+                $sql .= ' ASC';
+            }
+        }
+        if ($args['count'] && $args['count'] > 0) {
+            $sql .= ' LIMIT ' . (int)$args['count'];
+        }
+        if ($args['offset'] && $args['offset'] > 0) {
+            $sql .= ' OFFSET ' . (int)$args['offset'];
+        }
+        return $sql;
+    }
+
+    /** Iterate through an array to recursively gather IDs used to fetch extra data. Returns a mapping of extra IDs to the primary key given.
+    @param array $ptr Array to walk through.
+    @param string $path Path to locate ID (e.g. 'foo', 'foo.server_id', 'foo.*.id'). The path may contain wildcards.
+    @param string $pkey Primary key to associate the fetched IDs with.
+    @param boolean $missing_ok If true, ignore any paths that don't resolve to any data within the ptr obj.
+    @return array Returns array of IDs where the keys are the extra IDs found and the values are the given primary key. */
+    protected function parse_path($ptr, $path, $pkey, $missing_ok = false) {
+        $extra_ids = array();
+        // walk to the specified value
+        $to_walk = $path;
+        foreach ($path as $part) {
+            array_shift($to_walk);
+            // wild cards can be used to collect multiple IDs from a collection of objs within the data
+            if ($part == '*' && is_array($ptr)) {
+                foreach ($ptr as $val) {
+                    if ($to_walk) {
+                        // returning multiple results -- can't use PHP merge cause we have numerical indexes
+                        $extra_ids = OmegaLib::merge(
+                            $extra_ids,
+                            $this->parse_path($val, $to_walk, $pkey, $missing_ok = false)
+                        );
+                    } else {
+                        $extra_ids[$val] = $pkey;
+                    }
+                }
+                return $extra_ids;
+            } else if (isset($ptr[$part])) {
+                $ptr = $ptr[$part];
+            } else {
+                if ($missing_ok) {
+                    return $extra_ids;
+                } else {
+                    throw new Exception("Key '$part' not found in row.");
+                }
+            }
+        }
+        // and gather it up
+        $extra_ids[$ptr] = $pkey;
+        return $extra_ids;
+    }
+
+    /** Query the DMS DB with the criteria given.
+    @param array $args search arguments:
+    $args = array(
+        'clause' => '', // e.g. "SELECT * FROM `zone`"
+        'label' => 'data', // e.g. 'zones'; for labeling results
+        'meta' => false, // get counts and such
+        'decode' => array(), // field names to decode e.g. passwords
+        'table' => '', // needed for meta=true
+        'pkey' => '', // needed for meta=true, index=true
+        'index' => false,
+        'trim' => array(), // fields to trim out
+        'extras' => array(), // extra data to stitch in; e.g. array("$other_table" => array('key' => 'table_id', 'label' => 'foo'))
+        'count' => null, // limit number of results, e.g. 20
+        'offset' => null, // offset within results, e.g. 10
+        'order_by' => null, // field to order by, e.g. "hostname"
+        'group_by' => null, // field to group results by e.g. "allocation"
+        'reverse' => false // return results in reverse order
+        'debug' => false, // return attempted SQL query in error information (disabled in production)
+        'log' => false // log SQL queries to the query log (disabled in production)
+    );
+    @return array of query results. */
+    public function search($args = array()) {
+        $args = OmegaLib::get_args(array(
+            'clause' => '', // e.g. "SELECT * FROM `zone`"
+            'label' => 'data', // e.g. 'zones'; for labeling results
+            'meta' => false,
+            'decode' => array(), // field names to decode
+            'table' => '', // needed for meta=true
+            'pkey' => '', // needed for meta=true, index=true
+            'index' => false,
+            'trim' => array(), // fields to trim out
+            'expect' => null, // expect the specified number of results or throw an error
+            'extras' => array(), // extra data to stitch in; e.g. array("$other_table" => array('key' => 'table_id', 'label' => 'foo'))
+            'count' => null,
+            'offset' => null,
+            'order_by' => null,
+            'group_by' => null,
+            'reverse' => false,
+            'debug' => false,
+            'log' => false
+        ), $args);
+        // build the rest of the query
+        $sql = $args['clause'];
+        if (! $sql) {
+            throw new Exception("Invalid SQL clause: '$sql'.");
+        }
+        if ($args['meta']) {
+            $meta_sql = preg_replace(
+                '/^SELECT .* FROM/',
+                "SELECT COUNT(DISTINCT(`{$args['table']}`.`{$args['pkey']}`)) AS total FROM",
+                $sql
+            );
+        }
+        $sql .= $this->parse_flow($args);
+        // run it!
+        try {
+            $rows = $this->query($sql);
+        } catch (Exception $e) {
+            if ($args['debug']) {
+                if (Omega::get()->in_production()) {
+                    throw $e;
+                }
+                throw new OmegaException(
+                    $e->getMessage(),
+                    array(
+                        'sql' => $sql,
+                        'args' => $args
+                    )
+                );
+            }
+            throw $e;
+        }
+        if ($args['log'] && ! Omega::get()->in_production()) {
+            $this->log_query($sql, $rows);
+        }
+        if ($args['expect'] !== null) {
+            $count = count($rows);
+            if ($count !== (int)$args['expect']) {
+                throw new Exception("Found $count result(s) where {$args['expect']} results were expected.");
+            }
+        }
+        // parse the results as ordered or unordered
+        $cypher = new Cypher();
+        $objs = array();
+        $row_ids = array(); // if "extras" = true
+        if ($args['index']) {
+            $index = $args['pkey'];
+            if ($args['index'] !== true) {
+                $index = $args['index'];
+            }
+            foreach ($rows as $row) {
+                if (! isset($row[$index])) {
+                    throw new Exception("Invalid index: $index.");
+                }
+                if ($args['decode']) {
+                    foreach ($args['decode'] as $field) {
+                        if (@$row[$field]) {
+                            $row[$field] = $cypher->decode(
+                                $row[$field]
+                            );
+                        }
+                    }
+                }
+                // joining data on? 
+                if ($args['extras']) {
+                    $row_ids[] = $row[$args['pkey']];
+                }
+                if (! in_array($row['index'], $args['trim'])) {
+                    $objs[$row[$index]] = $row;
+                }
+            }
+        } else {
+            // gotta decode something
+            if ($args['decode'] || $args['extras'] || $args['trim']) {
+                foreach ($rows as $row) {
+                    // look for our fields to decode in each row first
+                    foreach ($args['decode'] as $field) {
+                        if (@$row[$field]) {
+                            $row[$field] = $cypher->decode(
+                                $row[$field]
+                            );
+                        }
+                    }
+                    // trim out some fields
+                    foreach ($args['trim'] as $trim) {
+                        unset($row[$trim]);
+                    }
+                    if ($args['extras']) {
+                        $row_ids[] = $row[$args['pkey']];
+                    }
+                    $objs[] = $row;
+                }
+            } else {
+                // no more parsing needed!
+                $objs = $rows;
+            }
+        }
+        // recursively add extra information into our data
+        if ($args['extras'] && $row_ids) {
+            $extra_ids = array();
+            foreach ($args['extras'] as $table => $info) {
+                // fetch the extra rows to stitch in
+                $info = OmegaLib::get_args(array(
+                    'key' => $args['pkey'], // it won't always just match the base obj's pkey
+                    'ids' => null, // default to pkey IDs, else some path
+                    'label' => $args['pkey'], // return array($table => ...)
+                    'joins' => array(), // extra joins
+                    'select' => "`$table`.*", // data to add on
+                    'where' => '', // any extra 'where' SQL to include 
+                    'missing_ok' => false, // can 'ids' be missing from the results?
+                    'decode' => array(),
+                    'count' => null,
+                    'offset' => null,
+                    'order_by' => null,
+                    'reverse' => false,
+                    'meta' => false,
+                    'index' => false,
+                    'single_row' => false,
+                    'trim' => array()
+                ), $info);
+                $rows = array();
+                $table = $this->escape($table);
+                $info['key'] = $this->escape($info['key']);
+                // record the IDs we need to reassociate data
+                $extra_ids = array(); // extra_id => pkey
+                if (@$info['ids']) {
+                    // parse our results for this value
+                    $ids = preg_split('/[\/\.]/', $info['ids']);
+                    foreach ($objs as $obj) {
+                        // array_merge fails due to numerical IDs
+                        $extra_ids = OmegaLib::merge(
+                            $extra_ids,
+                            $this->parse_path($obj, $ids, $obj[$args['pkey']], $info['missing_ok'])
+                        );
+                    }
+                } else {
+                    // default to the primary key for the original data
+                    $extra_ids = array_combine($row_ids, $row_ids);
+                }
+                // if fetching IDs out of the parsed data we might not have anything here to attach
+                if ($extra_ids) {
+                    $sql = 
+                        "SELECT {$info['select']} FROM `$table`"
+                            . join(' ', $info['joins'])
+                            . " WHERE `$table`.`{$info['key']}` IN ("
+                            . join(', ', array_keys($extra_ids))
+                            . ")";
+                    if ($info['where']) {
+                        $sql .= ' AND ' . $info['where'];
+                    }
+                    $search_args = 
+                        array_merge($info, array(
+                            'clause' => $sql,
+                            'table' => $table,
+                            'label' => 'data',
+                            'meta' => false, // no easy way to glue meta data back on during attachment
+                            'index' => false // indexing happens below on attachment
+                        ));
+                    $search = $this->search($search_args);
+                    $rows = $search['data'];
+                } else {
+                    $rows = array();
+                }
+                // parse each row and append to to the correct object
+                // QQ @ O(n^2)
+                foreach ($objs as &$obj) {
+                    $obj[$info['label']] = array();
+                    foreach ($rows as $row) {
+                        $row_id = $row[$info['key']];
+                        $obj_id = $extra_ids[$row_id];
+                        // is this ours?
+                        if ($obj_id == $obj[$args['pkey']]) {
+                            if ($info['index']) {
+                                $obj[$info['label']][$info['index'] = $row];
+                            } else { 
+                                if ($info['single_row']) {
+                                    $obj[$info['label']] = $row;
+                                    break 2;
+                                } else {
+                                    $obj[$info['label']][] = $row;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        $result = array(
+            $args['label'] => $objs
+        );
+        if ($args['meta']) {
+            $meta_row = array_pop($this->query($meta_sql));
+            $result['meta'] = array(
+                'total' => (int)$meta_row['total'],
+                'count' => count($objs),
+                'offset' => ! $args['offset']
+                    ? 0
+                    : (int)$args['offset']
+            );
+        }
+        return $result;
+    }
 }
+
 

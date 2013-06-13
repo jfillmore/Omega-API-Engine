@@ -48,14 +48,14 @@ function _clean_trace($st) {
     return $stack;
 }
 
-function _fail($ex, $spillage = null, $prodution = true) {
+function _fail($ex, $spillage = null, $production = true) {
     header('Content-Type: application/json; charset=utf-8');
     
     $answer = array(
         'result' => false,
         'reason' => $ex->getMessage()
     );
-    if (! $prodution) {
+    if (! $production) {
         if ($spillage !== null) {
             $answer['spillage'] = $spillage;
         }
@@ -136,15 +136,18 @@ spl_autoload_register(function ($class_name) {
 new OmegaAlert();
 register_shutdown_function(function () {
     $om = Omega::get();
-    if ($om && ! $om->finished && $om->in_production()) {
-        $alert = new OmegaAlert(
-            "Internal Server Error",
-            "API execution failed due to a fatal error.",
-            array(
-                'last_error' => error_get_last(),
-                'api' => $_SERVER['REQUEST_URI']
-            )
-        );
+    if ($om && ! $om->finished) {
+        header($_SERVER['SERVER_PROTOCOL'] . ' 500 Internal Server Error');
+        if ($om->in_production()) {
+            $alert = new OmegaAlert(
+                "Internal Server Error",
+                "API execution failed due to a fatal error.",
+                array(
+                    'last_error' => error_get_last(),
+                    'api' => $_SERVER['REQUEST_URI']
+                )
+            );
+        }
     }
 });
 
@@ -185,19 +188,19 @@ if ($service_name == '' || $service_name === false) {
 
 // capture any crap that PHP leaks through (e.g. warnings on functions) or that the user intentionally leaks
 ob_start();
-$prodution = true; // always assume we're in production by default
+$production = true; // always assume we're in production by default
 try {
     // start Omega up
     $omega = new Omega($service_name);
     $om = $omega; // alias it to its short name too
-    $prodution = $om->in_production();
+    $production = $om->in_production();
 } catch (Exception $e) {
     $spillage = ob_get_contents();
     // encode the response that we'll send back
     ob_end_clean();
     // no dice? This should never happen
     header($_SERVER['SERVER_PROTOCOL'] . ' 500 Internal Server Error');
-    _fail($e, $spillage, $prodution);
+    _fail($e, $spillage, $production);
 }
 // see if we spilled anywhere on start up... we really never should
 $spillage = ob_get_contents();
@@ -205,7 +208,7 @@ ob_end_clean();
 if ($spillage) {
     // be paranoid and die if we have any warnings or errors
     header($_SERVER['SERVER_PROTOCOL'] . ' 500 Internal Server Error');
-    _fail(new Exception('API Spillage'), $spillage, $prodution);
+    _fail(new Exception('API Spillage'), $spillage, $production);
 }
 
 // and let it loose
@@ -218,7 +221,6 @@ try {
     } else {
         header($om->response->get_status());
     }
-    _fail($e, $om->response->get_spillage(), $prodution);
+    _fail($e, $om->response->get_spillage(), $production);
 }
 
-?>
