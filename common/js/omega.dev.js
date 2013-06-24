@@ -6095,11 +6095,11 @@ Changelog:
                                 return color;
                             }
                             if (color.s === 0) {
-                                color = String(parseInt(color.v * 255, 16));
+                                color = parseInt(color.v * 255).toString(16);
                                 if (color.length === 1) {
                                     color = '0' + color;
                                 }
-                                color = '#' + color + color + color;
+                                result = '#' + color + color + color;
                             } else {
                                 color.h = (color.h % 360) / 60;
                                 tmp = {
