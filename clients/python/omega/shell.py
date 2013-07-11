@@ -307,10 +307,10 @@ EXAMPLE COMMANDS:
             }
         elif cmd in self._api_cmds:
             # run an API
-            if args['verbose']:
-                sys.stderr.write('+ API=%s, PARAMS=%s, OPTIONS=%s\n' %
-                    (api, self.client.encode(api_params), self.client.encode(args))
-                )
+            #if args['verbose']:
+                #sys.stderr.write('+ API=%s, PARAMS=%s, OPTIONS=%s\n' %
+                    #(api, self.client.encode(api_params), self.client.encode(args))
+                #)
             try: 
                 if cmd == 'exec':
                     # TODO: fully deprecate and then remove
@@ -404,8 +404,8 @@ EXAMPLE COMMANDS:
     def run(self, method, api, params = {}, args = {}):
         args = util.get_args(self.args, args, True)
         api = self._get_uri(api)
-        if args['verbose']:
-            sys.stderr.write('+ API=%s, PARAMS=%s, OPTIONS=%s\n' % (api, self.client.encode(params), self.client.encode(args)))
+        #if args['verbose']:
+            #sys.stderr.write('+ API=%s, PARAMS=%s, OPTIONS=%s\n' % (api, self.client.encode(params), self.client.encode(args)))
         retval = {}
         # check to see if we need to parse params (e.g. got them from CLI)
         if args['parse_params']:

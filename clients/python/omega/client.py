@@ -278,7 +278,7 @@ class OmegaClient:
             else:
                 proto = 'http'
             sys.stderr.write(
-                '+ %s %s://%s:%d%s, params: "%s", headers: "%s", cookies: "%s"\n' %
+                '# Request: %s %s://%s:%d%s, params: "%s", headers: "%s", cookies: "%s"\n' %
                 ((method, proto, self._hostname, self._port, url, data, str(headers), str(http.cookies)))
             )
         #http.request(method, url, data, headers)
@@ -321,12 +321,14 @@ class OmegaClient:
             # note that we ignore the path
             if verbose:
                 for cookie in cookies:
-                    sys.stderr.write('+ Cookie [%s]\n' % (cookie))
+                    sys.stderr.write('# Response Cookie: %s\n' % (cookie))
             http.cookies = cookies
         if verbose:
             sys.stderr.write(
-                '+ Status [%d], Reason [%s], headers [%s]\n' %
-                (response.status, response.reason, response.msg)
+                '# Response Status: %s %s\n# Response Headers: %s\n' %
+                (response.status, response.reason, self.encode(
+                    str(response.msg).split('\r\n')
+                ))
             )
         content_type = response.getheader('Content-Type') or '';
         response_data = response.read();
@@ -380,12 +382,12 @@ class OmegaClient:
             if full_response:
                 if raw_response:
                     if not no_format:
-                        result = json.dumps(result, sort_keys = True, indent = 4)
+                        result = json.dumps(result, sort_keys = True, indent = 4) + "\n"
             else:
                 if raw_response:
                     if 'data' in result:
                         if not no_format:
-                            result = json.dumps(result['data'], sort_keys = True, indent = 4)
+                            result = json.dumps(result['data'], sort_keys = True, indent = 4) + "\n"
                         else:
                             result = self.encode(result['data'])
                     else:
