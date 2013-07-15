@@ -381,15 +381,17 @@ class OmegaClient:
             # all is well, return the data portion of the response (unless everything is requested)
             if full_response:
                 if raw_response:
-                    if not no_format:
+                    if no_format:
+                        result = json.dumps(result, sort_keys = True) + "\n"
+                    else:
                         result = json.dumps(result, sort_keys = True, indent = 4) + "\n"
             else:
                 if raw_response:
                     if 'data' in result:
-                        if not no_format:
-                            result = json.dumps(result['data'], sort_keys = True, indent = 4) + "\n"
+                        if no_format:
+                            result = self.encode(result['data']) + "\n"
                         else:
-                            result = self.encode(result['data'])
+                            result = json.dumps(result['data'], sort_keys = True, indent = 4) + "\n"
                     else:
                         result = '{}'
                 else:
