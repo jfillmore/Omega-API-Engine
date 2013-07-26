@@ -181,14 +181,14 @@ class OmegaLib extends OmegaRESTful implements OmegaApi {
     }
 
     /** Because PHP's array_merge sucks on assoc arrays with numbers as keys. */
-    public function merge($a1, $a2) {
+    static public function merge($a1, $a2) {
         foreach ($a2 as $k => $v) {
             $a1[$k] = $v;
         }
         return $a1;
     }
 
-    public function random($length = 64, $symbols = false) {
+    static public function random($length = 64, $symbols = false) {
         $char_pool = array('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',
             'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w',
             'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
@@ -207,7 +207,7 @@ class OmegaLib extends OmegaRESTful implements OmegaApi {
     }
 
     /** Validate and convert an epoch, PHP time description, or SQL date into a MySQL date string (e.g. 2013-05-30 13:30:01). */
-    public function mysql_date($date) {
+    static public function mysql_date($date) {
         if (OmegaTest::int_non_neg($date)) {
             return date("Y-m-d H:i:s", $date);
         } else if (OmegaTest::datetime($date)) {
