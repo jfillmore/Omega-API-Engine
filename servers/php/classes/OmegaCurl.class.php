@@ -25,6 +25,58 @@ class OmegaCurl {
         $this->num_requests = 0;
     }
 
+    public function get_cookies($raw = false) {
+        if (! file_exists($this->cookie_file)) {
+            throw new Exception("Cookie file {$this->cookie_file} does not exist or has not yet be written.");
+        }
+        $data = @file_get_contents($this->cookie_file);
+        if ($data === false) {
+            throw new Exception("Failed to open {$this->cookie_file} to read cookies.");
+        }
+        if ($data) {
+            $lines = explode("\n", $data);
+        } else {
+            $lines = array();
+        }
+        $cookies = array();
+        foreach ($lines as $line) {
+            $line = trim($line);
+            // skip blank/comments
+            if (! $line || substr($line, 0, 1) == '#') {
+                continue;
+            }
+            if ($raw) {
+                $cookies[] = $line;
+            } else {
+                // e.g.
+                // 69.36.160.20 FALSE   /   FALSE   0   Cacti   npira9g7ml4obh6lutjtapoc81
+                $parts = preg_split('/\s+/', $line);
+                $cookies[] = array(
+                    'host' => $parts[0],
+                    'tailmatch' => $parts[1],
+                    'path' => $parts[2],
+                    'secure' => $parts[3],
+                    'expires' => $parts[4],
+                    'name' => $parts[5],
+                    'value' => $parts[6],
+                );
+            }
+        }
+        return $cookies;
+    }
+
+    public function get_cookie_file() {
+        return $this->cookie_file;
+    }
+
+    public function set_cookie_file($file) {
+        if ($file) {
+            $this->cookie_file = $file;
+        } else {
+            throw new Exception("Invalid cookie file name: $file.");
+        }
+    }
+
     public function set_agent($agent) {
         $this->agent = $agent;
     }
@@ -212,6 +264,7 @@ class OmegaCurl {
         }
         $result = curl_exec($this->curl_handle);
         $meta = curl_getinfo($this->curl_handle);
+        curl_close($this->curl_handle);
         if ($result === false || $meta['http_code'] === 0) {
             throw new Exception("Request timed-out or no reply was received.");
         }
