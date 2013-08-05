@@ -231,7 +231,8 @@ class OmegaClient {
                 'meta' => $meta,
                 'response' => $result
             );
-            $url = array_shift(explode('?', $meta['url'], 2));
+            $url_parts = explode('?', $meta['url'], 2);
+            $url = array_shift($url_parts);
             // did we get a JSON response w/ a message back?
             if ($content_type == 'application/json') {
                 // look for an error
