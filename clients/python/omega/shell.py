@@ -96,6 +96,7 @@ class Shell:
         if repeat:
             self.start(False)
         else:
+            sys.stderr.write('\n')
             self.stop()
     
     def stop(self):
@@ -105,8 +106,8 @@ class Shell:
     def get_prompt(self):
         # : using colors messes up term spacing w/ readline history support
         # http://bugs.python.org/issue12972
-        # likely fixed in 2.7+?
-        if self.args['color'] and sys.version_info >= (2, 7):
+        # likely fixed in 3.2+? -- 2.7.5 seems buggy still
+        if self.args['color'] and sys.version_info >= (3, 2):
             prompt = ''.join([
                 '\033[0;31m',
                 '[',
