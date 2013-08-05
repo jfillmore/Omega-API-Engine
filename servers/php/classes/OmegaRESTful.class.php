@@ -59,7 +59,7 @@ abstract class OmegaRESTful {
         global $om;
         $debug = false;
         try {
-            $debug = $om->config->get('omega/debug');
+            $debug = $om->config->get('omega/debug_routes');
         } catch (Exception $e) {}
         $literals = array();
         $mixed = array();
@@ -129,7 +129,7 @@ abstract class OmegaRESTful {
         global $om;
         $debug = false;
         try {
-            $debug = $om->config->get('omega/debug');
+            $debug = $om->config->get('omega/debug_routes');
         } catch (Exception $e) {}
         // if the path is an array, join it up on '/'
         if (is_array($path)) {
@@ -246,7 +246,7 @@ abstract class OmegaRESTful {
         global $om;
         $debug = false;
         try {
-            $debug = $om->config->get('omega/debug');
+            $debug = $om->config->get('omega/debug_routes');
         } catch (Exception $e) {}
         /* e.g. paths:
             /service,

@@ -17,6 +17,7 @@ class Omega extends OmegaLib {
     private $output_stream = null;
     private $save_service_state; // whether or not to save the state of the service after each request
     private $production = true; // whether the API should be considered in producition mode for security purposes
+    private $debug = false; // if true, errors will contain backtraces regardless of production state
     private $wrote_headers = false; // have we written response headers already?
 
     // service information
@@ -57,6 +58,13 @@ class Omega extends OmegaLib {
         } catch (Exception $e) {
             throw new Exception("Unknown service: '$service_name'.");
         }
+        // determine whether we are in debug mode or not
+        $debug = false;
+        try {
+            // if false we'll allow some debugging info in our responses
+            $debug = (bool)$this->config->get('omega/debug');
+        } catch (Exception $e) {};
+        $this->debug = $debug;
         // determine whether we are in production mode or not
         $production = true;
         try {
@@ -136,6 +144,10 @@ class Omega extends OmegaLib {
         );
     }
 
+    public function in_debug() {
+        return $this->debug;
+    }
+
     public function in_production() {
         return $this->production;
     }
@@ -156,7 +168,7 @@ class Omega extends OmegaLib {
             $this->_write_headers();
         }
         // take note of anything that slipped out prematurely (e.g. warnings)
-        if (strlen($spillage) > 0 && ! $this->in_production()) {
+        if (strlen($spillage) > 0 && ($this->in_debug() || ! $this->in_production())) {
             $this->response->set_spillage($spillage);
         }
         $result = fopen('php://output', 'w');
@@ -352,11 +364,11 @@ class Omega extends OmegaLib {
             } else {
                 $spillage = $this->_flush_ob(false);
                 $data = array();
-                if (strlen($spillage) > 0 && ! $this->in_production()) {
+                if (strlen($spillage) > 0 && ($this->in_debug() || ! $this->in_production())) {
                     $this->response->set_spillage($spillage);
                     $this->log($spillage);
                 }
-                if (! $this->in_production()) {
+                if ($this->in_debug() || ! $this->in_production()) {
                     $data['backtrace'] = $this->_clean_trace($e->getTrace());
                 }
                 $this->response->set_data($data);
@@ -444,7 +456,7 @@ class Omega extends OmegaLib {
                 array_pop($bt);
                 array_pop($bt);
                 array_pop($bt);
-                if (! $this->in_production()) {
+                if ($this->in_debug() || ! $this->in_production()) {
                     $data['backtrace'] = $bt;
                     $data['error_data'] = $e->data;
                 }
@@ -467,7 +479,7 @@ class Omega extends OmegaLib {
                 array_pop($bt);
                 array_pop($bt);
                 array_pop($bt);
-                if (! $this->in_production()) {
+                if ($this->in_debug() || ! $this->in_production()) {
                     $data['backtrace'] = $bt;
                 }
                 $this->response->set_result(false);
@@ -483,7 +495,7 @@ class Omega extends OmegaLib {
                 } else {
                     $this->response->set_reason($e->getMessage());
                 }
-                if (! $this->in_production()) {
+                if ($this->in_debug() || ! $this->in_production()) {
                     $data['system_error'] = $e->getMessage();
                 }
                 $this->response->set_data($data);
@@ -500,7 +512,7 @@ class Omega extends OmegaLib {
         }
         // see if we spilled anywhere... if so, pick it up to ensure we have a clean stream
         $spillage = $this->_flush_ob(false);
-        if (strlen($spillage) > 0 && ! $this->in_production()) {
+        if (strlen($spillage) > 0 && ($this->in_debug() || ! $this->in_production())) {
             $this->response->set_spillage($spillage);
             $this->log($spillage);
         }
@@ -667,7 +679,7 @@ class Omega extends OmegaLib {
                 $this->sessions->unlock($this->service_name . '/instances', 'global');
             }
             $this->sessions->store($this->service_name . '/instances', 'global', $this->service);
-            if (! $release) {
+            if ($locked && ! $release) {
                 $this->sessions->lock($this->service_name . '/instances', 'global');
             }
         } else if ($scope == 'user') {
@@ -680,7 +692,7 @@ class Omega extends OmegaLib {
                 $this->sessions->unlock($this->service_name . '/instances/users', $username);
             }
             $this->sessions->store($this->service_name . '/instances/users', $username, $this->service);
-            if (! $release) {
+            if ($locked && ! $release) {
                 $this->sessions->lock($this->service_name . '/instances/users', $username);
             }
         } else if ($scope == 'session') {
@@ -693,7 +705,7 @@ class Omega extends OmegaLib {
                 $this->get_session_id(),
                 $this->session
             );
-            if (! $release) {
+            if ($locked && ! $release) {
                 $this->sessions->lock($this->service_name . '/instances/sessions', $this->get_session_id());
             }
         } else if ($scope === 'none') {
@@ -751,7 +763,7 @@ class Omega extends OmegaLib {
                 $line .= ' ' . $trace['class'] . $trace['type'];
             }
             // don't return the actual args by default for security reasons
-            if ($this->in_production()) {
+            if ($this->in_debug() || $this->in_production()) {
                 $line .= $trace['function'] . '(' . count($trace['args']) . ' ' . (count($trace['args']) === 1 ? 'arg' : 'args') . ')';
             } else {
                 $line .= $trace['function'] . '(' . json_encode($trace['args']) . ')';
