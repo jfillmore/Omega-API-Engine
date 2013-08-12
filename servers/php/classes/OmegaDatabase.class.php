@@ -18,9 +18,9 @@ class OmegaDatabase {
     protected $conn;
     protected $tr_depth; // transaction depth marker
     protected $tr_rolling_back; // whether or not the transaction has started rolling back
-    protected $split_joins = false; // whether or not to auto-split sql JOIN table data into their own array
+    protected $cypher;
 
-    public function __construct($hostname, $username, $password, $dbname, $type, $error_log = null) {
+    public function __construct($hostname, $username, $password, $dbname, $type, $error_log = null, $enc_key = null) {
         $this->hostname = $hostname;
         $this->username = $username;
         $this->password = $password;
@@ -29,6 +29,9 @@ class OmegaDatabase {
         $this->tr_depth = 0;
         $this->tr_rolling_back = false;
         $this->set_error_log($error_log);
+        if ($enc_key) {
+            $this->cypher = new OmegaCypher($enc_key);
+        }
         try {
             $this->connect();
         } catch (Exception $e) {
@@ -61,13 +64,6 @@ class OmegaDatabase {
         } else {
             $this->error_log = null;
         }
-    }
-
-    public function split_joins($val = null) {
-        if ($val !== null) {
-            $this->split_joins = ($val ? true : false);
-        }
-        return $this->split_joins;
     }
 
     protected function connect() {
@@ -223,32 +219,6 @@ class OmegaDatabase {
             throw new Exception("Unsupported database type: {$this->type}.");
         }
     }
-    
-    /** Execute an SQL query and return the result through a specific parser. Available parsers are 'array' and 'raw'. If 'key_col' is set, the 'array' parser will use the value of $key_col for each row's array index, returning an associative array.
-        expects: query=string, parser=string, key_col=string, auto_split=boolean, max_tries=number
-        returns: object */
-    public function query($query, $parser = 'array', $key_col = null, $auto_split = false, $max_tries = 2, $retry_delay = 1) {
-        $tries = 0;
-        $errors = array();
-        while ($tries < $max_tries) {
-            $tries++;
-            try {
-                return $this->_query($query, $parser, $key_col, $auto_split);
-            } catch (Exception $e) {
-                $errors[] = $e;
-                sleep($retry_delay);
-            }
-        }
-        $error = array_shift($errors);
-        // didn't work? that's not good! log and throw the first error
-        $this->log_query($query, array(
-            'key_col' => $key_col,
-            'auto_split' => $auto_split,
-            'max_tries' => $max_tries,
-            'retry_delay' => $retry_delay
-        ), $errors[0]);
-        throw $error;
-    }
 
     protected function log_query($query, $data = array(), $error = null) {
         if (! $this->error_log) {
@@ -284,11 +254,52 @@ class OmegaDatabase {
         @file_put_contents($this->error_log, $message . "\n", FILE_APPEND);
         return $message;
     }
+    
+    /** Execute an SQL query and return the result through a specific parser. Available parsers are 'array' and 'raw'. If 'key_col' is set, the 'array' parser will use the value of $key_col for each row's array index, returning an associative array.
+        expects: query=string, parser=string, key_col=string, args=array, max_tries=number
+        returns: object */
+    public function query($query, $parser = 'array', $key_col = null, $args = array(), $max_tries = 2, $retry_delay = 1) {
+        $tries = 0;
+        $errors = array();
+        while ($tries < $max_tries) {
+            $tries++;
+            try {
+                return $this->_query($query, $parser, $key_col, $args);
+            } catch (Exception $e) {
+                $errors[] = $e;
+                sleep($retry_delay);
+            }
+        }
+        $error = array_shift($errors);
+        // didn't work? that's not good! log and throw the first error
+        $this->log_query($query, array(
+            'key_col' => $key_col,
+            'args' => $args,
+            'max_tries' => $max_tries,
+            'retry_delay' => $retry_delay
+        ), $errors[0]);
+        throw $error;
+    }
 
     /** Execute an SQL query and return the result through a specific parser. Available parsers are 'array' and 'raw'. If 'key_col' is set, the 'array' parser will use the value of $key_col for each row's array index, returning an associative array. Queries that fail will be automatically retried a set number of times, delaying a one second between attempts.
-        expects: query=string, parser=string, key_col=string, auto_split=boolean
+        expects: query=string, parser=string, key_col=string, arg=array
         returns: object */
-    protected function _query($query, $parser = 'array', $key_col = null, $auto_split = false) {
+    protected function _query($query, $parser = 'array', $key_col = null, $args = array()) {
+        // 'MYSQLi' only args!
+        $args = OmegaLib::get_args(array(
+            'split_joins' => array(), // any of these joined tables will have data split off -- if 'true' all tables will
+            'keep_renames' => false, // if split_joins is on then we'll use the original column name, not the renamed version allowing conflicts to resolve easier
+            'trim' => array(), // trim out and skip these values
+            'decode' => array(), // decode values via $this->cypher
+            // TODO? 'dedupe_id' => null,
+            // TODO? 'multi_joins' => array() // list of tables to expect multiple JOIN results from, requires 'dedupe_id' to be set
+        ), $args);
+        if (! (is_array($args['split_joins']) || $args['split_joins'] === true)) {
+            throw new Exception("Invalid value for 'split_joins' param; array or 'true' expected.");
+        }
+        //if ($args['multi_joins'] & ! $args['dedupe_id']) {
+        //    throw new Exception("Unable to perform deduplication with multi-joins without specified the row ID to use.");
+        //}
         if ($this->type == 'psql') {
             $db_result = @pg_query($this->conn, $query);
             if ($db_result === false) {
@@ -296,7 +307,7 @@ class OmegaDatabase {
             }
             if ($parser == 'array') {
                 $result = array();
-                while($row = pg_fetch_array($db_result, null, PGSQL_ASSOC)) {
+                while ($row = pg_fetch_array($db_result, null, PGSQL_ASSOC)) {
                     if ($key_col != null && isset($row[$key_col])) {
                         $result[$row[$key_col]] = $row;
                     } else {
@@ -321,17 +332,33 @@ class OmegaDatabase {
                     if (count($joins) == 2) {
                         // the second row has the goodies!
                         $joins = $joins[1];
+                        $joins = array_map('strtolower', $joins);
                     } else {
                         $joins = array();
                     }
                     $result = array();
                     $row_meta = $db_result->fetch_fields();
+                    // if doing multi_joins we need to merge duplicate rows
+                    $row_bank = array(); // pkey => row
                     while ($row = $db_result->fetch_object()) {
                         $fields = array();
                         $i = 0;
+                        /* // TODO: finish this
+                        // is this a duplicate row? if so, we only need to merge some shit with the original
+                        $dupe = false;
+                        if ($args['multi_joins']) {
+                            if (! isset($row[$args['dedupe_id']])) {
+                                throw new Exception("Unable to perform deduplication; row does not contain a field with the name {$args['dedupe_id']}.");
+                            }
+                            $row_id = $row[$args['dedupe_id']];
+                            if (isset($row_bank[$row_id])) {
+                                $dupe = true;
+                            }
+                        }
+                        */
                         // gotta track which meta we've used, as our query might request a row by the same name twice during joins (e.g. "id")
                         $seen_names = array();
-                        // format and typecast return data
+                        // format, typecast, trim, decode, etc. return data
                         foreach ($row as $name => $field) {
                             $meta = $row_meta[$i++];
                             while (isset($seen_names[$meta->name])) {
@@ -351,13 +378,32 @@ class OmegaDatabase {
                                 ));
                             }
                             $value = $this->typecast($field, $meta->type);
-                            if (($this->split_joins() || $auto_split)
-                                && in_array($meta->orgtable, $joins)) {
-                                // check to see if we're a join, and branch as needed
+                            // if this is in our skip list, pass on
+                            foreach ($args['trim'] as $trim) {
+                                if ($this->match_meta($meta, $trim)) {
+                                    continue 2;
+                                }
+                            }
+                            // do we need to decode the value?
+                            foreach ($args['decode'] as $decode) {
+                                if ($this->match_meta($meta, $decode)) {
+                                    $value = $this->cypher->decode($value);
+                                }
+                            }
+                            // check to see if we're a joined value, and branch as needed
+                            if (($args['split_joins'] === true ||
+                                in_array($meta->orgtable, $args['split_joins']))
+                                && in_array($meta->orgtable, $joins)
+                                ) {
                                 if (! isset($fields[$meta->table])) {
                                     $fields[$meta->table] = array();
                                 }
-                                $fields[$meta->table][$name] = $value;
+                                // name collusion forces annoying renames of fields
+                                if ($args['keep_renames']) {
+                                    $fields[$meta->table][$name] = $value;
+                                } else {
+                                    $fields[$meta->table][$meta->orgname] = $value;
+                                }
                             } else {
                                 $fields[$name] = $value;
                             }
@@ -402,6 +448,39 @@ class OmegaDatabase {
             throw new Exception("Invalid database type: '$this->type'.");
         }
         return $result;
+    }
+
+    protected function match_meta($meta, $field) {
+        $parts = explode('.', $field);
+        // add the table in front if not given
+        if (count($parts) == 1) {
+            $parts = array(
+                $meta->orgtable,
+                $parts[0]
+            );
+        }
+        $field = strtolower(join('.', $parts));
+        $match = strtolower($meta->orgtable . '.' . $meta->orgname);
+        return $field == $match;
+    }
+
+    private function walk_obj(&$obj, $path) {
+        $parts = explode('/', trim($path, '/'));
+        $last = array_pop($parts);
+        $ptr = &$obj;
+        foreach ($parts as $part) {
+            if (@isset($ptr[$part])) {
+                $ptr = &$ptr[$part];
+            }
+        }
+        if (@isset($ptr[$last])) {
+            return array(
+                'ptr' => $ptr,
+                'path' => $last
+            ); 
+        } else {
+            return array();
+        }
     }
 
     protected function typecast($value, $type) {
@@ -478,10 +557,10 @@ class OmegaDatabase {
         ), $args);
         $sql = '';
         if ($args['group_by']) {
-            $sql .= ' GROUP BY `' . $this->escape($args['group_by']) . '`';
+            $sql .= ' GROUP BY ' . $this->add_ticks($args['group_by']);
         }
         if ($args['order_by']) {
-            $sql .= ' ORDER BY `' . $this->escape($args['order_by']) . '`';
+            $sql .= ' ORDER BY ' . $this->add_ticks($args['order_by']);
             if ($args['reverse']) {
                 $sql .= ' DESC';
             } else {
@@ -495,6 +574,24 @@ class OmegaDatabase {
             $sql .= ' OFFSET ' . (int)$args['offset'];
         }
         return $sql;
+    }
+
+    private function add_ticks($field, $escape = true) {
+        $parts = explode('.', $field);
+        $strs = array();
+        foreach ($parts as $part) {
+            // bugger any existing quotes
+            $part = trim($part, '`');
+            // add our own if needed
+            if ($part != '*') {
+                if ($escape) {
+                    $part = $this->escape($part);
+                }
+                $part = '`' . $part . '`';
+            }
+            $strs[] = $part;
+        }
+        return join('.', $strs);
     }
 
     /** Iterate through an array to recursively gather IDs used to fetch extra data. Returns a mapping of extra IDs to the primary key given.
@@ -538,248 +635,6 @@ class OmegaDatabase {
         return $extra_ids;
     }
 
-    /** Query the DMS DB with the criteria given.
-    @param array $args search arguments:
-    $args = array(
-        'clause' => '', // e.g. "SELECT * FROM `zone`"
-        'label' => 'data', // e.g. 'zones'; for labeling results
-        'meta' => false, // get counts and such
-        'decode' => array(), // field names to decode e.g. passwords
-        'table' => '', // needed for meta=true
-        'pkey' => '', // needed for meta=true, index=true
-        'index' => false,
-        'trim' => array(), // fields to trim out
-        'extras' => array(), // extra data to stitch in; e.g. array("$other_table" => array('key' => 'table_id', 'label' => 'foo'))
-        'count' => null, // limit number of results, e.g. 20
-        'offset' => null, // offset within results, e.g. 10
-        'order_by' => null, // field to order by, e.g. "hostname"
-        'group_by' => null, // field to group results by e.g. "allocation"
-        'reverse' => false // return results in reverse order
-        'debug' => false, // return attempted SQL query in error information (disabled in production)
-        'log' => false // log SQL queries to the query log (disabled in production)
-    );
-    @return array of query results. */
-    public function search($args = array()) {
-        $args = OmegaLib::get_args(array(
-            'clause' => '', // e.g. "SELECT * FROM `zone`"
-            'label' => 'data', // e.g. 'zones'; for labeling results
-            'meta' => false,
-            'decode' => array(), // field names to decode
-            'table' => '', // needed for meta=true
-            'pkey' => '', // needed for meta=true, index=true
-            'index' => false,
-            'trim' => array(), // fields to trim out
-            'expect' => null, // expect the specified number of results or throw an error
-            'extras' => array(), // extra data to stitch in; e.g. array("$other_table" => array('key' => 'table_id', 'label' => 'foo'))
-            'count' => null,
-            'offset' => null,
-            'order_by' => null,
-            'group_by' => null,
-            'reverse' => false,
-            'debug' => false,
-            'log' => false
-        ), $args);
-        // build the rest of the query
-        $sql = $args['clause'];
-        if (! $sql) {
-            throw new Exception("Invalid SQL clause: '$sql'.");
-        }
-        if ($args['meta']) {
-            $meta_sql = preg_replace(
-                '/^SELECT .* FROM/',
-                "SELECT COUNT(DISTINCT(`{$args['table']}`.`{$args['pkey']}`)) AS total FROM",
-                $sql
-            );
-        }
-        $sql .= $this->parse_flow($args);
-        // run it!
-        try {
-            $rows = $this->query($sql);
-        } catch (Exception $e) {
-            if ($args['debug']) {
-                if (Omega::get()->in_production()) {
-                    throw $e;
-                }
-                throw new OmegaException(
-                    $e->getMessage(),
-                    array(
-                        'sql' => $sql,
-                        'args' => $args
-                    )
-                );
-            }
-            throw $e;
-        }
-        if ($args['log'] && ! Omega::get()->in_production()) {
-            $this->log_query($sql, $rows);
-        }
-        if ($args['expect'] !== null) {
-            $count = count($rows);
-            if ($count !== (int)$args['expect']) {
-                throw new Exception("Found $count result(s) where {$args['expect']} results were expected.");
-            }
-        }
-        // parse the results as ordered or unordered
-        $cypher = new Cypher();
-        $objs = array();
-        $row_ids = array(); // if "extras" = true
-        if ($args['index']) {
-            $index = $args['pkey'];
-            if ($args['index'] !== true) {
-                $index = $args['index'];
-            }
-            foreach ($rows as $row) {
-                if (! isset($row[$index])) {
-                    throw new Exception("Invalid index: $index.");
-                }
-                if ($args['decode']) {
-                    foreach ($args['decode'] as $field) {
-                        if (@$row[$field]) {
-                            $row[$field] = $cypher->decode(
-                                $row[$field]
-                            );
-                        }
-                    }
-                }
-                // joining data on? 
-                if ($args['extras']) {
-                    $row_ids[] = $row[$args['pkey']];
-                }
-                if (! in_array($row['index'], $args['trim'])) {
-                    $objs[$row[$index]] = $row;
-                }
-            }
-        } else {
-            // gotta decode something
-            if ($args['decode'] || $args['extras'] || $args['trim']) {
-                foreach ($rows as $row) {
-                    // look for our fields to decode in each row first
-                    foreach ($args['decode'] as $field) {
-                        if (@$row[$field]) {
-                            $row[$field] = $cypher->decode(
-                                $row[$field]
-                            );
-                        }
-                    }
-                    // trim out some fields
-                    foreach ($args['trim'] as $trim) {
-                        unset($row[$trim]);
-                    }
-                    if ($args['extras']) {
-                        $row_ids[] = $row[$args['pkey']];
-                    }
-                    $objs[] = $row;
-                }
-            } else {
-                // no more parsing needed!
-                $objs = $rows;
-            }
-        }
-        // recursively add extra information into our data
-        if ($args['extras'] && $row_ids) {
-            $extra_ids = array();
-            foreach ($args['extras'] as $table => $info) {
-                // fetch the extra rows to stitch in
-                $info = OmegaLib::get_args(array(
-                    'key' => $args['pkey'], // it won't always just match the base obj's pkey
-                    'ids' => null, // default to pkey IDs, else some path
-                    'label' => $args['pkey'], // return array($table => ...)
-                    'joins' => array(), // extra joins
-                    'select' => "`$table`.*", // data to add on
-                    'where' => '', // any extra 'where' SQL to include 
-                    'missing_ok' => false, // can 'ids' be missing from the results?
-                    'decode' => array(),
-                    'count' => null,
-                    'offset' => null,
-                    'order_by' => null,
-                    'reverse' => false,
-                    'meta' => false,
-                    'index' => false,
-                    'single_row' => false,
-                    'trim' => array()
-                ), $info);
-                $rows = array();
-                $table = $this->escape($table);
-                $info['key'] = $this->escape($info['key']);
-                // record the IDs we need to reassociate data
-                $extra_ids = array(); // extra_id => pkey
-                if (@$info['ids']) {
-                    // parse our results for this value
-                    $ids = preg_split('/[\/\.]/', $info['ids']);
-                    foreach ($objs as $obj) {
-                        // array_merge fails due to numerical IDs
-                        $extra_ids = OmegaLib::merge(
-                            $extra_ids,
-                            $this->parse_path($obj, $ids, $obj[$args['pkey']], $info['missing_ok'])
-                        );
-                    }
-                } else {
-                    // default to the primary key for the original data
-                    $extra_ids = array_combine($row_ids, $row_ids);
-                }
-                // if fetching IDs out of the parsed data we might not have anything here to attach
-                if ($extra_ids) {
-                    $sql = 
-                        "SELECT {$info['select']} FROM `$table`"
-                            . join(' ', $info['joins'])
-                            . " WHERE `$table`.`{$info['key']}` IN ("
-                            . join(', ', array_keys($extra_ids))
-                            . ")";
-                    if ($info['where']) {
-                        $sql .= ' AND ' . $info['where'];
-                    }
-                    $search_args = 
-                        array_merge($info, array(
-                            'clause' => $sql,
-                            'table' => $table,
-                            'label' => 'data',
-                            'meta' => false, // no easy way to glue meta data back on during attachment
-                            'index' => false // indexing happens below on attachment
-                        ));
-                    $search = $this->search($search_args);
-                    $rows = $search['data'];
-                } else {
-                    $rows = array();
-                }
-                // parse each row and append to to the correct object
-                // QQ @ O(n^2)
-                foreach ($objs as &$obj) {
-                    $obj[$info['label']] = array();
-                    foreach ($rows as $row) {
-                        $row_id = $row[$info['key']];
-                        $obj_id = $extra_ids[$row_id];
-                        // is this ours?
-                        if ($obj_id == $obj[$args['pkey']]) {
-                            if ($info['index']) {
-                                $obj[$info['label']][$info['index'] = $row];
-                            } else { 
-                                if ($info['single_row']) {
-                                    $obj[$info['label']] = $row;
-                                    break 2;
-                                } else {
-                                    $obj[$info['label']][] = $row;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        $result = array(
-            $args['label'] => $objs
-        );
-        if ($args['meta']) {
-            $meta_row = array_pop($this->query($meta_sql));
-            $result['meta'] = array(
-                'total' => (int)$meta_row['total'],
-                'count' => count($objs),
-                'offset' => ! $args['offset']
-                    ? 0
-                    : (int)$args['offset']
-            );
-        }
-        return $result;
-    }
 }
 
 

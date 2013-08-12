@@ -763,7 +763,7 @@ class Omega extends OmegaLib {
                 $line .= ' ' . $trace['class'] . $trace['type'];
             }
             // don't return the actual args by default for security reasons
-            if ($this->in_debug() || $this->in_production()) {
+            if (! $this->in_debug() && $this->in_production()) {
                 $line .= $trace['function'] . '(' . count($trace['args']) . ' ' . (count($trace['args']) === 1 ? 'arg' : 'args') . ')';
             } else {
                 $line .= $trace['function'] . '(' . json_encode($trace['args']) . ')';
