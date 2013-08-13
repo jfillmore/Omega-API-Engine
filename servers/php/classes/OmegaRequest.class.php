@@ -671,13 +671,15 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
     public function _get_method_params($r_method) {
         global $om;
         $api_params = $this->get_api_params();
+        // cause 'isset' trips out on sending NULL values, saying false
+        $param_names = array_keys($api_params);
         $missing_params = array();
         $params = array();
         $param_count = 0;
         foreach ($r_method->getParameters() as $i => $r_param) {
             // make sure the parameter is available, if present
             $param_name = $r_param->getName();
-            if (isset($api_params[$param_name])) {
+            if (in_array($param_name, $param_names)) {
                 $params[$param_count] = $api_params[$param_name];
             } else {
                 // wasn't there either? maybe it is optional...

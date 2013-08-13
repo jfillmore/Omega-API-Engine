@@ -70,12 +70,12 @@ class OmegaLib extends OmegaRESTful implements OmegaApi {
         $stderr = stream_get_contents($pipes[2]);
         $ret_val = proc_close($proc);
         if ($ret_val != 0) {
-            $stdout2 = substr(trim($stdout), 0, 128);
-            $stderr2 = substr(trim($stderr), 0, 128);
-            if (trim($stdout) !== $stdout2) {
+            $stdout2 = substr(trim($stdout), 0, 256);
+            $stderr2 = substr(trim($stderr), 0, 256);
+            if (trim($stdout) != $stdout2) {
                 $stdout2 .= '...';
             }
-            if (trim($stderr) !== $stderr2) {
+            if (trim($stderr) != $stderr2) {
                 $stderr2 .= '...';
             }
             throw new Exception("Command execution failed with return value $ret_val. Read '$stdout2' from stdout, '$stderr2' from stderr.");
@@ -204,6 +204,19 @@ class OmegaLib extends OmegaRESTful implements OmegaApi {
             $random .= $char_pool[rand(0, count($char_pool)-1)];
         }
         return $random;
+    }
+
+    /** Validate and convert an epoch, PHP time description, or SQL date into an epoch. */
+    static public function to_time($date) {
+        if (OmegaTest::int_non_neg($date)) {
+            // already an epoch
+            return $date;
+        } else {
+            return strtotime($date);
+            if ($ts === -1 || $ts === false) {
+                throw new Exception("Unrecognized date: '$date'. Please provide a validate epoch, date, etc.");
+            }
+        }
     }
 
     /** Validate and convert an epoch, PHP time description, or SQL date into a MySQL date string (e.g. 2013-05-30 13:30:01). */

@@ -297,6 +297,9 @@ class OmegaDatabase {
         if (! (is_array($args['split_joins']) || $args['split_joins'] === true)) {
             throw new Exception("Invalid value for 'split_joins' param; array or 'true' expected.");
         }
+        if (! is_array($args['trim'])) {
+            throw new Exception("Array expected for 'trim' param; '{$args['trim']}' provided.");
+        }
         //if ($args['multi_joins'] & ! $args['dedupe_id']) {
         //    throw new Exception("Unable to perform deduplication with multi-joins without specified the row ID to use.");
         //}
@@ -386,7 +389,7 @@ class OmegaDatabase {
                             }
                             // do we need to decode the value?
                             foreach ($args['decode'] as $decode) {
-                                if ($this->match_meta($meta, $decode)) {
+                                if ($this->match_meta($meta, $decode) && $value !== null) {
                                     $value = $this->cypher->decode($value);
                                 }
                             }
