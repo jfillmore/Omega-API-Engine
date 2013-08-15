@@ -43,9 +43,9 @@ class OmegaLib extends OmegaRESTful implements OmegaApi {
     }
 
     /** Executes a shell command, possibly writing $stdin to the command, returning the contents of stdout and stderr. Throws an exception if the return value is non-zero. THE COMMAND BEING EXECUTED WILL NOT BE ESCAPED. USE WITH CAUTION.
-        expects: cmd=string, stdin=string, env=array
+        expects: cmd=string, stdin=string, env=array, ignore_errors=boolean
         returns: object */
-    static public function exec($cmd, $stdin = null, $env = null) {
+    static public function exec($cmd, $stdin = null, $env = null, $ignore_errors = false) {
         $pipe_info = array(
             0 => array('pipe', 'r'),
             1 => array('pipe', 'w'),
@@ -69,7 +69,7 @@ class OmegaLib extends OmegaRESTful implements OmegaApi {
         $stdout = stream_get_contents($pipes[1]);
         $stderr = stream_get_contents($pipes[2]);
         $ret_val = proc_close($proc);
-        if ($ret_val != 0) {
+        if ($ret_val != 0 && ! $ignore_errors) {
             $stdout2 = substr(trim($stdout), 0, 256);
             $stderr2 = substr(trim($stderr), 0, 256);
             if (trim($stdout) != $stdout2) {
@@ -80,7 +80,7 @@ class OmegaLib extends OmegaRESTful implements OmegaApi {
             }
             throw new Exception("Command execution failed with return value $ret_val. Read '$stdout2' from stdout, '$stderr2' from stderr.");
         }
-        return array('stdout' => $stdout, 'stderr' => $stderr);
+        return array('stdout' => $stdout, 'stderr' => $stderr, 'retval' => $ret_val);
     }
     public function _exec($cmd, $stdin = null, $env = null) {
         return OmegaLib::exec($cmd, $stdin, $env);
