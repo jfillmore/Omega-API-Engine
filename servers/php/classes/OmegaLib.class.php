@@ -233,5 +233,15 @@ class OmegaLib extends OmegaRESTful implements OmegaApi {
             return date("Y-m-d H:i:s", $ts);
         }
     }
+
+    /** Trim out any null values from an array. */
+    static public function trim_nulls($array) {
+        foreach ($array as $key => $value) {
+            if ($value === null) {
+                unset($array[$key]);
+            }
+        }
+        return $array;
+    }
 }
 

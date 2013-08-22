@@ -243,7 +243,7 @@ class OmegaClient:
         if method is None or method == '':
             method = 'GET'
         method = method.upper()
-        if api == '':
+        if api == '' or api == None:
             raise Exception("Invalid service API: '%s'." %api)
         api = urllib.quote(api)
         if self._credentials:

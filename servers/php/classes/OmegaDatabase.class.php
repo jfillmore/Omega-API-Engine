@@ -570,7 +570,7 @@ class OmegaDatabase {
                 $sql .= ' ASC';
             }
         }
-        if ($args['count'] && $args['count'] > 0) {
+        if ($args['count'] !== null) {
             $sql .= ' LIMIT ' . (int)$args['count'];
         }
         if ($args['offset'] && $args['offset'] > 0) {

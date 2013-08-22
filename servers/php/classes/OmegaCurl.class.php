@@ -58,7 +58,7 @@ class OmegaCurl {
                     'secure' => $parts[3],
                     'expires' => $parts[4],
                     'name' => $parts[5],
-                    'value' => $parts[6],
+                    'value' => @$parts[6], // don't always have a value
                 );
             }
         }

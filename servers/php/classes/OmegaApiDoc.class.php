@@ -44,7 +44,7 @@ class OmegaApiDoc {
             ksort($api_list);
             foreach ($api_list as $uri => $info) {
                 $path = rtrim("$depth$uri", '/');
-                $this->api_index[$path] = array(
+                $this->api_index[] = array(
                     'method' => $method,
                     'info' => $info,
                     'path_html' => "<div class=\"method\">$method</div> $path",
@@ -79,7 +79,7 @@ class OmegaApiDoc {
     public function parse_html() {
         $nav_html = array();
         $api_html = array();
-        foreach ($this->api_index as $uri => $api) {
+        foreach ($this->api_index as $api) {
             $ahref = str_replace('/', '', $api['path']);
             $ahref = str_replace(' ', '_', $ahref);
             $api_desc = str_replace("\n", '<br>', $api['info']['desc']);

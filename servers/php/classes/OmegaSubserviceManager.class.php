@@ -37,6 +37,19 @@ class OmegaSubserviceManager extends OmegaRESTful implements OmegaApi {
         }
     }
 
+    public function _get_handlers() {
+        return array(
+            'GET' => array(
+                '/' => 'find',
+                '/enabled' => 'list_enabled',
+            ),
+            'POST' => array(
+                '/:subservice/deactivate' => 'deactivate',
+                '/:subservice/enabled' => 'set_enabled'
+            )
+        );
+    }
+
     public function _save_config() {
         global $om;
         $om->shed->store($om->service_name . '/subservices', 'config', $this->config);
