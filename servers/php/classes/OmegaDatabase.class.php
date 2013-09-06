@@ -288,11 +288,12 @@ class OmegaDatabase {
         // 'MYSQLi' only args!
         $args = OmegaLib::get_args(array(
             'split_joins' => array(), // any of these joined tables will have data split off -- if 'true' all tables will
-            'keep_renames' => false, // if split_joins is on then we'll use the original column name, not the renamed version allowing conflicts to resolve easier
+            'use_renamed_table' => true, // if split_joins is on then we'll use the original table name, not the renamed table
+            'use_renamed_col' => false, // if split_joins is on then we'll use the original column name, not the renamed version allowing conflicts to resolve easier
             'trim' => array(), // trim out and skip these values
             'decode' => array(), // decode values via $this->cypher
-            // TODO? 'dedupe_id' => null,
-            // TODO? 'multi_joins' => array() // list of tables to expect multiple JOIN results from, requires 'dedupe_id' to be set
+            'dedupe_id' => null,
+            'multi_joins' => array() // list of tables to expect multiple JOIN results from, requires 'dedupe_id' to be set
         ), $args);
         if (! (is_array($args['split_joins']) || $args['split_joins'] === true)) {
             throw new Exception("Invalid value for 'split_joins' param; array or 'true' expected.");
@@ -300,9 +301,9 @@ class OmegaDatabase {
         if (! is_array($args['trim'])) {
             throw new Exception("Array expected for 'trim' param; '{$args['trim']}' provided.");
         }
-        //if ($args['multi_joins'] & ! $args['dedupe_id']) {
-        //    throw new Exception("Unable to perform deduplication with multi-joins without specified the row ID to use.");
-        //}
+        if ($args['multi_joins'] & ! $args['dedupe_id']) {
+            throw new Exception("Unable to perform deduplication with multi-joins without specified the row ID to use.");
+        }
         if ($this->type == 'psql') {
             $db_result = @pg_query($this->conn, $query);
             if ($db_result === false) {
@@ -339,34 +340,44 @@ class OmegaDatabase {
                     } else {
                         $joins = array();
                     }
+                    if ($args['split_joins'] === true) {
+                        $args['split_joins'] = $joins;
+                    }
+                    if ($args['multi_joins'] === true) {
+                        $args['multi_joins'] = $joins;
+                    }
                     $result = array();
                     $row_meta = $db_result->fetch_fields();
                     // if doing multi_joins we need to merge duplicate rows
-                    $row_bank = array(); // pkey => row
+                    $dupe_ctr = array(); // dupe_id => # of dupes
+                    $dupe_index = array(); // dupe_id => index in $result for original
                     while ($row = $db_result->fetch_object()) {
                         $fields = array();
-                        $i = 0;
-                        /* // TODO: finish this
-                        // is this a duplicate row? if so, we only need to merge some shit with the original
-                        $dupe = false;
+                        $row_ctr = 0;
+                        // is this a duplicate row? if so, what ID are we a duplicate of?
+                        $dupe_id = false;
                         if ($args['multi_joins']) {
-                            if (! isset($row[$args['dedupe_id']])) {
+                            if (! isset($row->$args['dedupe_id'])) {
                                 throw new Exception("Unable to perform deduplication; row does not contain a field with the name {$args['dedupe_id']}.");
                             }
-                            $row_id = $row[$args['dedupe_id']];
-                            if (isset($row_bank[$row_id])) {
-                                $dupe = true;
+                            $dedupe_id = $row->$args['dedupe_id'];
+                            if (isset($dupe_ctr[$dedupe_id])) {
+                                $dupe_ctr[$dedupe_id]++;
+                                $dupe_id = $dedupe_id;
+                            } else {
+                                $dupe_ctr[$dedupe_id] = 0;
                             }
                         }
-                        */
                         // gotta track which meta we've used, as our query might request a row by the same name twice during joins (e.g. "id")
                         $seen_names = array();
+                        // when multi-joining we'll need to know which arrays to merge together
+                        $multi_merge = array();
                         // format, typecast, trim, decode, etc. return data
                         foreach ($row as $name => $field) {
-                            $meta = $row_meta[$i++];
+                            $meta = $row_meta[$row_ctr++];
                             while (isset($seen_names[$meta->name])) {
                                 // if we've already seen this name we can skip this row of meta info -- it means we've got some rows with the same name
-                                $meta = $row_meta[$i++];
+                                $meta = $row_meta[$row_ctr++];
                             }
                             $seen_names[$name] = true;
                             // type cast each bit of data to it's proper format (e.g. so 1 => 1, not "1")
@@ -374,7 +385,7 @@ class OmegaDatabase {
                                 throw new OmegaException("Invalid meta data for field '$name'.", array(
                                     'cur_meta' => $meta,
                                     'row_meta' => $row_meta,
-                                    'i' => $i - 1,
+                                    'row_ctr' => $row_ctr - 1,
                                     'row' => $row,
                                     'name' => $name,
                                     'field' => $field
@@ -394,29 +405,59 @@ class OmegaDatabase {
                                 }
                             }
                             // check to see if we're a joined value, and branch as needed
-                            if (($args['split_joins'] === true ||
-                                in_array($meta->orgtable, $args['split_joins']))
-                                && in_array($meta->orgtable, $joins)
+                            // when using multi-join (collapsing multiple rows into one) or split joins (branching data from some tables into an array) the same applies
+                            if (in_array($meta->orgtable, $args['split_joins'])
+                                || in_array($meta->orgtable, $args['multi_joins'])
                                 ) {
-                                if (! isset($fields[$meta->table])) {
-                                    $fields[$meta->table] = array();
+                                $table_name = $meta->orgtable;
+                                if ($args['use_renamed_table']) {
+                                    $table_name = $meta->table;
                                 }
-                                // name collusion forces annoying renames of fields
-                                if ($args['keep_renames']) {
-                                    $fields[$meta->table][$name] = $value;
-                                } else {
-                                    $fields[$meta->table][$meta->orgname] = $value;
+                                $col_name = $meta->orgname;
+                                if ($args['use_renamed_col']) {
+                                    $col_name = $meta->name;
                                 }
+                                $multi_merge[$table_name] = true;
+                                if (! isset($fields[$table_name])) {
+                                    $fields[$table_name] = array();
+                                }
+                                $fields[$table_name][$col_name] = $value;
                             } else {
                                 $fields[$name] = $value;
                             }
                         }
-                        if ($key_col !== null && isset($fields[$key_col])) {
-                            // if we have a key column we need to order by that
-                            $result[$fields[$key_col]] = $fields;
+                        // if this is a dupe, now we can blend it in to the original row; otherwise add like normal
+                        if ($dupe_id) {
+                            // fetch the original row and extend it
+                            $index = $dupe_index[$dupe_id];
+                            $orig = $result[$index];
+                            // take our split values and merge them together
+                            foreach (array_keys($multi_merge) as $merge_key) {
+                                // in case we requested multi merges on tables we never joined in the end...
+                                if (isset($orig[$merge_key])) {
+                                    // first dupe? we need to prep the orig row
+                                    if ($dupe_ctr[$dupe_id] == 1) {
+                                        $orig[$merge_key] = array($orig[$merge_key]);
+                                    }
+                                    // and add in another row
+                                    $orig[$merge_key][] = $fields[$merge_key];
+                                }
+                            }
+                            // and update the original row
+                            $result[$index] = $orig;
                         } else {
-                            // otherwise order by natural order
-                            $result[] = $fields;
+                            if ($key_col !== null && isset($fields[$key_col])) {
+                                // if we have a key column we need to order by that
+                                $index = $fields[$key_col];
+                                $result[$index] = $fields;
+                            } else {
+                                // otherwise order by natural order
+                                $index = count($result);
+                                $result[] = $fields;
+                            }
+                            if ($args['multi_joins']) {
+                                $dupe_index[$dedupe_id] = $index;
+                            }
                         }
                     }
                 } else if ($parser == 'raw') {
@@ -455,7 +496,7 @@ class OmegaDatabase {
 
     protected function match_meta($meta, $field) {
         $parts = explode('.', $field);
-        // add the table in front if not given
+        // add the table in front if not given -- seems we don't care what the table is
         if (count($parts) == 1) {
             $parts = array(
                 $meta->orgtable,
@@ -463,8 +504,10 @@ class OmegaDatabase {
             );
         }
         $field = strtolower(join('.', $parts));
+        // could match the original name or the renamed version...
         $match = strtolower($meta->orgtable . '.' . $meta->orgname);
-        return $field == $match;
+        $match2 = strtolower($meta->table . '.' . $meta->name);
+        return ($field == $match || $field == $match2);
     }
 
     private function walk_obj(&$obj, $path) {

@@ -566,16 +566,10 @@ EXAMPLE COMMANDS:
             sys.stdout.write('\n')
         elif cmd == 'quit':
             return False
-        elif cmd == 'test':
-            for item in ['marian.s', 'omega.config.get -', 'marian.gallery.find --', 'marian.', 'marian', 'marian.galler', 'omega.c', 'marian.style.sear ', 'marian.style.search wher', 'marian.style.search where="id < 3" ', 'marian.style.search where="id < 3" count=10 offset=50']:
-                sys.stdout.write('---- [' + item + '] ----' + '\n')
-                parts = self._split_cmd(item)
-                dbg.pp(self._get_completions(self._split_cmd(item)))
         elif cmd == 'help' or cmd == '*':
             self.print_help()
         elif cmd == 'sh':
             proc = subprocess.Popen(params);
-            sys.stdout.write('\n')
         else:
             raise Exception('Unrecognized command: "%s". Enter "help" for help.' % (cmd))
         return True
