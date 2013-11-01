@@ -259,7 +259,7 @@ class OmegaClient {
         $response = json_decode($json, true);
         if ($response === false || $response === null) {
             throw new OmegaException("Failed to decode Omega response.", array(
-            'response' => $result,
+            'response' => $json,
             'meta' => $meta
         ));
         }
