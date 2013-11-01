@@ -10,7 +10,7 @@
 /** Omega exists as a global object ($om or $omega) and provides an API to assist omega services (e.g. provide subservices like ACLs and logging). */
 class Omega extends OmegaLib {
     static private $instance = null; // so we don't depend on a global var
-    public $finished = false;
+    public $finished = null;
     public $session;
     public $session_id; // used when scope = 'session', can be prefixed with $om->response->set_cookie_prefix()
     private $restful; // whether or not the API is RESTful
@@ -510,6 +510,7 @@ class Omega extends OmegaLib {
             $this->_write_headers();
         }
         // and finally print/return the response, unless the output stream was hijacked
+        $this->finished = true;
         if (! $this->_has_output_stream()) {
             if (is_resource($response)) {
                 fpassthru($response);
@@ -517,7 +518,6 @@ class Omega extends OmegaLib {
                 echo $response;
             }
         }
-        $this->finished = true;
     }
 
     public function _write_headers() {

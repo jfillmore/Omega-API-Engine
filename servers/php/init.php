@@ -136,12 +136,16 @@ new OmegaAlert();
 register_shutdown_function(function () {
     $om = Omega::get();
     if ($om && ! $om->finished && $om->in_production()) {
+        // note that calling 'exit()' intentionally will provoke this error
         $alert = new OmegaAlert(
             "Internal Server Error",
             "API execution failed due to a fatal error.",
             array(
                 'last_error' => error_get_last(),
-                'api' => $_SERVER['REQUEST_URI']
+                'omega_init' => (boolean)$om,
+                'api_finished' => ($om ? $om->finished : 'no-omega'),
+                'in_production' => ($om ? $om->in_production() : 'unknown'),
+                'api' => $_SERVER['REQUEST_METHOD'] . ' ' . $_SERVER['REQUEST_URI']
             )
         );
     }

@@ -125,6 +125,7 @@ class OmegaProxy {
         } else {
             fpassthru($sock);
         }
+        $om->finished = true;
         exit;
     }
 
