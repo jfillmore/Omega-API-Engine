@@ -139,11 +139,13 @@ class OmegaProxy {
         } else {
             fpassthru($sock);
         }
-        exit;
+        // mark ourselves as completed so we can terminate cleanly
+        $om->finished = true;
+        exit();
     }
 
     public function curl_passthru($hostname, $port = null) {
-        global $om;
+        $om = Omega::get();
         $port = ($port === null ? $_SERVER['SERVER_PORT'] : $port);
         // set our request to use the same info as we were given
         $this->curl->set_port($port);
@@ -206,6 +208,8 @@ class OmegaProxy {
             }
         }
         echo $body;
+        // mark ourselves as completed so we can terminate cleanly
+        $om->finished = true;
         exit();
     }
 }
