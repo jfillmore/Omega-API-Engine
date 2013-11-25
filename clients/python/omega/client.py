@@ -63,10 +63,10 @@ class OmegaClient:
             else:
                 # check for protocol
                 if url.lower()[0:7] == 'http://':
-                    url = url[8:]
+                    url = url[7:]
                     self.set_https(False)
                 elif url.lower()[0:8] == 'https://':
-                    url = url[9:]
+                    url = url[8:]
                     self.set_https(True)
                 else:
                     # some other protocol perhaps?
