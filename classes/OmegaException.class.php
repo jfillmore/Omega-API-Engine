@@ -1,0 +1,112 @@
+<?php
+/* omega - PHP server
+   https://github.com/jfillmore/Omega-API-Engine
+  
+   Copyright 2011, Jonathon Fillmore
+   Licensed under the MIT license. See LICENSE file.
+   http://www.opensource.org/licenses/mit-license.php */
+
+
+class OmegaException extends Exception {
+    public $data = null;
+    public $comment = null;
+    public $user_error = false;
+    public $subject;
+    public $body;
+    private $args;
+
+    public function __construct($message, $data = null, $args = array()) {
+        $om = Omega::get();
+        parent::__construct($message);
+        $this->data = $data;
+        if ($args === null) {
+            $args = array();
+        }
+        $this->args = $args;
+        $this->generate_report();
+        if (isset($args['email'])) {
+            mail($args['email'], $this->subject, $this->body);
+            if (isset($args['email_bcc'])) {
+                mail($args['email_bcc'], $this->subject, $this->body);
+            }
+        }
+        // user errors get flagged slightly differently in the response
+        if (isset($args['user_error']) && $args['user_error']) {
+            $this->user_error = $args['user_error'];
+        }
+        if (isset($args['alert']) && $args['alert']) {
+            $admin_email = null;
+            $admin_email = $om->config->get('omega/admin/email', null);
+            if ($admin_email) {
+                if (! is_array($admin_email)) {
+                    $admin_email = array($admin_email);
+                }
+                foreach ($admin_email as $email) {
+                    mail($email, $this->subject, $this->body);
+                }
+            } else {
+                $om->log("Unable to send e-mail exception; no admin e-mail address defined in 'omega/admin/email'.");
+                $om->log(array(
+                    "subject" => $this->subject,
+                    "body" => $this->body
+                ));
+            }
+            try {
+                // backup email?
+                $admin_cc = $om->config->get('admin/admin/email_cc');
+                if ($admin_cc != $admin_email) {
+                    mail($admin_cc, $this->subject, $this->body);
+                }
+            } catch (Exception $e) {}
+        }
+        if (isset($args['comment'])) {
+            $this->comment = $args['comment'];
+        }
+    }
+
+    private function generate_report() {
+        $om = Omega::get();
+        $message = $this->getMessage();
+        if (isset($om->api_name) && isset($om->whoami)) {
+            $email_body = "The following exception was thrown by "
+                . $om->api_name . ' (' . $om->whoami() . ") during API '"
+                . $om->request->get_api() . "': $message\n\n";
+        } else {
+            $email_body = 'Exception: ';
+        }
+        $email_body .= "Back trace:\n";
+        if (isset($om->clean_trace)) {
+            $bt_lines = $om->clean_trace($this->getTrace());
+            // get rid of parts of the trace we don't need
+            array_pop($bt_lines);
+            array_pop($bt_lines);
+            array_pop($bt_lines);
+            $email_body .= implode("\n", $bt_lines);
+        }
+        if ($this->comment !== null) {
+            $email_boxy .= "\nError Comment:\n$comment\n";
+        }
+        //$email_body .= "\nGET:\n" . var_export($_GET, true) . "\n";
+        //$email_body .= "\nPOST:\n" . var_export($_POST, true) . "\n";
+        if ($this->data !== null) {
+            if (! is_array($this->data)) {
+                $this->data = array($this->data);
+            }
+            $email_body .= "\n\nOBJECTS:\n===============================\n";
+            foreach ($this->data as $i => $obj) {
+                $email_body .= "[$i]\n";
+                $email_body .= var_export($obj, true) . "\n";
+                $email_body .= "-------------------------------\n";
+            }
+        }
+        if (isset($om->api_name)) {
+            $this->subject = $om->api_name . ' Exception: ' . $message;
+        } else if (isset($om->whoami)) {
+            $this->subject = $om->api_name . ' (' . $om->whoami() . ') Exception: ' . $message;
+        } else {
+            $this->subject = 'Exception: ' . $message;
+        }
+        $this->body = $email_body;
+    }
+}
+
