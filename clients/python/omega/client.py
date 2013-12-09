@@ -327,7 +327,7 @@ class OmegaClient:
             sys.stderr.write(
                 '# Response Status: %s %s\n# Response Headers: %s\n' %
                 (response.status, response.reason, self.encode(
-                    str(response.msg).split('\r\n')
+                    str(response.msg).strip().split('\r\n')
                 ))
             )
         content_type = response.getheader('Content-Type') or '';
