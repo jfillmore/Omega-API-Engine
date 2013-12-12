@@ -629,6 +629,10 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
             );
             return $branch_info;
         }
+        // ditch the API name out of the API path for errors
+        $api_parts = explode('/', $api);
+        array_shift($api_parts);
+        $api = join('/', $api_parts);
         // make sure the method is exists-- if not then see if the user has a ___404 method
         if (! $r_class->hasMethod($method)) {
             if (! $this->is_query() && $r_class->hasMethod('___404')) {
@@ -1054,6 +1058,10 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
             // hide param/return info, as it's duplicated
             if (isset($stats['tokens']['return'])) unset($stats['tokens']['return']);
             if (isset($stats['tokens']['param'])) unset($stats['tokens']['param']);
+            if (isset($stats['tokens']['example'])) {
+                $stats['example'] = $stats['tokens']['example'];
+                unset($stats['tokens']['param']);
+            }
             if (! count($stats['tokens'])) {
                 unset($stats['tokens']);
             }

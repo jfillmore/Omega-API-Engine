@@ -85,8 +85,14 @@ class OmegaDocParser {
         if (empty($trimmed)) return true;
         if (strpos($trimmed, '@') === 0) {
             $this->indent = strpos($line, '@');
-            $token = substr($trimmed, 1, strpos($trimmed, ' ') - 1); // parameter name
-            $value = substr($trimmed, strlen($token) + 2); // parameter value
+            $word_end = strpos($trimmed, ' ');
+            if ($word_end === false) {
+                $token = substr($trimmed, 1); // parameter name
+                $value = ""; // value on the next line(s)
+            } else {
+                $token = substr($trimmed, 1, $word_end - 1); // parameter name
+                $value = substr($trimmed, strlen($token) + 2); // parameter value
+            }
             // save the data found within the line
             return $this->setToken($token, $value);
         } else if ($this->last['type']) {
@@ -96,11 +102,17 @@ class OmegaDocParser {
             // how much do we need to restore to our trim?
             $trimmed = str_repeat(' ', max($offset - $this->indent, 0))
                 . $trimmed;
-            // this is part of a previous param/return, so reassociate it
+            // this is part of a previous param/return/example, so reassociate it
             if ($this->last['type'] == 'return') {
                 $this->tokens['return']['desc'] .= PHP_EOL . $trimmed;
             } else if ($this->last['type'] == 'param') {
                 $this->params[$this->last['name']]['desc'] .= PHP_EOL . $trimmed;
+            } else if ($this->last['type'] == 'example') {
+                // so we can start on a new line...
+                $this->tokens['example'] = trim(
+                    $this->tokens['example']
+                    .  PHP_EOL . $trimmed
+                );
             } else {
                 $this->setToken($this->last['name'], $trimmed);
             }
