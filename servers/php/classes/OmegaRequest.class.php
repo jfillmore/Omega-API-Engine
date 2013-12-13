@@ -1060,7 +1060,7 @@ class OmegaRequest extends OmegaRESTful implements OmegaApi {
             if (isset($stats['tokens']['param'])) unset($stats['tokens']['param']);
             if (isset($stats['tokens']['example'])) {
                 $stats['example'] = $stats['tokens']['example'];
-                unset($stats['tokens']['param']);
+                unset($stats['tokens']['example']);
             }
             if (! count($stats['tokens'])) {
                 unset($stats['tokens']);
