@@ -546,7 +546,6 @@ EXAMPLES:
             self.print_help()
         elif cmd == 'sh':
             proc = subprocess.Popen(params);
-            sys.stdout.write('\n')
         else:
             raise Exception('Unrecognized command: "%s". Enter "help" for help.' % (cmd))
         return True

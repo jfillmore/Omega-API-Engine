@@ -78,8 +78,12 @@ abstract class OmegaRESTful {
                 foreach (explode('/', trim($route, '/')) as $route_part) {
                     $route_depth += 1;
                     $part_start = substr($route_part, 0, 1);
-                    if ($part_start == ':' || $part_start == '*') {
-                        // found a var, so see how deep it was
+                    // if we contain a variable in this section see how deep it was
+                    if ($part_start == ':') {
+                        // since this part is optional we don't count the var depth
+                        $var_depth = $route_depth - 1;
+                        break;
+                    } else if ($part_start == '*') {
                         $var_depth = $route_depth;
                         break;
                     }

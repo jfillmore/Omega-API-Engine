@@ -139,7 +139,9 @@ class OmegaProxy {
         } else {
             fpassthru($sock);
         }
-        exit;
+        // mark ourselves as completed so we can terminate cleanly
+        $om->finished = true;
+        exit();
     }
 
     public function curl_passthru($hostname, $port = null) {
@@ -206,6 +208,8 @@ class OmegaProxy {
             }
         }
         echo $body;
+        // mark ourselves as completed so we can terminate cleanly
+        $om->finished = true;
         exit();
     }
 }

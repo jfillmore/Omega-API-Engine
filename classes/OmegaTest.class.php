@@ -53,10 +53,20 @@ abstract class OmegaTest {
     }
 
     /** Returns information about a country by name, 2 digit or 3 digit ISO 3166-1 alpha code.
-        expects: country=string
+        expects: country=string, aliases=boolean
         returns: object */
-    static public function get_country($country) {
+    static public function get_country($country, $aliases = true) {
         $countries = OmegaTest::get_countries();
+        $aliases = array(
+            'UK' => 'GB', // United Kingdom
+            'Taiwan' => 'Taiwan, Province of China'
+        );
+        foreach ($aliases as $alias => $real) {
+            if (strtolower($alias) == strtolower($country)) {
+                $country = $real;
+                break;
+            }
+        }
         foreach ($countries as $name => $data) {
             if (strtolower($name) === strtolower($country)
                 || $data['alpha_2'] === strtoupper($country)
