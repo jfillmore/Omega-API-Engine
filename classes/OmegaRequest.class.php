@@ -437,6 +437,7 @@ class OmegaRequest extends OmegaRESTful {
         // get a reference to the API branch
         $api_parts = explode('/', trim($api, '/'));
         array_shift($api_parts); // remove the API name from up front
+        $api = join('/', $api_parts); // truncate the name for errors
         // use the routes to figure out what class file and method to call
         $route = $target->_route($api_parts);
         $api_branch = $route['api_branch'];
@@ -763,6 +764,10 @@ class OmegaRequest extends OmegaRESTful {
             // hide param/return info, as it's duplicated
             if (isset($stats['tokens']['return'])) unset($stats['tokens']['return']);
             if (isset($stats['tokens']['param'])) unset($stats['tokens']['param']);
+            if (isset($stats['tokens']['example'])) {
+                $stats['example'] = $stats['tokens']['example'];
+                unset($stats['tokens']['example']);
+            }
             if (! count($stats['tokens'])) {
                 unset($stats['tokens']);
             }
