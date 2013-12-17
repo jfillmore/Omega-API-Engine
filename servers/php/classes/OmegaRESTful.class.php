@@ -325,7 +325,7 @@ abstract class OmegaRESTful {
             // if we have a wildcard next and we're at the end of the line then use it now
             if ($debug) var_export($route);
             if ($debug) var_export($i);
-            if ($i + 1 >= count($path) && $i > count($route) + 1 && substr($route[$i + 1], 0, 1) == '*') {
+            if ($i + 1 >= count($path) && $i > count($route) + 1 && substr(@$route[$i + 1], 0, 1) == '*') {
                 $param_name = substr($route[$i + 1], 1);
                 $params[$param_name] = '';
                 if ($debug) echo "+ Collected empty parameter to populate wildcard '$param_name' in route.\n";
