@@ -122,7 +122,7 @@ class OmegaApiDoc {
         foreach ($this->api_index as $api) {
             $ahref = str_replace('/', '', $api['path']);
             $ahref = str_replace(' ', '_', $ahref);
-            $api_desc = str_replace("\n", '<br>', $api['info']['desc']);
+            $api_desc = str_replace("\n", '<br>', htmlentities($api['info']['desc']));
             $html = "<div class=\"api_end_point\" id=\"$ahref\">\n  <h3>{$api['path_html']}</h3>\n";
             $html .= "\n" . '  <div class="api_desc">' . $api_desc . "</div>\n";
             $html .= '  <div class="api_params">' . "\n";
@@ -145,13 +145,13 @@ class OmegaApiDoc {
                     $param['desc'] .= " <em>Default: " . json_encode($param['default_value']) . "</em>";
                 }
                 $html .= "\n      <div class=\"param_desc\">"
-                    . $this->tab_format($param['desc']) . "</div>";
+                    . $this->tab_format(htmlentities($param['desc'])) . "</div>";
                 $html .= " \n </div>";
             }
             $html .= "\n  </div>"; // api_params
             if (@$api['info']['example']) {
                 $html .= "  <div class=\"api_example\">"
-                    . $this->tab_format($api['info']['example']) . "</div>\n";
+                    . $this->tab_format(htmlentities($api['info']['example'])) . "</div>\n";
             }
             $html .= "</div>\n\n"; // api_end_point
             $api_html[] = $html;
