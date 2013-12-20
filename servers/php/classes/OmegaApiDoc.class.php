@@ -141,12 +141,12 @@ class OmegaApiDoc {
                 if (! @$param['desc']) {
                     $param['desc'] = '';
                 }
-                if ($param['optional']) {
-                    $param['desc'] .= " <em>Default: " . json_encode($param['default_value']) . "</em>";
-                }
                 $html .= "\n      <div class=\"param_desc\">"
-                    . $this->tab_format(htmlentities($param['desc'])) . "</div>";
-                $html .= " \n </div>";
+                    . $this->tab_format(htmlentities($param['desc']));
+                if ($param['optional']) {
+                    $html .= " <em>Default: " . json_encode($param['default_value']) . "</em>";
+                }
+                $html .= "\n</div>\n</div>\n";
             }
             $html .= "\n  </div>"; // api_params
             if (@$api['info']['example']) {
