@@ -135,7 +135,8 @@ class Omega extends OmegaLib {
                 'test_popen' => 'test_popen',
                 'test_output_stream' => 'test_output_stream',
                 'test_proxy' => 'test_proxy',
-                'test_log' => 'test_log'
+                'test_log' => 'test_log',
+                'test_other' => 'test_other'
             ),
             'PUT' => array(
             ),
@@ -150,6 +151,14 @@ class Omega extends OmegaLib {
 
     public function in_production() {
         return $this->production;
+    }
+
+    /** Other tests. */
+    public function test_other($args = array()) {
+        return OmegaLib::get_args(array(
+            'foo' => 'bar',
+            'bar' => null
+        ), $args);
     }
 
     /** Method for testing proxy logic. */

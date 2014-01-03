@@ -140,7 +140,7 @@ class OmegaLib extends OmegaRESTful implements OmegaApi {
             // otherwise only accept values named within our defaults
             $my_args = array();
             foreach ($defaults as $name => $default) {
-                if (isset($args[$name])) {
+                if (array_key_exists($name, $args)) {
                     $my_args[$name] = $args[$name];
                 } else {
                     $my_args[$name] = $default;
